@@ -503,6 +503,11 @@
       "name": "ticketTimespentFieldSet",
       "type": "ManyToMany",
       "target": "AOSMetaField"
+    },
+    {
+      "name": "taskFormFieldSet",
+      "type": "ManyToMany",
+      "target": "AOSMetaField"
     }
   ]
 }
