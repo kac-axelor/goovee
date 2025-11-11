@@ -608,8 +608,8 @@ export async function createStripeCheckoutSession({
       currency: currencyCode,
       context: cart,
       url: {
-        success: `${workspaceURL}/${SUBAPP_CODES.shop}/cart/checkout?stripe_session_id={CHECKOUT_SESSION_ID}`,
-        error: `${workspaceURL}/${SUBAPP_CODES.shop}/cart/checkout?stripe_error=true`,
+        success: `${workspaceURL}/${SUBAPP_CODES.shop}/api/cart/checkout?stripe_session_id={CHECKOUT_SESSION_ID}`,
+        error: `${workspaceURL}/${SUBAPP_CODES.shop}/api/cart/checkout?stripe_error=true`,
       },
     });
 
