@@ -6,6 +6,7 @@ import type {PrecacheEntry, SerwistGlobalConfig} from 'serwist';
 import {Serwist} from 'serwist';
 import type {NotificationPayload} from './types';
 import {PUSH_CHANNEL, MSG_TYPE} from './sw-constants';
+import {CacheFirstWithSWR} from './locale-strategy';
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -24,7 +25,21 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching: [
+    // Locale translations are large and rarely change.
+    // Within maxAgeSeconds: served from cache with no network hit.
+    // After maxAgeSeconds: stale response returned immediately, cache
+    // updated in background. Must be listed before defaultCache to
+    // override the default NetworkFirst rule for /api/**.
+    {
+      matcher: /\/api\/tenant\/[^/]+\/locales\//,
+      handler: new CacheFirstWithSWR({
+        cacheName: 'locale-translations',
+        maxAgeSeconds: 24 * 60 * 60, // 24h freshness window
+      }),
+    },
+    ...defaultCache,
+  ],
 });
 
 const channel = new BroadcastChannel(PUSH_CHANNEL);

@@ -1,6 +1,8 @@
 import {findTranslations} from '@/locale/api';
 import {NextResponse} from 'next/server';
 
+/* NOTE: Caching handled by the service worker (CacheFirstWithSWR, locale-strategy.ts).
+ * uses cache for 24hrs and updates in background. */
 export async function GET(
   request: Request,
   props: {params: Promise<{tenant: string; code: string}>},
