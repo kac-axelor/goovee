@@ -186,7 +186,7 @@ function LazyImage({
 function BrokenImage(): JSX.Element {
   return (
     <img
-      src="/images/image-broken.svg"
+      src="/website/images/image-broken.svg"
       style={{
         height: 200,
         opacity: 0.2,

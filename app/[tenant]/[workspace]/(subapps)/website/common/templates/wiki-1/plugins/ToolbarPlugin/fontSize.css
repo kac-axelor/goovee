@@ -28,13 +28,13 @@
   }
 
   .add-icon {
-    background-image: url(/images/icons/add-sign.svg);
+    background-image: url(/website/images/icons/add-sign.svg);
     background-repeat: no-repeat;
     background-position: center;
   }
 
   .minus-icon {
-    background-image: url(/images/icons/minus-sign.svg);
+    background-image: url(/website/images/icons/minus-sign.svg);
     background-repeat: no-repeat;
     background-position: center;
   }

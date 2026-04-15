@@ -1,3 +1,6 @@
+// TODO: dynamic font and color theme switching is currently not supported.
+// Previously these CSS files were served from public/css/ (compiled via website:sass).
+// They need to be either served via a Next.js route handler or compiled to public/website/css/.
 const changeColor = (colorPath?: string | null, fontPath?: string | null) => {
   // remove previous link
   document.getElementById('custom-theme')?.remove();
