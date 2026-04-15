@@ -31,5 +31,7 @@ module.exports = serwist.withNextConfig(nextConfig => ({
   globIgnores: [
     `${nextConfig.distDir}/server/pages/**/*.json`,
     `${nextConfig.distDir}/server/app/ignored.html`,
+    'public/website/**/*',
+    'public/locales/**/*',
   ],
 }));
