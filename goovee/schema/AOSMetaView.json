@@ -11,7 +11,7 @@
     {
       "type": "String",
       "name": "title",
-      "requred": true
+      "required": true
     },
     {
       "type": "String",
