@@ -87,7 +87,7 @@ const otpTemplateHTML = ({
               <div class="header">
                   <h1>Goovee Password Reset</h1>
               </div>
-              <p>Dear User, We’ve received a request to reset the password for your account associated with ${email}. If you requested this change, please follow the instructions below:</p>
+              <p>Dear User, We've received a request to reset the password for your account associated with ${email}. If you requested this change, please follow the instructions below:</p>
               <p>To reset your password, click the link : <a href='${link}' target='_blank'>${link}</a></p>
               <p>Your OTP for password reset is : <strong>${otp}</strong></p>
               <p>This link will expire in 10 minutes, so be sure to reset your password before then.</p>
@@ -117,7 +117,13 @@ export async function requestResetPassword({
     return error(await getTranslation({tenant: tenantId}, 'Email is required'));
   }
 
-  const user = await findGooveeUserByEmail(email, tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
+  }
+  const {client} = tenant;
+
+  const user = await findGooveeUserByEmail(email, client);
 
   const link = `${process.env.GOOVEE_PUBLIC_HOST}/auth/reset-password/${email}?${searchQuery}`;
 
@@ -126,7 +132,7 @@ export async function requestResetPassword({
     createOTP({
       entity: email,
       scope: Scope.ResetPassword,
-      tenantId,
+      client,
       force: true,
     }).then(result => {
       result?.otp &&
@@ -179,7 +185,18 @@ export async function resetPassword({
     );
   }
 
-  const user = await findGooveeUserByEmail(email, tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(
+      await getTranslation(
+        {tenant: tenantId},
+        'Error resetting password. Try again.',
+      ),
+    );
+  }
+  const {client, config} = tenant;
+
+  const user = await findGooveeUserByEmail(email, client);
 
   if (!user) {
     return error(
@@ -191,14 +208,14 @@ export async function resetPassword({
     const result: any = await findOne({
       scope: Scope.ResetPassword,
       entity: email,
-      tenantId,
+      client,
     });
 
     if (!result) {
       return error(await getTranslation({tenant: tenantId}, 'Bad request'));
     }
 
-    const isValidOTP = await isValid({id: result.id, value: otp, tenantId});
+    const isValidOTP = await isValid({id: result.id, value: otp, client});
 
     if (!isValidOTP) {
       return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
@@ -208,7 +225,7 @@ export async function resetPassword({
 
     try {
       await withMattermostSync({
-        tenantId,
+        config,
         email: user.emailAddress?.address || email,
         password,
         name: user.name || 'user',
@@ -223,17 +240,6 @@ export async function resetPassword({
         ),
         success: false,
       };
-    }
-
-    const client = await manager.getClient(tenantId);
-
-    if (!client) {
-      return error(
-        await getTranslation(
-          {tenant: tenantId},
-          'Error resetting password. Try again.',
-        ),
-      );
     }
 
     await client.$transaction(async txClient => {

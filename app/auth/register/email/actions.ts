@@ -3,7 +3,7 @@
 import {generateOTP as coreGenerateOTP} from '@/otp/actions';
 import {t} from '@/locale/server';
 import {Scope} from '@/otp/constants';
-import {type Tenant} from '@/tenant';
+import {manager, type Tenant} from '@/tenant';
 import {findDefaultPartnerWorkspaceConfig} from '@/orm/workspace';
 
 function error(message: string) {
@@ -26,17 +26,26 @@ export async function generateOTP({
     return error(await t('Email, Scope and Tenant is required'));
   }
 
-  const defaultPartnerWorkspaceConfig =
-    workspaceURL &&
-    (await findDefaultPartnerWorkspaceConfig({
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(await t('Invalid tenant'));
+  }
+
+  const {client} = tenant;
+
+  let defaultPartnerWorkspaceConfig;
+  if (workspaceURL) {
+    defaultPartnerWorkspaceConfig = await findDefaultPartnerWorkspaceConfig({
       url: workspaceURL,
-      tenantId,
-    }));
+      client,
+    });
+  }
 
   return coreGenerateOTP({
     email,
     scope: Scope.Registration,
     tenantId,
+    client,
     mailConfig: {
       template:
         defaultPartnerWorkspaceConfig?.portalAppConfig?.otpTemplateList?.[0]

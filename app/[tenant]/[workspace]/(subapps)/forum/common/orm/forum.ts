@@ -1,7 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {ORDER_BY} from '@/constants';
 import {SORT_TYPE} from '@/comments';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {ID, User} from '@/types';
 import {clone, getPageInfo, getSkipInfo} from '@/utils';
 import {PortalWorkspace} from '@/types';
@@ -19,28 +19,24 @@ import {Post, RecentlyActivePost} from '@/subapps/forum/common/types/forum';
 
 export async function findGroups({
   workspace,
-  tenantId,
+  client,
   user,
   archived = false,
 }: {
   workspace: PortalWorkspace;
   memberGroupIDs?: any;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
 }) {
-  if (!(workspace && tenantId)) return [];
+  if (!workspace) return [];
 
-  const client = await manager.getClient(tenantId);
   const groups = await client.aOSPortalForumGroup.find({
     where: {
       workspace: {
         id: workspace.id,
       },
-      AND: [
-        await filterPrivate({user, tenantId}),
-        getArchivedFilter({archived}),
-      ],
+      AND: [await filterPrivate({user, client}), getArchivedFilter({archived})],
     },
     select: {
       name: true,
@@ -56,7 +52,7 @@ export async function findGroupsByMembers({
   searchKey,
   orderBy,
   workspaceID,
-  tenantId,
+  client,
   user,
   archived = false,
 }: {
@@ -64,13 +60,11 @@ export async function findGroupsByMembers({
   searchKey?: string;
   orderBy?: any;
   workspaceID: PortalWorkspace['id'];
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
 }) {
-  if (!(workspaceID && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!workspaceID) return [];
 
   const whereClause = {
     member: {
@@ -78,10 +72,7 @@ export async function findGroupsByMembers({
     },
     forumGroup: {
       workspace: {id: workspaceID},
-      AND: [
-        await filterPrivate({user, tenantId}),
-        getArchivedFilter({archived}),
-      ],
+      AND: [await filterPrivate({user, client}), getArchivedFilter({archived})],
       ...(searchKey ? {name: {like: `%${searchKey}%`}} : {}),
     },
   };
@@ -106,18 +97,17 @@ export async function findGroupsByMembers({
 
 export async function findUser({
   userId,
-  tenantId,
+  client,
   archived = false,
 }: {
   userId: any;
-  tenantId: Tenant['id'];
+  client: Client;
   archived?: boolean;
 }) {
-  if (!(userId && tenantId)) {
+  if (!userId) {
     return {};
   }
 
-  const client = await manager.getClient(tenantId);
   const archivedFilter = getArchivedFilter({archived});
 
   const user = await client.aOSPartner.findOne({
@@ -146,7 +136,7 @@ export async function findPosts({
   whereClause = {},
   workspaceID,
   groupIDs = [],
-  tenantId,
+  client,
   ids,
   user,
   archived = false,
@@ -160,19 +150,17 @@ export async function findPosts({
   whereClause?: any;
   workspaceID: PortalWorkspace['id'];
   groupIDs?: any[];
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
   memberGroupIDs?: Array<string>;
 }) {
-  if (!(workspaceID && tenantId)) {
+  if (!workspaceID) {
     return {
       posts: [],
       pageInfo: {},
     };
   }
-
-  const client = await manager.getClient(tenantId);
 
   let orderBy: any = null;
 
@@ -187,7 +175,7 @@ export async function findPosts({
         workspaceID,
         groupIDs,
         search,
-        tenantId,
+        client,
         ids,
         user,
         archived,
@@ -223,7 +211,7 @@ export async function findPosts({
       },
       ...(groupIDs.length ? {id: {in: groupIDs}} : {}),
       ...whereClause.forumGroup,
-      AND: [await filterPrivate({tenantId, user}), archivedFilter],
+      AND: [await filterPrivate({client, user}), archivedFilter],
     },
     ...(search
       ? {
@@ -305,7 +293,7 @@ export async function findPostsByGroupId({
   limit,
   search = '',
   ids,
-  tenantId,
+  client,
   user,
   memberGroupIDs = [],
 }: {
@@ -315,7 +303,7 @@ export async function findPostsByGroupId({
   limit?: number;
   search?: string | undefined;
   ids?: string[];
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   memberGroupIDs?: Array<string>;
 }) {
@@ -333,7 +321,7 @@ export async function findPostsByGroupId({
     search,
     ids,
     groupIDs: [id],
-    tenantId,
+    client,
     user,
     memberGroupIDs,
   });
@@ -342,15 +330,14 @@ export async function findPostsByGroupId({
 export async function findGroupById(
   id: ID,
   workspaceID: ID,
-  tenantId: Tenant['id'],
+  client: Client,
   user?: User,
   archived = false,
 ) {
-  if (!(workspaceID && tenantId)) {
+  if (!workspaceID) {
     return null;
   }
 
-  const client = await manager.getClient(tenantId);
   const archivedFilter = getArchivedFilter({archived});
 
   const group = await client.aOSPortalForumGroup.findOne({
@@ -359,7 +346,7 @@ export async function findGroupById(
       workspace: {
         id: workspaceID,
       },
-      AND: [await filterPrivate({user, tenantId}), archivedFilter],
+      AND: [await filterPrivate({user, client}), archivedFilter],
     },
     select: {
       name: true,
@@ -380,25 +367,24 @@ export async function findMemberGroupById({
   id,
   groupID,
   workspaceID,
-  tenantId,
+  client,
   user,
   archived = false,
 }: {
   id: ID;
   groupID: ID;
   workspaceID: ID;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
 }) {
-  if (!(workspaceID && tenantId)) {
+  if (!workspaceID) {
     return {error: true, message: await t('Bad request')};
   }
 
   if (!(id || groupID)) {
     return {error: true, message: await t('Reccord ID not found')};
   }
-  const client = await manager.getClient(tenantId);
   const group = await client.aOSPortalForumGroupMember.findOne({
     where: {
       id,
@@ -408,7 +394,7 @@ export async function findMemberGroupById({
         },
         id: groupID,
         AND: [
-          await filterPrivate({user, tenantId}),
+          await filterPrivate({user, client}),
           getArchivedFilter({archived}),
         ],
       },
@@ -423,18 +409,16 @@ export async function findMemberGroupById({
 
 export async function findRecentlyActivePosts({
   workspaceID,
-  tenantId,
+  client,
   user,
   limit = 3,
 }: {
   workspaceID: PortalWorkspace['id'];
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   limit?: number;
 }): Promise<RecentlyActivePost[]> {
   if (!workspaceID) return [];
-
-  const client = await manager.getClient(tenantId);
 
   const params: any[] = [];
   let idx = 1;
@@ -446,7 +430,7 @@ export async function findRecentlyActivePosts({
     clause: privateClause,
     params: privateParams,
     nextIndex,
-  } = await filterPrivateQuery(user, tenantId, idx);
+  } = await filterPrivateQuery(user, client, idx);
   whereClause += ` ${privateClause}`;
   params.push(...privateParams);
   idx = nextIndex;

@@ -4,7 +4,7 @@ import {Suspense} from 'react';
 // ---- CORE IMPORTS ----//
 import {clone} from '@/utils';
 import {SUBAPP_CODES} from '@/constants';
-import {type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {PortalWorkspace} from '@/types';
 import {CommentsSkeleton} from '@/lib/core/comments';
 
@@ -30,6 +30,7 @@ import {findNews} from '@/subapps/news/common/orm/news';
 export async function ArticleNews({
   workspace,
   segments,
+  client,
   tenantId,
   workspaceURL,
   workspaceURI,
@@ -38,7 +39,8 @@ export async function ArticleNews({
 }: {
   workspace: PortalWorkspace;
   segments: string[];
-  tenantId: Tenant['id'];
+  client: Client;
+  tenantId: string;
   workspaceURL: string;
   workspaceURI: string;
   user: any;
@@ -47,7 +49,7 @@ export async function ArticleNews({
   const {news}: any = await findNews({
     slug,
     workspace,
-    tenantId,
+    client,
     user,
     params: {
       select: {
@@ -86,7 +88,7 @@ export async function ArticleNews({
           <div className="py-4">
             <BreadcrumbsWrapper
               workspace={workspace}
-              tenantId={tenantId}
+              client={client}
               segments={slicedSegments}
               newsTitle={newsObject.title}
               user={user}
@@ -113,7 +115,7 @@ export async function ArticleNews({
           <Suspense fallback={<AttachmentListSkeleton />}>
             <AttachmentListWrapper
               workspace={workspace}
-              tenantId={tenantId}
+              client={client}
               slug={newsObject.slug}
             />
           </Suspense>
@@ -122,7 +124,7 @@ export async function ArticleNews({
           <Suspense fallback={<FeedListSkeleton width="w-full" />}>
             <RelatedNewsWrapper
               workspace={workspace}
-              tenantId={tenantId}
+              client={client}
               slug={newsObject.slug}
               navigatingPathFrom={navigatingPathFromURL}
             />

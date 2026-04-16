@@ -3,6 +3,7 @@ import {headers} from 'next/headers';
 import Stripe from 'stripe';
 
 // ---- CORE IMPORTS ---- //
+import type {Client} from '@/goovee/.generated/client';
 import {stripe} from '@/payment/stripe';
 import {
   CONTEXT_STATUS,
@@ -35,11 +36,11 @@ export type StripeEventType =
 
 async function handleWebhookPaymentFailure({
   paymentContext,
-  tenantId,
+  client,
   reason,
 }: {
   paymentContext: {id: string; version: number};
-  tenantId: string;
+  client: Client;
   reason: string;
 }) {
   console.error('Payment processing failed', {
@@ -50,7 +51,7 @@ async function handleWebhookPaymentFailure({
   await markPaymentAsFailed({
     contextId: paymentContext.id,
     version: paymentContext.version,
-    tenantId,
+    client,
   });
 }
 
@@ -101,9 +102,16 @@ export async function POST(req: Request) {
           break;
         }
 
+        const tenant = await manager.getTenant(tenantId);
+        if (!tenant) {
+          console.error('Tenant not found', {tenantId});
+          return new NextResponse('Tenant not found', {status: 500});
+        }
+        const {client, config} = tenant;
+
         const paymentContext = await findPaymentContext({
           id: contextId,
-          tenantId,
+          client,
           mode: PaymentOption.stripe,
           ignoreExpiration: true,
         });
@@ -138,7 +146,7 @@ export async function POST(req: Request) {
         if (!source || !sourceId) {
           await handleWebhookPaymentFailure({
             paymentContext,
-            tenantId,
+            client,
             reason: 'Missing payment source',
           });
           // Permanent error — corrupted context data. Return 200 to stop Stripe retries.
@@ -149,8 +157,6 @@ export async function POST(req: Request) {
           paymentIntent.amount_received,
           paymentIntent.currency,
         );
-
-        const client = await manager.getClient(tenantId);
 
         switch (source) {
           case PAYMENT_SOURCE.INVOICES: {
@@ -173,7 +179,7 @@ export async function POST(req: Request) {
             }
 
             const updateResult = await updateInvoice({
-              tenantId,
+              config,
               amount: paidAmount,
               invoiceId: sourceId,
               paymentModeId: paymentContext.data?.paymentModeId,
@@ -192,7 +198,7 @@ export async function POST(req: Request) {
             await markPaymentAsProcessed({
               contextId: paymentContext.id,
               version: paymentContext.version,
-              tenantId,
+              client,
             });
 
             // Once the payment is applied, reload the invoice to ensure the remaining balance
@@ -217,7 +223,7 @@ export async function POST(req: Request) {
             );
 
             await cancelInvalidPendingBankTransfers({
-              tenantId,
+              client,
               sourceId: invoice.id,
               amountRemaining,
             });
@@ -228,6 +234,7 @@ export async function POST(req: Request) {
                 invoiceId: sourceId,
                 payer: paymentContext.payer,
                 tenantId,
+                client,
               });
             }
 
@@ -260,9 +267,16 @@ export async function POST(req: Request) {
           break;
         }
 
+        const tenant = await manager.getTenant(tenantId);
+        if (!tenant) {
+          console.error('[PARTIAL_PAYMENT] Tenant not found', {tenantId});
+          return new NextResponse('Tenant not found', {status: 500});
+        }
+        const {client} = tenant;
+
         const paymentContext = await findPaymentContext({
           id: contextId,
-          tenantId,
+          client: client,
           mode: PaymentOption.stripe,
           ignoreExpiration: true,
         });

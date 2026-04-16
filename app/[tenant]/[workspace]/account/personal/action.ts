@@ -58,16 +58,14 @@ export async function updateProfileImage(formData: FormData) {
     return error(await t('Unauthorized'));
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
+
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     return error(await t('Invalid partner'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
-    return error(await t('Invalid tenant'));
   }
 
   let uploadedPicture = null;
@@ -120,7 +118,7 @@ export async function updateProfileImage(formData: FormData) {
               },
             }),
       },
-      tenantId,
+      client,
     });
   } catch (err) {
     return error(await t('Error updating profile picture. Try again.'));
@@ -146,7 +144,11 @@ export async function fetchPersonalSettings() {
     return error(await t('Unauthorized'));
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
+
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     return error(await t('Invalid partner'));
@@ -207,11 +209,9 @@ export async function update({
     return error(await t('Email is required'));
   }
 
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
-    return error(await t('Bad request'));
-  }
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
 
   const session = await getSession();
   const user = session?.user;
@@ -228,21 +228,21 @@ export async function update({
     const otpResult = await findOne({
       scope: Scope.EmailUpdate,
       entity: email,
-      tenantId,
+      client,
     });
 
     if (!otpResult) {
       return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
     }
 
-    if (!(await isValid({id: otpResult.id, value: otp, tenantId}))) {
+    if (!(await isValid({id: otpResult.id, value: otp, client}))) {
       return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
     }
 
-    await markUsed({id: otpResult.id, tenantId});
+    await markUsed({id: otpResult.id, client});
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenantId);
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     return error(await t('Invalid partner'));
@@ -262,7 +262,7 @@ export async function update({
     return error(await t('Last Name is required'));
   }
 
-  const existingPartner = await findGooveeUserByEmail(email, tenantId);
+  const existingPartner = await findGooveeUserByEmail(email, client);
 
   if (existingPartner) {
     if (existingPartner.id !== partner.id)
@@ -306,15 +306,14 @@ export async function update({
             }
           : {}),
       },
-      tenantId,
+      client,
     });
 
     if (email !== partner?.emailAddress?.address) {
       try {
         await withMattermostEmailSync({
-          oldEmail: partner.emailAddress.address,
+          oldEmail: partner.emailAddress!.address!,
           newEmail: email,
-          context: 'UPDATE_EMAIL',
         });
       } catch (err: any) {
         return {
@@ -374,7 +373,11 @@ export async function generateOTPForUpdate({
     return error(await t('Unauthorized'));
   }
 
-  const $user = await findPartnerById(user.id!, tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
+
+  const $user = await findPartnerById(user.id!, client);
 
   if (!$user) {
     return error(await t('Bad request'));
@@ -382,7 +385,7 @@ export async function generateOTPForUpdate({
 
   const partnerId = getPartnerId(user);
 
-  const partner = await findPartnerById(partnerId!, tenantId);
+  const partner = await findPartnerById(partnerId!, client);
 
   if (!partner) {
     return error(await t('Bad request'));
@@ -392,7 +395,7 @@ export async function generateOTPForUpdate({
     workspaceURL &&
     (await findWorkspace({
       url: workspaceURL,
-      tenantId,
+      client,
       user,
     }));
 
@@ -405,6 +408,7 @@ export async function generateOTPForUpdate({
       email,
       scope: Scope.EmailUpdate,
       tenantId,
+      client,
     });
   } else {
     const {config} = workspace;
@@ -425,6 +429,7 @@ export async function generateOTPForUpdate({
       email,
       scope: Scope.EmailUpdate,
       tenantId,
+      client,
       mailConfig: {
         template: template?.template,
       },

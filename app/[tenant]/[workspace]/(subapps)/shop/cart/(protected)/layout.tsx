@@ -14,14 +14,14 @@ export default async function Layout(props: {
 
   const {children} = props;
 
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const session = await getSession();
 
   const {workspaceURI} = workspacePathname(params);
 
   if (!session?.user) {
     redirect(
-      `/auth/login?workspaceURI=${encodeURIComponent(workspaceURI)}&${SEARCH_PARAMS.TENANT_ID}=${encodeURIComponent(tenant)}`,
+      `/auth/login?workspaceURI=${encodeURIComponent(workspaceURI)}&${SEARCH_PARAMS.TENANT_ID}=${encodeURIComponent(tenantId)}`,
     );
   }
 

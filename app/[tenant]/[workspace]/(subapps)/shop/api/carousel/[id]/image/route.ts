@@ -6,6 +6,7 @@ import {getSession} from '@/lib/core/auth';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {findFile, streamFile} from '@/utils/download';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 export async function GET(
@@ -18,10 +19,14 @@ export async function GET(
 
   const session = await getSession();
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return new NextResponse('Bad Request', {status: 400});
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -32,7 +37,7 @@ export async function GET(
     code: SUBAPP_CODES.shop,
     user: session?.user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp?.isInstalled) {
@@ -49,7 +54,8 @@ export async function GET(
   const file = await findFile({
     id: imageId,
     meta: true,
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

@@ -1,6 +1,6 @@
 import {getTranslation} from '@/locale/server';
 import {findGooveeUserByEmail} from '@/orm/partner';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {PortalWorkspace, User} from '@/types';
 import {getPageInfo, getSkipInfo} from '@/utils';
 
@@ -9,7 +9,7 @@ import {Post} from '@/subapps/forum/common/types/forum';
 
 export const filterPrivateQuery = async (
   user: any,
-  tenantId: any,
+  client: Client,
   startIndex: number = 1,
 ): Promise<{clause: string; params: any[]; nextIndex: number}> => {
   const OPEN_RECORD_FILTERS = `COALESCE(forumGroup.is_private, false) IS FALSE`;
@@ -22,7 +22,7 @@ export const filterPrivateQuery = async (
     };
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenantId);
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     throw new Error('Unauthorized');
@@ -73,7 +73,7 @@ export async function getPopularQuery({
   groupIDs,
   ids,
   search,
-  tenantId,
+  client,
   user,
   archived = false,
   memberGroupIDs = [],
@@ -84,7 +84,7 @@ export async function getPopularQuery({
   groupIDs?: any[];
   ids?: Array<Post['id']> | undefined;
   search?: string | undefined;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
   memberGroupIDs?: Array<string>;
@@ -92,10 +92,9 @@ export async function getPopularQuery({
   if (!workspaceID) {
     return {
       error: true,
-      message: await getTranslation({tenant: tenantId}, 'Invalid workspace'),
+      message: await getTranslation({}, 'Invalid workspace'),
     };
   }
-  const client = await manager.getClient(tenantId);
 
   const skip = getSkipInfo(limit, page);
 
@@ -124,7 +123,7 @@ export async function getPopularQuery({
     clause: privateClause,
     params: privateParams,
     nextIndex,
-  } = await filterPrivateQuery(user, tenantId, idx);
+  } = await filterPrivateQuery(user, client, idx);
   whereClause += ` ${privateClause}`;
   params.push(...privateParams);
   idx = nextIndex;

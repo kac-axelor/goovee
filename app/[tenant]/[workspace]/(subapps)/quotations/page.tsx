@@ -9,6 +9,7 @@ import {DEFAULT_LIMIT, DEFAULT_PAGE, SUBAPP_CODES} from '@/constants';
 import {PartnerKey, type User} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {TableSkeleton} from '@/ui/components/table';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -22,7 +23,14 @@ async function Quotations({
   params: {tenant: string; workspace: string};
   searchParams: {[key: string]: string | undefined};
 }) {
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
+    return notFound();
+  }
+
+  const {client} = tenant;
   const session = await getSession();
 
   const user = session?.user as User;
@@ -38,7 +46,7 @@ async function Quotations({
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -47,7 +55,7 @@ async function Quotations({
     code: SUBAPP_CODES.quotations,
     url: workspace.url,
     user: session?.user,
-    tenantId: tenant,
+    client,
   });
 
   if (!app?.isInstalled) {
@@ -71,7 +79,7 @@ async function Quotations({
 
   const result: any = await fetchQuotations({
     params: queryParams,
-    tenantId: tenant,
+    client,
     workspaceURL,
   });
 

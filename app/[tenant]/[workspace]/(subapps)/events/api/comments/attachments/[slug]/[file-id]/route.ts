@@ -5,6 +5,7 @@ import {isFileOfRecord} from '@/comments/orm';
 import {SUBAPP_CODES} from '@/constants';
 import {isCommentEnabled} from '@/lib/core/comments';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
+import {manager} from '@/tenant';
 import {findFile, streamFile} from '@/utils/download';
 import {workspacePathname} from '@/utils/workspace';
 
@@ -22,8 +23,12 @@ export async function GET(
   },
 ) {
   const params = await props.params;
-  const {workspaceURL, tenant: tenantId} = workspacePathname(params);
-  const {slug, 'file-id': fileId} = params;
+  const {workspaceURL} = workspacePathname(params);
+  const {slug, 'file-id': fileId, tenant: tenantId} = params;
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return new NextResponse('Bad Request', {status: 400});
+  const {client, config} = tenant;
 
   const session = await getSession();
   const user = session?.user;
@@ -31,7 +36,7 @@ export async function GET(
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -46,7 +51,7 @@ export async function GET(
     code: SUBAPP_CODES.events,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return new NextResponse('Unauthorized', {status: 401});
@@ -55,21 +60,23 @@ export async function GET(
   const event = await findEvent({
     slug,
     workspace,
-    tenantId,
+    client,
+    config,
     user,
   });
   if (!event) {
     return new NextResponse('Forbidden', {status: 403});
   }
 
-  if (!(await isFileOfRecord({recordId: event.id, fileId, tenantId}))) {
+  if (!(await isFileOfRecord({recordId: event.id, fileId, client}))) {
     return new NextResponse('Forbidden', {status: 403});
   }
 
   const file = await findFile({
     id: fileId,
     meta: true,
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

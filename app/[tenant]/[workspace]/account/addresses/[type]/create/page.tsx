@@ -8,13 +8,14 @@ import {getSession} from '@/auth';
 import {workspacePathname} from '@/utils/workspace';
 import {findCountries} from '@/orm/address';
 import {findGooveeUserByEmail, PartnerTypeMap} from '@/orm/partner';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
 
 export default async function Page(props: {params: Promise<any>}) {
   const params = await props.params;
-  const {tenant, type} = params;
+  const {tenant: tenantId, type} = params;
 
   const {workspaceURI} = workspacePathname(params);
 
@@ -28,7 +29,11 @@ export default async function Page(props: {params: Promise<any>}) {
     return notFound();
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenant);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     return notFound();
@@ -40,7 +45,7 @@ export default async function Page(props: {params: Promise<any>}) {
     ([key, value]) => value === partnerTypeSelect,
   )?.[0];
 
-  const countries: any = await findCountries(tenant).then(clone);
+  const countries: any = await findCountries(client).then(clone);
 
   return <Content type={type} countries={countries} userType={userType} />;
 }

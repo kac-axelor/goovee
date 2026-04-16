@@ -52,11 +52,14 @@ export default async function Page(props: {
 
   let canRegister;
 
-  if (workspaceURL) {
-    canRegister = await canRegisterForWorkspace({
-      url: workspaceURL,
-      tenantId,
-    });
+  if (workspaceURL && tenantId) {
+    const tenant = await manager.getTenant(tenantId);
+    if (tenant) {
+      canRegister = await canRegisterForWorkspace({
+        url: workspaceURL,
+        client: tenant.client,
+      });
+    }
   }
 
   const showGoogleOauth = process.env.SHOW_GOOGLE_OAUTH === 'true';

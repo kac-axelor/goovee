@@ -4,7 +4,7 @@ import {Suspense} from 'react';
 // ---- CORE IMPORTS ----//
 import {getSession} from '@/auth';
 import {SUBAPP_CODES} from '@/constants';
-import {type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {PortalWorkspace} from '@/types';
 import {t} from '@/locale/server';
 
@@ -33,13 +33,13 @@ async function CategoryGrid({
   segments,
   page,
   workspace,
-  tenantId,
+  client,
   slug = '',
 }: {
   segments: string[];
   page: number;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   slug?: string;
 }) {
   const session = await getSession();
@@ -48,7 +48,7 @@ async function CategoryGrid({
   const categoryTitle = await findCategoryTitleBySlugName({
     slug,
     workspace,
-    tenantId,
+    client,
     user,
   });
 
@@ -60,7 +60,7 @@ async function CategoryGrid({
 
   const newsCount = await findNewsByCategoryCount({
     workspace,
-    tenantId,
+    client,
     user,
     slug,
   });
@@ -81,13 +81,13 @@ async function CategoryGrid({
           title={categoryTitle}
           workspace={workspace}
           user={user}
-          tenant={tenantId}
+          client={client}
         />
       </Suspense>
       <Suspense fallback={<LeadStoriesSkeleton />}>
         <CategoryPageHeaderNewsWrapper
           workspace={workspace}
-          tenant={tenantId}
+          client={client}
           slug={slug}
           navigatingPathFrom={navigatingPathFromURL}
           page={page}
@@ -96,7 +96,7 @@ async function CategoryGrid({
       <Suspense fallback={<CategoryNewsGridSkeleton />}>
         <CategoryNewsGridLayoutWrapper
           workspace={workspace}
-          tenant={tenantId}
+          client={client}
           slug={slug}
           navigatingPathFrom={navigatingPathFromURL}
           page={page}
@@ -108,13 +108,13 @@ async function CategoryGrid({
 
 export async function CategoryNews({
   workspace,
-  tenant,
+  client,
   segments = [],
   page,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   segments?: string[];
   page?: number;
   slug: string;
@@ -126,7 +126,7 @@ export async function CategoryNews({
     <div className={`flex flex-col h-full flex-1 ${styles['news-container']}`}>
       <div className="hidden lg:block relative">
         <Suspense fallback={<NavMenuSkeleton />}>
-          <NavMenuWrapper workspace={workspace} tenant={tenant} user={user} />
+          <NavMenuWrapper workspace={workspace} client={client} user={user} />
         </Suspense>
       </div>
       <Suspense fallback={<CategoryHomeSkeleton />}>
@@ -134,7 +134,7 @@ export async function CategoryNews({
           segments={segments}
           page={Number(page)}
           workspace={workspace}
-          tenantId={tenant}
+          client={client}
           slug={slug}
         />
       </Suspense>

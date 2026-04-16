@@ -18,10 +18,11 @@ import type {
   PortalWorkspace,
   User,
 } from '@/types';
-import {manager, type Tenant} from '@/tenant';
+import type {TenantConfig} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {filterPrivate} from '@/orm/filter';
 import {formatNumber} from '@/locale/server/formatters';
-import {shouldHidePricesAndPurchase} from '@/orm/product';
+import {getPartnerId} from '@/utils';
 
 function getPageInfo({
   count = 0,
@@ -123,7 +124,7 @@ const getWhereClause = async ({
   categoryids,
   associateWorkspace,
   workspace,
-  tenantId,
+  client,
   user,
   archived,
 }: {
@@ -132,7 +133,7 @@ const getWhereClause = async ({
   search?: string;
   categoryids?: (string | number)[];
   associateWorkspace?: boolean;
-  tenantId: Tenant['id'];
+  client: Client;
   workspace: PortalWorkspace;
   user?: User;
   archived?: boolean;
@@ -176,7 +177,7 @@ const getWhereClause = async ({
         }
       : {}),
     AND: [
-      await filterPrivate({tenantId, user}),
+      await filterPrivate({client, user}),
       archived ? {archived: true} : {OR: [{archived: false}, {archived: null}]},
     ],
   };
@@ -212,7 +213,8 @@ export async function findProducts({
   limit,
   workspace,
   user,
-  tenantId,
+  client,
+  config,
   associateWorkspace,
 }: {
   ids?: Product['id'][];
@@ -224,12 +226,11 @@ export async function findProducts({
   limit?: string | number;
   workspace?: PortalWorkspace;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
+  config?: TenantConfig;
   associateWorkspace?: boolean;
 }) {
-  if (!(workspace && workspace.config && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!(workspace && workspace.config && client)) return [];
 
   const orderBy = getSortOrder(sort);
   const skip = Number(limit) * Math.max(Number(page) - 1, 0);
@@ -245,11 +246,16 @@ export async function findProducts({
   const outOfStockAction =
     noMoreStockSelect ?? OUT_OF_STOCK_TYPE.HIDE_PRODUCT_CANNOT_BUY;
 
-  const hidePrices = await shouldHidePricesAndPurchase({
-    user,
-    workspace,
-    tenantId,
-  });
+  const hidePrices = await (async () => {
+    const {hidePriceForEmptyPricelist} = workspace.config || {};
+    if (!hidePriceForEmptyPricelist) return false;
+    if (!user) return true;
+    const mainPartner = await client.aOSPartner.findOne({
+      where: {id: getPartnerId(user)},
+      select: {salePartnerPriceList: {id: true}},
+    });
+    return !mainPartner?.salePartnerPriceList?.id;
+  })();
   const productFields = getProductFields({
     workspace,
     shouldHidePrices: hidePrices,
@@ -262,7 +268,7 @@ export async function findProducts({
     categoryids,
     associateWorkspace,
     workspace,
-    tenantId,
+    client,
     user,
   });
 
@@ -274,7 +280,7 @@ export async function findProducts({
 
     const availableStockProductsIds = defaultStockLocation
       ? await findProductsFromStockLocation({
-          tenantId,
+          client,
           workspace,
           categoryids,
           associateWorkspace,
@@ -571,7 +577,7 @@ export async function findProducts({
       productList: $products.map(p => ({productId: p.id})),
       workspace,
       user,
-      tenantId,
+      config,
     });
 
     const originalProduct = (id: any) =>
@@ -607,13 +613,15 @@ export async function findProduct({
   id,
   workspace,
   user,
-  tenantId,
+  client,
+  config,
   categoryids,
 }: {
   id: Product['id'];
   workspace: PortalWorkspace;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
+  config?: TenantConfig;
   categoryids?: (string | number)[];
 }) {
   if (!id) {
@@ -624,22 +632,29 @@ export async function findProduct({
     return null;
   }
 
-  return findProducts({ids: [id], workspace, user, tenantId, categoryids}).then(
-    ({products}: any = {}) => products && products[0],
-  );
+  return findProducts({
+    ids: [id],
+    workspace,
+    user,
+    client,
+    config,
+    categoryids,
+  }).then(({products}: any = {}) => products && products[0]);
 }
 
 export async function findProductBySlug({
   slug,
   workspace,
   user,
-  tenantId,
+  client,
+  config,
   categoryids,
 }: {
   slug: Product['slug'];
   workspace: PortalWorkspace;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
+  config?: TenantConfig;
   categoryids?: (string | number)[];
 }) {
   if (!slug) {
@@ -654,7 +669,8 @@ export async function findProductBySlug({
     slugs: [slug],
     workspace,
     user,
-    tenantId,
+    client,
+    config,
     categoryids,
   }).then(({products}: any = {}) => products && products[0]);
 }
@@ -685,24 +701,22 @@ export async function findProductsFromWS({
   workspace,
   user,
   productList,
-  tenantId,
+  config,
 }: {
   workspace: PortalWorkspace;
   user?: User;
   productList: Array<{productId: Product['id']}>;
-  tenantId: Tenant['id'];
+  config?: TenantConfig;
 }): Promise<WSObject[]> {
-  if (!workspace?.config?.company?.id && user && productList && tenantId) {
+  if (!workspace?.config?.company?.id && user && productList && config) {
     return [];
   }
 
-  const tenant = await manager.getTenant(tenantId);
-
-  if (!tenant?.config?.aos?.url) {
+  if (!config?.aos?.url) {
     return [];
   }
 
-  const {aos} = tenant.config;
+  const {aos} = config;
 
   const ws = `${aos.url}/ws/aos/product/price`;
 
@@ -735,26 +749,23 @@ export async function findProductsFromWS({
 }
 
 export async function findProductsFromStockLocation({
-  tenantId,
+  client,
   workspace,
   categoryids,
   associateWorkspace,
   user,
   outOfStockQty,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
   categoryids?: (string | number)[];
   associateWorkspace?: boolean;
   workspace: PortalWorkspace;
   user?: User;
   outOfStockQty: any;
 }): Promise<string[]> {
-  if (!workspace?.config?.defaultStockLocation || !tenantId) return [];
+  if (!workspace?.config?.defaultStockLocation || !client) return [];
 
   try {
-    const client = await manager.getClient(tenantId);
-    if (!client) return [];
-
     const {defaultStockLocation} = workspace.config;
 
     const filters = {
@@ -774,7 +785,7 @@ export async function findProductsFromStockLocation({
                   portalWorkspace: {id: workspace.id},
                 }
               : {}),
-            ...(await filterPrivate({tenantId, user})),
+            ...(await filterPrivate({client, user})),
           },
         },
         {

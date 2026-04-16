@@ -42,14 +42,25 @@ async function canUpdate({workspaceURL}: {workspaceURL: string}) {
     return false;
   }
 
-  const workspace = await findWorkspace({url: workspaceURL, user, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return false;
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({
+    url: workspaceURL,
+    user,
+    client,
+  });
 
   if (!workspace) {
     return false;
   }
 
   const isPartnerUser = await isPartner();
-  const isAdminContactUser = await isAdminContact({workspaceURL, tenantId});
+  const isAdminContactUser = await isAdminContact({
+    workspaceURL,
+    client,
+  });
 
   const canDelete = isPartnerUser || isAdminContactUser;
 
@@ -85,13 +96,11 @@ export async function updateInviteApplication({
     return error(await t('Bad request'));
   }
 
-  const client = await manager.getClient(tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
 
-  if (!client) {
-    return error(await t('Bad request'));
-  }
-
-  const $invite = await findInviteById({id: invite.id, tenantId});
+  const $invite = await findInviteById({id: invite.id, client});
 
   if (!$invite) {
     return error(await t('Bad request'));
@@ -108,7 +117,7 @@ export async function updateInviteApplication({
 
   const availableApps = await findAvailableSubapps({
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   const $app = availableApps.find((a: any) => a.code === app.code);
@@ -163,7 +172,7 @@ export async function updateInviteApplication({
 
     return {
       success: true,
-      data: await findInviteById({id: invite.id, tenantId}),
+      data: await findInviteById({id: invite.id, client}),
     };
   } catch (err) {
     console.log(err);
@@ -196,13 +205,11 @@ export async function updateInviteAuthentication({
     return error(await t('Bad request'));
   }
 
-  const client = await manager.getClient(tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
 
-  if (!client) {
-    return error(await t('Bad request'));
-  }
-
-  const $invite = await findInviteById({id: invite.id, tenantId});
+  const $invite = await findInviteById({id: invite.id, client});
 
   if (!$invite) {
     return error(await t('Bad request'));
@@ -219,7 +226,7 @@ export async function updateInviteAuthentication({
 
   const availableApps = await findAvailableSubapps({
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   const $app = availableApps.find((a: any) => a.code === app.code);
@@ -264,7 +271,7 @@ export async function updateInviteAuthentication({
 
     return {
       success: true,
-      data: await findInviteById({id: invite.id, tenantId}),
+      data: await findInviteById({id: invite.id, client}),
     };
   } catch (err) {
     console.log(err);
@@ -293,13 +300,11 @@ export async function deleteMember({
     return error(await t('Bad request'));
   }
 
-  const client = await manager.getClient(tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
 
-  if (!client) {
-    return error(await t('Bad request'));
-  }
-
-  const adminContact = await isAdminContact({workspaceURL, tenantId});
+  const adminContact = await isAdminContact({workspaceURL, client});
 
   const session = await getSession();
   const user = session?.user!;
@@ -307,7 +312,7 @@ export async function deleteMember({
   const partnerId = (user?.isContact ? user.mainPartnerId : user.id)!;
 
   const members = await findWorkspaceMembers({
-    tenantId,
+    client,
     url: workspaceURL,
     partnerId,
   });
@@ -333,7 +338,7 @@ export async function deleteMember({
           remove: [$member.contactWorkspaceConfig?.id],
         } as any,
       },
-      tenantId,
+      client,
     }).then(clone);
 
     revalidatePath(`${workspaceURI}/account/members`);
@@ -372,11 +377,9 @@ export async function updateMemberApplication({
     return error(await t('Bad request'));
   }
 
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
-    return error(await t('Bad request'));
-  }
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
 
   const session = await getSession();
   const user = session?.user!;
@@ -384,12 +387,12 @@ export async function updateMemberApplication({
   const partnerId = (user?.isContact ? user.mainPartnerId : user.id)!;
 
   const members = await findWorkspaceMembers({
-    tenantId,
+    client,
     url: workspaceURL,
     partnerId,
   });
 
-  const adminContact = await isAdminContact({workspaceURL, tenantId});
+  const adminContact = await isAdminContact({workspaceURL, client});
 
   const partnerMember = members?.partners?.find(p => p.id === member.id);
 
@@ -405,7 +408,7 @@ export async function updateMemberApplication({
 
   const availableApps = await findAvailableSubapps({
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   const $app = availableApps.find((a: any) => a.code === app.code);
@@ -495,11 +498,9 @@ export async function updateMemberAuthentication({
     return error(await t('Bad request'));
   }
 
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
-    return error(await t('Bad request'));
-  }
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
 
   const session = await getSession();
   const user = session?.user!;
@@ -507,12 +508,12 @@ export async function updateMemberAuthentication({
   const partnerId = (user?.isContact ? user.mainPartnerId : user.id)!;
 
   const members = await findWorkspaceMembers({
-    tenantId,
+    client,
     url: workspaceURL,
     partnerId,
   });
 
-  const adminContact = await isAdminContact({workspaceURL, tenantId});
+  const adminContact = await isAdminContact({workspaceURL, client});
 
   const partnerMember = members?.partners?.find(p => p.id === member.id);
 
@@ -528,7 +529,7 @@ export async function updateMemberAuthentication({
 
   const availableApps = await findAvailableSubapps({
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   const $app = availableApps.find((a: any) => a.code === app.code);

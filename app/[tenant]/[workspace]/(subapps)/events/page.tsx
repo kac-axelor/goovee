@@ -9,7 +9,8 @@ import {workspacePathname} from '@/utils/workspace';
 import {Card} from '@/ui/components/card';
 import {ORDER_BY} from '@/constants';
 import type {PortalWorkspace, User} from '@/types';
-import type {Tenant} from '@/lib/core/tenant';
+import {manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -45,17 +46,21 @@ export default async function Page(context: any) {
   if (!EVENT_TAB_ITEMS.some(item => item.label === type)) {
     return notFound();
   }
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
   const session = await getSession();
   const user = session?.user;
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -76,7 +81,7 @@ export default async function Page(context: any) {
             <Suspense fallback={<EventCategorySkeleton />}>
               <Categories
                 user={user}
-                tenant={tenant}
+                client={client}
                 workspace={workspace}
                 category={category}
               />
@@ -88,7 +93,7 @@ export default async function Page(context: any) {
             <EventList
               user={user}
               workspace={workspace}
-              tenant={tenant}
+              client={client}
               type={type}
               page={page}
               date={date}
@@ -104,17 +109,17 @@ export default async function Page(context: any) {
 async function Categories({
   workspace,
   user,
-  tenant,
+  client,
   category,
 }: {
   user?: User;
-  tenant: Tenant['id'];
+  client: Client;
   workspace: PortalWorkspace;
   category: any[];
 }) {
   const categories: any = await findEventCategories({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -126,7 +131,7 @@ async function Categories({
 async function EventList({
   user,
   workspace,
-  tenant,
+  client,
   type,
   page,
   date,
@@ -137,7 +142,7 @@ async function EventList({
   page: string | number;
   user?: User;
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   type: string;
 }) {
   const {events, pageInfo}: any = await findEvents({
@@ -149,7 +154,7 @@ async function EventList({
     year: new Date(date).getFullYear() || undefined,
     eventType: type,
     workspace,
-    tenantId: tenant,
+    client,
     user,
     orderBy: {
       eventStartDateTime:

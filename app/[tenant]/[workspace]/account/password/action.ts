@@ -52,7 +52,11 @@ export async function changePassword({
     };
   }
 
-  const partner = await findGooveeUserByEmail(user?.email, tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Bad request')};
+  const {client} = tenant;
+
+  const partner = await findGooveeUserByEmail(user?.email, client);
 
   if (!partner?.password) {
     return {
@@ -72,7 +76,7 @@ export async function changePassword({
 
   try {
     await withMattermostSync({
-      tenantId,
+      config: tenant.config,
       email: user.email,
       password: newPassword,
       name: partner.name || 'user',
@@ -87,8 +91,6 @@ export async function changePassword({
   }
 
   const hashedNewPassword = await hash(newPassword);
-
-  const client = await manager.getClient(tenantId);
 
   try {
     await client.aOSPartner.update({

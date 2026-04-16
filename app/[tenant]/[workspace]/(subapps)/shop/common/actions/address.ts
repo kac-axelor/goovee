@@ -14,6 +14,7 @@ import {
 } from '@/orm/address';
 import type {ID} from '@/types';
 import {clone, getPartnerId} from '@/utils';
+import {manager} from '@/tenant';
 
 export async function findDefaultInvoicing() {
   const session = await getSession();
@@ -25,7 +26,11 @@ export async function findDefaultInvoicing() {
 
   const userId = getPartnerId(user);
 
-  return findDefaultInvoicingAddress(userId, tenantId).then(clone);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
+  return findDefaultInvoicingAddress(userId, client).then(clone);
 }
 
 export async function findDefaultDelivery() {
@@ -38,7 +43,11 @@ export async function findDefaultDelivery() {
 
   const userId = getPartnerId(user);
 
-  return findDefaultDeliveryAddress(userId, tenantId).then(clone);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
+  return findDefaultDeliveryAddress(userId, client).then(clone);
 }
 
 export async function findAddress(id: ID) {
@@ -51,7 +60,11 @@ export async function findAddress(id: ID) {
 
   const userId = getPartnerId(user);
 
-  return findPartnerAddress({partnerId: userId, addressId: id, tenantId}).then(
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
+  return findPartnerAddress({partnerId: userId, addressId: id, client}).then(
     clone,
   );
 }
@@ -66,7 +79,11 @@ export async function fetchDeliveryAddresses() {
 
   const userId = getPartnerId(user);
 
-  return findDeliveryAddresses(userId, tenantId).then(clone);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
+  return findDeliveryAddresses(userId, client).then(clone);
 }
 
 export async function fetchInvoicingAddresses() {
@@ -79,5 +96,9 @@ export async function fetchInvoicingAddresses() {
 
   const userId = getPartnerId(user);
 
-  return findInvoicingAddresses(userId, tenantId).then(clone);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
+  return findInvoicingAddresses(userId, client).then(clone);
 }

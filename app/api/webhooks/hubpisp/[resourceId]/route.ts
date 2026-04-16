@@ -20,6 +20,7 @@ import type {
 } from '@/lib/core/payment/hubpisp/types';
 import {PaymentOption} from '@/types';
 import type {HubPispLocalInstrument} from '@/lib/core/payment/hubpisp/constants';
+import {manager} from '@/tenant';
 
 export async function POST(
   _request: Request,
@@ -60,9 +61,16 @@ export async function POST(
     return new NextResponse('Bad Request', {status: 400});
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    console.error('[HUBPISP][WEBHOOK] Tenant not found', {tenantId});
+    return new NextResponse('Bad Request', {status: 400});
+  }
+  const {client, config} = tenant;
+
   const paymentContext = await findPaymentContext({
     id: contextId,
-    tenantId,
+    client,
     mode: PaymentOption.hubpisp,
     ignoreExpiration: true,
   });
@@ -91,7 +99,7 @@ export async function POST(
     await markPaymentAsExpired({
       contextId: paymentContext.id,
       version: paymentContext.version,
-      tenantId,
+      client,
     });
     return new NextResponse('OK', {status: 200});
   }
@@ -113,7 +121,7 @@ export async function POST(
   await updatePaymentContextData({
     id: paymentContext.id,
     version: paymentContext.version,
-    tenantId,
+    client,
     context: {...paymentContext.data, paymentRequestResourceId},
   });
 
@@ -158,7 +166,9 @@ export async function POST(
     paymentContext,
     transactionStatus,
     statusReasonInformation,
+    client,
     tenantId,
+    config,
   });
 
   if (!isTerminal) {

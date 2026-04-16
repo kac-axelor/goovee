@@ -4,7 +4,7 @@ import {generateOTP as coreGenerateOTP} from '@/otp/actions';
 import {t} from '@/locale/server';
 import {Scope} from '@/otp/constants';
 import {findWorkspace} from '@/orm/workspace';
-import {type Tenant} from '@/tenant';
+import {manager, type Tenant} from '@/tenant';
 import {findInviteById} from '../../../../common/orm/register';
 
 function error(message: string) {
@@ -25,9 +25,13 @@ export async function generateOTP({
     return error(await t('Invitation and Tenant is required'));
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
+
   const invite = await findInviteById({
     id: inviteId,
-    tenantId,
+    client,
   });
 
   if (!(invite?.workspace && invite?.partner)) {
@@ -39,7 +43,7 @@ export async function generateOTP({
     user: {
       id: invite.partner.id,
     } as any,
-    tenantId,
+    client,
   });
 
   if (!workspace?.config) {
@@ -53,6 +57,7 @@ export async function generateOTP({
       email,
       scope: Scope.Registration,
       tenantId,
+      client,
     });
   } else {
     const {otpTemplateList} = workspace.config;
@@ -70,6 +75,7 @@ export async function generateOTP({
       email,
       scope: Scope.Registration,
       tenantId,
+      client,
       mailConfig: {
         template: template?.template,
       },

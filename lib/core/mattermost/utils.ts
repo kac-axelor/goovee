@@ -1,5 +1,5 @@
 import {getEnv} from '@/environment';
-import {manager, type Tenant} from '@/tenant';
+import {type TenantConfig} from '@/tenant';
 
 /**
  * Get the Mattermost host URL from environment variables
@@ -22,14 +22,13 @@ export function isCreateMattermostUsersEnabled(): boolean {
   return envValue === 'true';
 }
 
-export async function getAosUrl(tenantId: Tenant['id']): Promise<string> {
-  const tenant = await manager.getTenant(tenantId);
-  return tenant?.config?.aos?.url;
+export function getAosUrl(config: TenantConfig): string {
+  return config?.aos?.url;
 }
 
-export async function getBasicAuthCredentials(
-  tenantId: Tenant['id'],
-): Promise<{username: string; password: string}> {
-  const tenant = await manager.getTenant(tenantId);
-  return tenant.config.aos.auth;
+export function getBasicAuthCredentials(config: TenantConfig): {
+  username: string;
+  password: string;
+} {
+  return config.aos.auth;
 }

@@ -39,9 +39,13 @@ export async function findProduct({
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
   const categories = await findCategories({
     workspace,
-    tenantId,
+    client,
     user,
   });
 
@@ -53,7 +57,7 @@ export async function findProduct({
     id,
     workspace,
     user,
-    tenantId,
+    client,
     categoryids,
   }).then(clone);
 }

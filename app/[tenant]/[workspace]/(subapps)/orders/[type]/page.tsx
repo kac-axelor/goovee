@@ -6,6 +6,7 @@ import {findWorkspace, findSubapp} from '@/orm/workspace';
 import {workspacePathname} from '@/utils/workspace';
 import {getSession} from '@/auth';
 import {DEFAULT_LIMIT, SUBAPP_CODES} from '@/constants';
+import {manager} from '@/tenant';
 import {clone} from '@/utils';
 import {PartnerKey, User} from '@/types';
 import {TableSkeleton} from '@/ui/components/table';
@@ -24,7 +25,7 @@ async function Orders({
   params: {type: OrderType; tenant: string; workspace: string};
   searchParams: {[key: string]: string | undefined};
 }) {
-  const {type, tenant} = params;
+  const {type, tenant: tenantId} = params;
 
   const {limit, page} = searchParams;
 
@@ -37,10 +38,14 @@ async function Orders({
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -49,7 +54,7 @@ async function Orders({
     code: SUBAPP_CODES.orders,
     url: workspace.url,
     user: session?.user,
-    tenantId: tenant,
+    client,
   });
 
   if (!app?.isInstalled) {
@@ -74,7 +79,7 @@ async function Orders({
       page,
       limit: limit ? Number(limit) : DEFAULT_LIMIT,
     },
-    tenantId: tenant,
+    client,
     workspaceURL,
   });
 

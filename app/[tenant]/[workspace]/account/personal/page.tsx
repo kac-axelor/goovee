@@ -5,6 +5,7 @@ import uniqBy from 'lodash/uniqBy';
 import {getSession} from '@/auth';
 import {PartnerTypeMap, findGooveeUserByEmail} from '@/orm/partner';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORT ---- //
 import Form from './form';
@@ -14,7 +15,7 @@ export default async function Page(props: {
   params: Promise<{tenant: string; workspace: string}>;
 }) {
   const params = await props.params;
-  const {tenant, workspaceURL} = workspacePathname(params);
+  const {tenant: tenantId, workspaceURL} = workspacePathname(params);
 
   const session = await getSession();
   const user = session?.user;
@@ -23,7 +24,11 @@ export default async function Page(props: {
     return notFound();
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenant);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     return notFound();

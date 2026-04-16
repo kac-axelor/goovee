@@ -13,6 +13,7 @@ import {
 } from '@/constants';
 import {t} from '@/locale/server';
 import {TENANT_HEADER} from '@/proxy';
+import {manager} from '@/tenant';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {createPayboxOrder, findPayboxOrder} from '@/payment/paybox/actions';
 import {createUp2payOrder} from '@/payment/up2pay/actions';
@@ -79,11 +80,17 @@ export async function paypalCreateOrder({
     return {error: true, message: await t('Tenant is missing')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client} = tenant;
+
   const validationResult = await validatePaymentData({
     invoice,
     amount,
     workspaceURL,
-    tenantId,
+    client,
     token,
   });
   if (validationResult.error) {
@@ -113,7 +120,7 @@ export async function paypalCreateOrder({
 
   try {
     const response = await createPaypalOrder({
-      tenantId,
+      client,
       amount: $amount,
       currency: currencyCode,
       context: {
@@ -160,6 +167,12 @@ export async function paypalCaptureOrder({
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client, config} = tenant;
+
   let user;
   let invoicesWhereClause = {};
 
@@ -177,7 +190,7 @@ export async function paypalCaptureOrder({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!workspace) {
     return {
@@ -191,7 +204,7 @@ export async function paypalCaptureOrder({
       code: SUBAPP_CODES.invoices,
       user,
       url: workspace.url,
-      tenantId,
+      client,
     });
     if (!subapp) {
       return {
@@ -245,7 +258,7 @@ export async function paypalCaptureOrder({
   try {
     const {amount, context} = await findPaypalOrder({
       id: orderID,
-      tenantId,
+      client,
     });
 
     const invoice = context.data;
@@ -264,7 +277,7 @@ export async function paypalCaptureOrder({
       id: invoice.id,
       ...(token ? {token} : {params: {where: invoicesWhereClause}}),
       workspaceURL,
-      tenantId,
+      client,
     });
 
     if (!$invoice) {
@@ -297,7 +310,7 @@ export async function paypalCaptureOrder({
     }
 
     const updatedInvoice = await updateInvoice({
-      tenantId,
+      config,
       amount: purchaseAmount,
       invoiceId: $invoice.id,
       paymentModeId: context?.data?.paymentModeId,
@@ -313,7 +326,7 @@ export async function paypalCaptureOrder({
     await markPaymentAsProcessed({
       contextId: context.id,
       version: context.version,
-      tenantId,
+      client,
     });
     return {success: true, data: $invoice};
   } catch (error) {
@@ -340,11 +353,18 @@ export async function createStripeCheckoutSession({
   if (!tenantId) {
     return {error: true, message: await t('Tenant is missing')};
   }
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client} = tenant;
+
   const validationResult = await validatePaymentData({
     invoice,
     amount,
     workspaceURL,
-    tenantId,
+    client,
     token,
   });
   if (validationResult.error) {
@@ -383,6 +403,7 @@ export async function createStripeCheckoutSession({
   try {
     const session = await createStripeOrder({
       tenantId,
+      client,
       customer,
       context: {
         id: invoice.id,
@@ -436,6 +457,12 @@ export async function validateStripePayment({
     return {error: true, message: await t('Invalid tenant')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client, config} = tenant;
+
   try {
     let user;
     let invoicesWhereClause = {};
@@ -450,7 +477,7 @@ export async function validateStripePayment({
 
     const workspace = await findWorkspace({
       url: workspaceURL,
-      tenantId,
+      client,
       user,
     });
 
@@ -463,7 +490,7 @@ export async function validateStripePayment({
         code: SUBAPP_CODES.invoices,
         user,
         url: workspace.url,
-        tenantId,
+        client,
       });
 
       if (!subapp) {
@@ -515,7 +542,7 @@ export async function validateStripePayment({
     try {
       const order = await findStripeOrder({
         id: stripeSessionId,
-        tenantId,
+        client,
       });
       invoice = order.context.data;
       purchaseAmount = order.amount;
@@ -532,7 +559,7 @@ export async function validateStripePayment({
       id: invoice.id,
       ...(token ? {token} : {params: {where: invoicesWhereClause}}),
       workspaceURL,
-      tenantId,
+      client,
     });
 
     if (!$invoice) {
@@ -562,7 +589,7 @@ export async function validateStripePayment({
     }
 
     const result = await updateInvoice({
-      tenantId,
+      config,
       amount: purchaseAmount,
       invoiceId: $invoice.id,
       paymentModeId: context?.data?.paymentModeId,
@@ -579,7 +606,7 @@ export async function validateStripePayment({
     await markPaymentAsProcessed({
       contextId: context.id,
       version: context.version,
-      tenantId,
+      client,
     });
 
     try {
@@ -587,25 +614,25 @@ export async function validateStripePayment({
         id: $invoice.id,
         params: {where: invoicesWhereClause},
         workspaceURL,
-        tenantId,
+        client,
       });
 
-      // After a successful card payment, re-fetch the invoice to get the updated
-      // amount remaining, then clean up any stale pending bank transfer intents.
-      // This handles the case where the customer had previously initiated one or
-      // more bank transfers but paid via another method (card) instead.
+      /* After a successful card payment, re-fetch the invoice to get the updated
+       * amount remaining, then clean up any stale pending bank transfer intents.
+       * This handles the case where the customer had previously initiated one or
+       * more bank transfers but paid via another method (card) instead. */
       if (updatedInvoice) {
         const updatedAmountRemaining = normalizeAmount(
           updatedInvoice.amountRemaining?.value ?? 0,
           updatedInvoice.currency?.numberOfDecimals ?? undefined,
         );
 
-        // Cancel any pending bank transfer intents that are now invalid:
-        // - If amountRemaining === 0, the invoice is fully paid → cancel as DUPLICATE
-        // - If amountRemaining > 0 but an intent exceeds what's still owed
-        //   (e.g. a partial card payment was made) → cancel as REQUESTED_BY_CUSTOMER
+        /* Cancel any pending bank transfer intents that are now invalid:
+         * - If amountRemaining === 0, the invoice is fully paid → cancel as DUPLICATE
+         * - If amountRemaining > 0 but an intent exceeds what's still owed
+         *   (e.g. a partial card payment was made) → cancel as REQUESTED_BY_CUSTOMER */
         await cancelInvalidPendingBankTransfers({
-          tenantId,
+          client,
           sourceId: updatedInvoice.id,
           amountRemaining: updatedAmountRemaining,
         });
@@ -642,11 +669,18 @@ export async function createStripeBankTransferIntent({
   if (!tenantId) {
     return {error: true, message: await t('Tenant is missing')};
   }
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client} = tenant;
+
   const validationResult = await validatePaymentData({
     invoice,
     amount,
     workspaceURL,
-    tenantId,
+    client,
     token,
   });
   if (validationResult.error) {
@@ -694,6 +728,7 @@ export async function createStripeBankTransferIntent({
   try {
     const result = await createStripePaymentIntent({
       tenantId,
+      client,
       customer,
       context: {
         id: invoice.id,
@@ -755,6 +790,12 @@ export async function cancelStripeBankTransferPaymentIntent({
     return {error: true, message: await t('Invalid tenant')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client} = tenant;
+
   try {
     let user;
     let invoicesWhereClause = {};
@@ -767,7 +808,7 @@ export async function cancelStripeBankTransferPaymentIntent({
       }
     }
 
-    const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+    const workspace = await findWorkspace({user, url: workspaceURL, client});
 
     if (!workspace) {
       return {error: true, message: await t('Invalid workspace')};
@@ -778,7 +819,7 @@ export async function cancelStripeBankTransferPaymentIntent({
         code: SUBAPP_CODES.invoices,
         user,
         url: workspace.url,
-        tenantId,
+        client,
       });
 
       if (!subapp) {
@@ -838,7 +879,7 @@ export async function cancelStripeBankTransferPaymentIntent({
     }
     const paymentContext = await findPaymentContext({
       id: context,
-      tenantId,
+      client,
       mode: PaymentOption.stripe,
       ignoreExpiration: true,
     });
@@ -857,7 +898,7 @@ export async function cancelStripeBankTransferPaymentIntent({
       id: data.id,
       ...(token ? {token} : {params: {where: invoicesWhereClause}}),
       workspaceURL,
-      tenantId,
+      client,
     });
 
     if (!$invoice) {
@@ -867,7 +908,7 @@ export async function cancelStripeBankTransferPaymentIntent({
     await cancelStripePaymentIntent({
       id,
       cancellationReason: STRIPE_CANCELLATION_REASONS.REQUESTED_BY_CUSTOMER,
-      tenantId,
+      client,
     });
 
     revalidatePath(`${workspaceURI}/${SUBAPP_CODES.invoices}/${$invoice.id}`);
@@ -905,11 +946,17 @@ export async function payboxCreateOrder({
     return {error: true, message: await t('Tenant is missing')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client} = tenant;
+
   const validationResult = await validatePaymentData({
     invoice,
     amount,
     workspaceURL,
-    tenantId,
+    client,
     token,
   });
   if (validationResult.error) {
@@ -941,7 +988,7 @@ export async function payboxCreateOrder({
 
   try {
     const response = await createPayboxOrder({
-      tenantId,
+      client,
       amount: $amount,
       currency: currencyCode,
       email: payerEmail,
@@ -988,6 +1035,12 @@ export async function validatePayboxPayment({
     return {error: true, message: await t('Invalid tenant')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client, config} = tenant;
+
   try {
     let user;
     let invoicesWhereClause = {};
@@ -1002,7 +1055,7 @@ export async function validatePayboxPayment({
 
     const workspace = await findWorkspace({
       url: workspaceURL,
-      tenantId,
+      client,
       user,
     });
 
@@ -1015,7 +1068,7 @@ export async function validatePayboxPayment({
         code: SUBAPP_CODES.invoices,
         user,
         url: workspace.url,
-        tenantId,
+        client,
       });
 
       if (!subapp) {
@@ -1065,7 +1118,7 @@ export async function validatePayboxPayment({
 
     let invoice, purchaseAmount, context;
     try {
-      const order = await findPayboxOrder({params, tenantId});
+      const order = await findPayboxOrder({params, client});
 
       invoice = order.context.data;
       purchaseAmount = order.amount;
@@ -1083,7 +1136,7 @@ export async function validatePayboxPayment({
       id: invoice.id,
       ...(token ? {token} : {params: {where: invoicesWhereClause}}),
       workspaceURL,
-      tenantId,
+      client,
     });
 
     if (!$invoice) {
@@ -1113,7 +1166,7 @@ export async function validatePayboxPayment({
     }
 
     const result = await updateInvoice({
-      tenantId,
+      config,
       amount: purchaseAmount,
       invoiceId: $invoice.id,
       paymentModeId: context?.data?.paymentModeId,
@@ -1130,7 +1183,7 @@ export async function validatePayboxPayment({
     await markPaymentAsProcessed({
       contextId: context.id,
       version: context.version,
-      tenantId,
+      client,
     });
     revalidatePath(`${workspaceURI}/${SUBAPP_CODES.invoices}/${$invoice.id}`);
     return {success: true, data: $invoice};
@@ -1169,11 +1222,17 @@ export async function up2payCreateOrder({
     return {error: true, message: await t('Tenant is missing')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client} = tenant;
+
   const validationResult = await validatePaymentData({
     invoice,
     amount,
     workspaceURL,
-    tenantId,
+    client,
     token,
   });
 
@@ -1220,6 +1279,7 @@ export async function up2payCreateOrder({
   try {
     const response = await createUp2payOrder({
       tenantId,
+      client,
       amount: $amount,
       currency: currencyCode,
       email: token ? $invoice?.partner?.emailAddress?.address : user!.email,
@@ -1296,11 +1356,17 @@ export async function initiatePispPayment({
     return {error: true, message: await t('Tenant is missing')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {error: true, message: await t('Tenant not found')};
+  }
+  const {client} = tenant;
+
   const validationResult = await validatePaymentData({
     invoice,
     amount,
     workspaceURL,
-    tenantId,
+    client,
     token,
   });
 
@@ -1354,6 +1420,7 @@ export async function initiatePispPayment({
     const response = await createHubPispPaymentLink({
       amount: Number($amount),
       tenantId,
+      client,
       email: pispEmail,
       context: {
         id: invoice.id,

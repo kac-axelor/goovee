@@ -1,17 +1,15 @@
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {CONTEXT_STATUS} from '@/lib/core/payment/common/orm';
 import {PAYMENT_TYPE} from '@/lib/core/payment/common/type';
 
 export async function findPendingStripeBankTransfers({
-  tenantId,
+  client,
   id,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
   id: string;
 }) {
-  if (!id || !tenantId) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!id) return null;
 
   const result = await client.paymentContext.find({
     where: {

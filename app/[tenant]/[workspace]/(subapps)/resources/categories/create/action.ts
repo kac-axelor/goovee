@@ -65,11 +65,15 @@ export async function create(formData: FormData, workspaceURL: string) {
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.resources,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -82,7 +86,7 @@ export async function create(formData: FormData, workspaceURL: string) {
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -96,7 +100,7 @@ export async function create(formData: FormData, workspaceURL: string) {
     id: parentId as string,
     workspace,
     user,
-    tenantId,
+    client,
   });
 
   if (!parent) {
@@ -123,8 +127,6 @@ export async function create(formData: FormData, workspaceURL: string) {
       message: await t('Unauthorized'),
     };
   }
-
-  const client = await manager.getClient(tenantId);
 
   try {
     const category = await client.aOSDMSFile

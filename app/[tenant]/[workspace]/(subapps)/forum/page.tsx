@@ -3,6 +3,7 @@ import {Suspense} from 'react';
 
 // ---- CORE IMPORTS ---- //
 import {getSession} from '@/auth';
+import {manager} from '@/tenant';
 import {findWorkspace} from '@/orm/workspace';
 import {User} from '@/types';
 import {clone} from '@/utils';
@@ -41,12 +42,16 @@ export default async function Page(props: {
   const userId = user?.id as string;
   const type = searchParams?.type || FORUM_CONTENT.POSTS;
 
-  const {workspaceURL, tenant} = workspacePathname(params);
+  const {workspaceURL, tenant: tenantId} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
 
   const workspace: any = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -55,7 +60,7 @@ export default async function Page(props: {
 
   const groups = await findGroups({
     workspace: workspace!,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -66,7 +71,7 @@ export default async function Page(props: {
         id: userId,
         orderBy: GROUPS_ORDER_BY,
         workspaceID: workspace?.id!,
-        tenantId: tenant,
+        client,
         user,
       })
     : [];
@@ -81,7 +86,7 @@ export default async function Page(props: {
 
   const $user = (await findUser({
     userId,
-    tenantId: tenant,
+    client,
   }).then(clone)) as User;
 
   return (
@@ -110,7 +115,7 @@ export default async function Page(props: {
                 groupIDs={groupIDs}
                 memberGroupIDs={memberGroupIDs}
                 user={user}
-                tenant={tenant}
+                client={client}
               />
             )}
           </Suspense>

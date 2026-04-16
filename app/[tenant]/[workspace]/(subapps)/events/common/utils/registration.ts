@@ -1,4 +1,4 @@
-import type {Tenant} from '@/lib/core/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {Participant} from '@/types';
 import {
   type EventConfig,
@@ -25,9 +25,9 @@ export function isAlreadyRegistered({
 export async function canEmailBeRegistered({
   event,
   email,
-  tenantId,
+  client,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
   event: EventConfig;
   email: string;
 }): Promise<boolean> {
@@ -37,17 +37,17 @@ export async function canEmailBeRegistered({
   if (isEventPublic(event)) {
     return true;
   }
-  return await canRegisterToNonPublicEvent({email, tenantId});
+  return await canRegisterToNonPublicEvent({email, client});
 }
 
 export async function canRegisterToNonPublicEvent({
   email,
-  tenantId,
+  client,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
   email: string;
 }): Promise<boolean> {
-  const partner = await findPartnerByEmailForEvent(email, tenantId);
+  const partner = await findPartnerByEmailForEvent(email, client);
   if (!partner?.id || !partner.canSubscribeNoPublicEvent) {
     return false;
   }

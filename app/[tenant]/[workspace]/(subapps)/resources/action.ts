@@ -23,7 +23,9 @@ export async function findDmsFiles({
 
   if (!tenantId) return [];
 
-  const client = await manager.getClient(tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return [];
+  const {client} = tenant;
 
   const session = await getSession();
   const user = session?.user;
@@ -43,7 +45,7 @@ export async function findDmsFiles({
         },
         ...(await filterPrivate({
           user,
-          tenantId,
+          client,
         })),
       },
       select: {

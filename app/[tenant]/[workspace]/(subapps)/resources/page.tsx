@@ -8,6 +8,8 @@ import {workspacePathname} from '@/utils/workspace';
 import {getSession} from '@/auth';
 import {i18n} from '@/locale';
 import type {PortalWorkspace, User} from '@/types';
+import {manager} from '@/lib/core/tenant';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -24,16 +26,16 @@ import Hero from './hero';
 
 async function LatestCategories({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenant: string;
+  client: Client;
   user?: User;
 }) {
   const folders = await fetchLatestFolders({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -42,16 +44,16 @@ async function LatestCategories({
 
 async function LatestResources({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenant: string;
+  client: Client;
   user?: User;
 }) {
   const files = await fetchLatestFiles({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -62,16 +64,20 @@ export default async function Page(props: {
   params: Promise<{tenant: string; workspace: string}>;
 }) {
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const session = await getSession();
   const user = session?.user;
 
   const {workspaceURL, workspaceURI} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -83,11 +89,11 @@ export default async function Page(props: {
       <Hero workspace={workspace} workspaceURI={workspaceURI} />
       <main className="container p-4 mx-auto space-y-6">
         <Suspense fallback={<CategoriesSkeleton />}>
-          <LatestCategories workspace={workspace} tenant={tenant} user={user} />
+          <LatestCategories workspace={workspace} client={client} user={user} />
         </Suspense>
         <h2 className="font-semibold text-xl">{i18n.t('New Resources')}</h2>
         <Suspense fallback={<ResourceListSkeleton />}>
-          <LatestResources workspace={workspace} tenant={tenant} user={user} />
+          <LatestResources workspace={workspace} client={client} user={user} />
         </Suspense>
       </main>
     </>

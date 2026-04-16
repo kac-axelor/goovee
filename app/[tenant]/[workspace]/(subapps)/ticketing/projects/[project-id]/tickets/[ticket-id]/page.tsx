@@ -8,7 +8,7 @@ import {FaChevronRight} from 'react-icons/fa';
 import {Comments, isCommentEnabled, SORT_TYPE} from '@/comments';
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
-import {type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -75,15 +75,15 @@ export default async function Page(props: {
   const projectId = params['project-id'];
   const ticketId = params['ticket-id'];
 
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
-  const {error, auth, forceLogin} = await ensureAuth(workspaceURL, tenant);
+  const {error, auth, forceLogin} = await ensureAuth(workspaceURL, tenantId);
   if (forceLogin) {
     redirect(
       getLoginURL({
         callbackurl: `${workspaceURI}/${SUBAPP_CODES.ticketing}/projects/${projectId}/tickets/${ticketId}`,
         workspaceURI,
-        tenant,
+        tenant: tenantId,
       }),
     );
   }
@@ -94,10 +94,10 @@ export default async function Page(props: {
   const [ticket, statuses, categories, priorities, contacts] =
     await Promise.all([
       findTicket({ticketId, projectId, auth}),
-      findTicketStatuses(projectId, tenant),
-      findTicketCategories(projectId, tenant),
-      findTicketPriorities(projectId, tenant),
-      findMainPartnerContacts(projectId, tenant),
+      findTicketStatuses(projectId, auth.tenant.client),
+      findTicketCategories(projectId, auth.tenant.client),
+      findTicketPriorities(projectId, auth.tenant.client),
+      findMainPartnerContacts(projectId, auth.tenant.client),
     ]).then(clone);
 
   if (!ticket) notFound();
@@ -173,7 +173,7 @@ export default async function Page(props: {
                 <ParentTicket
                   ticketId={ticket.id}
                   projectId={ticket.project?.id}
-                  tenantId={tenant}
+                  client={auth.tenant.client}
                   fields={workspace.config.ticketingFieldSet}
                 />
               </Suspense>
@@ -187,7 +187,7 @@ export default async function Page(props: {
                   priorities={priorities}
                   contacts={contacts}
                   userId={auth.user.id}
-                  tenantId={tenant}
+                  client={auth.tenant.client}
                   fields={workspace.config.ticketingFieldSet}
                   formFields={workspace.config.ticketingFormFieldSet}
                 />
@@ -198,7 +198,7 @@ export default async function Page(props: {
                 <RelatedTickets
                   ticketId={ticket.id}
                   projectId={ticket.project?.id}
-                  tenantId={tenant}
+                  client={auth.tenant.client}
                   fields={workspace.config.ticketingFieldSet}
                 />
               </Suspense>
@@ -242,7 +242,7 @@ async function ChildTickets({
   priorities,
   contacts,
   userId,
-  tenantId,
+  client,
   fields,
   formFields,
 }: {
@@ -252,15 +252,15 @@ async function ChildTickets({
   priorities: Priority[];
   contacts: ContactPartner[];
   userId: ID;
-  tenantId: Tenant['id'];
+  client: Client;
   fields: PortalAppConfig['ticketingFieldSet'];
   formFields: PortalAppConfig['ticketingFormFieldSet'];
 }) {
   if (!projectId) return;
 
   const [parentIds, tickets] = await Promise.all([
-    findParentTicketIds(ticketId, tenantId),
-    findChildTickets(ticketId, tenantId).then(clone),
+    findParentTicketIds(ticketId, client),
+    findChildTickets(ticketId, client).then(clone),
   ]);
   return (
     <div>
@@ -288,18 +288,18 @@ async function ChildTickets({
 async function ParentTicket({
   projectId,
   ticketId,
-  tenantId,
+  client,
   fields,
 }: {
   projectId?: ID;
   ticketId: ID;
-  tenantId: Tenant['id'];
+  client: Client;
   fields: PortalAppConfig['ticketingFieldSet'];
 }) {
   if (!projectId) return;
   const [childIds, ticket] = await Promise.all([
-    findChildTicketIds(ticketId, tenantId),
-    findParentTicket(ticketId, tenantId).then(clone),
+    findChildTicketIds(ticketId, client),
+    findParentTicket(ticketId, client).then(clone),
   ]);
   return (
     <div>
@@ -322,18 +322,18 @@ async function ParentTicket({
 async function RelatedTickets({
   ticketId,
   projectId,
-  tenantId,
+  client,
   fields,
 }: {
   ticketId: ID;
   projectId?: ID;
-  tenantId: Tenant['id'];
+  client: Client;
   fields: PortalAppConfig['ticketingFieldSet'];
 }) {
   if (!projectId) return;
   const [linkTypes, links] = await Promise.all([
-    findTicketLinkTypes(projectId, tenantId),
-    findRelatedTicketLinks(ticketId, tenantId),
+    findTicketLinkTypes(projectId, client),
+    findRelatedTicketLinks(ticketId, client),
   ]).then(clone);
 
   return (

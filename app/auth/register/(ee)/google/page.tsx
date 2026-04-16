@@ -4,6 +4,7 @@ import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
 import {findWorkspaceForRegistration} from '@/orm/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {extractSearchParams} from '../../common/utils';
@@ -25,9 +26,13 @@ export default async function Page(props: {
     return notFound();
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspaceForRegistration({
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {

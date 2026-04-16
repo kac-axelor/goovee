@@ -1,6 +1,6 @@
 import type {ActionResponse} from '@/types/action';
 import webpush, {WebPushError} from 'web-push';
-import {manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {NotificationDTO, NotificationPayload} from './types';
 
 async function sendNotification(
@@ -49,12 +49,14 @@ export async function notifyUser({
   userId,
   tenantId,
   workspaceURL,
+  client,
   payload,
   getReplacementTitle,
 }: {
   userId: string | number;
   tenantId: string;
   workspaceURL?: string;
+  client: Client;
   payload: Omit<
     NotificationPayload,
     'tenantId' | 'workspaceURL' | 'notification'
@@ -67,7 +69,6 @@ export async function notifyUser({
    */
   getReplacementTitle?: (count: number) => string | Promise<string>;
 }) {
-  const client = await manager.getClient(tenantId);
   if (!client) return;
 
   let unreadCount = 1; // +1 for the notification we are about to create

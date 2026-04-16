@@ -2,6 +2,7 @@ import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
 import {getSession} from '@/auth';
+import {manager} from '@/tenant';
 import {workspacePathname} from '@/utils/workspace';
 import {findWorkspace, findSubapp} from '@/orm/workspace';
 import {clone} from '@/utils';
@@ -24,12 +25,16 @@ export default async function Layout(props: {
 
   const session = await getSession();
 
-  const {workspaceURL, tenant} = workspacePathname(params);
+  const {workspaceURL, tenant: tenantId} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
 
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -38,7 +43,7 @@ export default async function Layout(props: {
     code: SUBAPP_CODES.forum,
     url: workspace.url,
     user: session?.user,
-    tenantId: tenant,
+    client,
   });
 
   if (!app?.isInstalled) {

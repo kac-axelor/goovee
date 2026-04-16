@@ -1,35 +1,32 @@
 // ---- CORE IMPORTS ---- //
-import {manager} from '@/tenant';
 import {ORDER_BY} from '@/constants';
 import type {PortalWorkspace, User} from '@/types';
-import type {Tenant} from '@/tenant';
 import {filterPrivate} from '@/orm/filter';
 import {and} from '@/utils/orm';
 import type {AOSPortalEventCategory} from '@/goovee/.generated/models';
+import type {Client} from '@/goovee/.generated/client';
 
 export async function findEventCategories({
   workspace,
-  tenantId,
+  client,
   user,
   categoryId,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   categoryId?: string;
 }) {
-  if (!(workspace && tenantId)) return [];
+  if (!workspace) return [];
 
-  const c = await manager.getClient(tenantId);
-
-  const eventCategories = await c.aOSPortalEventCategory.find({
+  const eventCategories = await client.aOSPortalEventCategory.find({
     where: and<AOSPortalEventCategory>([
       categoryId && {id: categoryId},
       {
         workspace: {id: workspace.id},
         OR: [{archived: false}, {archived: null}],
       },
-      await filterPrivate({user, tenantId}),
+      await filterPrivate({user, client}),
     ]),
     orderBy: {name: ORDER_BY.ASC} as any,
     select: {
@@ -47,21 +44,21 @@ export async function findEventCategories({
 
 export async function findEventCategory({
   id,
-  tenantId,
+  client,
   workspace,
   user,
 }: {
   id: string;
-  tenantId: Tenant['id'];
+  client: Client;
   workspace: PortalWorkspace;
   user?: User;
 }) {
-  if (!(workspace && tenantId)) return null;
+  if (!workspace) return null;
 
   const categories = await findEventCategories({
     categoryId: id,
     workspace,
-    tenantId,
+    client,
     user,
   });
 

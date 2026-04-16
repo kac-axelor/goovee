@@ -18,7 +18,8 @@ import type {
 import {dayjs} from '@/locale';
 import {formatNumber} from '@/locale/server/formatters';
 import {filterPrivate} from '@/orm/filter';
-import {type Tenant, manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
+import type {TenantConfig} from '@/tenant';
 import type {ID, PortalWorkspace, User} from '@/types';
 import {getPageInfo} from '@/utils';
 import {formatDateToISOString, formatToTwoDigits} from '@/utils/date';
@@ -150,7 +151,8 @@ export async function findEvent({
   id,
   slug,
   workspace,
-  tenantId,
+  config,
+  client,
   user,
 }: {
   id?: ID;
@@ -158,14 +160,14 @@ export async function findEvent({
   workspace: {
     url: PortalWorkspace['url'];
   };
-  tenantId: Tenant['id'];
+  config: TenantConfig;
+  client: Client;
   user?: User;
 }) {
-  if (!((slug || id) && workspace && tenantId)) return null;
-  const c = await manager.getClient(tenantId);
+  if (!((slug || id) && workspace)) return null;
 
-  const privateFilter = await filterPrivate({user, tenantId});
-  const event = await c.aOSPortalEvent
+  const privateFilter = await filterPrivate({user, client});
+  const event = await client.aOSPortalEvent
     .findOne({
       where: and<AOSPortalEvent>([
         id && {id},
@@ -251,7 +253,8 @@ export async function findEvent({
 
   const productsFromWS = await findProductsFromWS({
     workspaceURL: workspace.url,
-    tenantId,
+    config,
+    client,
     eventId: event.id,
   });
 
@@ -342,7 +345,7 @@ export async function findEvents({
   year,
   selectedDates,
   workspace,
-  tenantId,
+  client,
   user,
   onlyRegisteredEvent,
   eventType,
@@ -358,23 +361,17 @@ export async function findEvents({
   year?: string | number;
   selectedDates?: any[];
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   onlyRegisteredEvent?: boolean;
   eventType?: string;
   orderBy: any;
 }) {
-  if (!(workspace && tenantId)) {
+  if (!workspace) {
     return {events: [], pageInfo: {}};
   }
 
   if (onlyRegisteredEvent && !user) {
-    return {events: [], pageInfo: {}};
-  }
-
-  const c = await manager.getClient(tenantId);
-
-  if (!c) {
     return {events: [], pageInfo: {}};
   }
 
@@ -409,7 +406,7 @@ export async function findEvents({
   }));
   const currentDateTime = dayjs().toISOString();
   const todayStartTime = dayjs().startOf(DAY).toISOString();
-  const privateFilter = await filterPrivate({user, tenantId});
+  const privateFilter = await filterPrivate({user, client});
   const whereClause = and<AOSPortalEvent>([
     {
       statusSelect: EVENT_STATUS.PUBLISHED,
@@ -446,7 +443,7 @@ export async function findEvents({
 
   orderBy = orderBy || {eventStartDateTime: ORDER_BY.DESC};
 
-  const events = await c.aOSPortalEvent
+  const events = await client.aOSPortalEvent
     .find({
       where: whereClause,
       orderBy,
@@ -545,18 +542,14 @@ export type EventConfigPartner = {
 
 export async function findEventConfig({
   id,
-  tenantId,
+  client,
   workspaceURL,
 }: {
   id: ID;
-  tenantId: Tenant['id'];
+  client: Client;
   workspaceURL: PortalWorkspace['url'];
 }): Promise<EventConfig | null> {
-  if (!(id && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+  if (!id) return null;
 
   const partnersFields = {
     emailAddress: {address: true},
@@ -615,13 +608,9 @@ export type PartnerForEvent = {
 
 export async function findPartnerByEmailForEvent(
   email: string,
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<PartnerForEvent | null> {
-  if (!(email && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+  if (!email) return null;
 
   const partners = await client.aOSPartner.find({
     where: {

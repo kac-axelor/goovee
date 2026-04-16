@@ -1,7 +1,7 @@
 import {Suspense} from 'react';
 
 // ---- CORE IMPORTS ----//
-import {type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {getSession} from '@/auth';
 import {PortalWorkspace} from '@/types';
 import {SUBAPP_CODES} from '@/constants';
@@ -33,14 +33,14 @@ import {NO_NEWS_AVAILABLE} from '@/subapps/news/common/constants';
 
 async function HomePageNewsFeed({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
   user: any;
-  tenant: Tenant['id'];
+  client: Client;
 }) {
-  const newsCount = await findNewsCount({workspace, tenantId: tenant, user});
+  const newsCount = await findNewsCount({workspace, client, user});
 
   if (!newsCount) {
     return (
@@ -55,7 +55,7 @@ async function HomePageNewsFeed({
       <Suspense fallback={<LeadStoriesSkeleton />}>
         <HomePageHeaderNewsWrapper
           workspace={workspace}
-          tenant={tenant}
+          client={client}
           navigatingPathFrom={`${SUBAPP_CODES.news}`}
         />
       </Suspense>
@@ -65,12 +65,12 @@ async function HomePageNewsFeed({
           <Suspense fallback={<FeedListSkeleton count={5} />}>
             <FeaturedHomePageNewsWrapper
               workspace={workspace}
-              tenant={tenant}
+              client={client}
             />
           </Suspense>
           <div className="flex flex-col flex-1 gap-4">
             <Suspense fallback={<NewsListSkeleton width="flex-1" count={4} />}>
-              <HomePageAsideNewsWrapper workspace={workspace} tenant={tenant} />
+              <HomePageAsideNewsWrapper workspace={workspace} client={client} />
             </Suspense>
           </div>
         </div>
@@ -78,7 +78,7 @@ async function HomePageNewsFeed({
 
       <Suspense fallback={<NewsCardSkeleton count={5} />}>
         <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-5">
-          <HomePageFooterNewsWrapper workspace={workspace} tenant={tenant} />
+          <HomePageFooterNewsWrapper workspace={workspace} client={client} />
         </div>
       </Suspense>
     </>
@@ -87,10 +87,10 @@ async function HomePageNewsFeed({
 
 export async function Homepage({
   workspace,
-  tenant,
+  client,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
 }) {
   const session = await getSession();
   const user = session?.user;
@@ -99,7 +99,7 @@ export async function Homepage({
     <div className={`flex flex-col h-full flex-1 ${styles['news-container']}`}>
       <div className="hidden lg:block relative">
         <Suspense fallback={<NavMenuSkeleton />}>
-          <NavMenuWrapper workspace={workspace} tenant={tenant} user={user} />
+          <NavMenuWrapper workspace={workspace} client={client} user={user} />
         </Suspense>
       </div>
 
@@ -111,14 +111,14 @@ export async function Homepage({
             <CategorySliderWrapper
               workspace={workspace}
               user={user}
-              tenant={tenant}
+              client={client}
             />
           </Suspense>
           <Suspense fallback={<HomeNewsFeedSkeleton />}>
             <HomePageNewsFeed
               workspace={workspace}
               user={user}
-              tenant={tenant}
+              client={client}
             />
           </Suspense>
         </div>

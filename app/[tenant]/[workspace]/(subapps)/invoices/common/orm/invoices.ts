@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {
   DEFAULT_CURRENCY_CODE,
   DEFAULT_CURRENCY_SCALE,
@@ -22,7 +22,7 @@ import {buildWhereClause} from '@/subapps/invoices/common/utils/invoices';
 export const findInvoices = async ({
   params = {},
   type,
-  tenantId,
+  client,
   workspaceURL,
 }: {
   params?: {
@@ -35,15 +35,13 @@ export const findInvoices = async ({
     page?: string | number;
   };
   type?: string;
-  tenantId: Tenant['id'];
+  client: Client;
   workspaceURL: PortalWorkspace['url'];
 }) => {
   const {page = DEFAULT_PAGE, limit, where = {}} = params;
   const {id: partnerId} = where.partner || {};
 
-  if (!(partnerId && tenantId && workspaceURL)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!(partnerId && workspaceURL)) return null;
 
   const whereClause = buildWhereClause({params, workspaceURL, type});
 
@@ -111,7 +109,7 @@ export const findInvoice = async ({
   token,
   type,
   params,
-  tenantId,
+  client,
   workspaceURL,
 }: {
   id: Invoice['id'];
@@ -124,12 +122,10 @@ export const findInvoice = async ({
       };
     };
   };
-  tenantId: Tenant['id'];
+  client: Client;
   workspaceURL: PortalWorkspace['url'];
 }) => {
-  if (!(tenantId && workspaceURL)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!workspaceURL) return null;
 
   const whereClause = buildWhereClause({params, workspaceURL, type});
   const invoice = await client.aOSInvoice
@@ -262,7 +258,7 @@ export const findInvoice = async ({
   }
 
   const pendingStripeBankTransferPayments =
-    await findPendingStripeBankTransfers({tenantId, id: invoice.id});
+    await findPendingStripeBankTransfers({client, id: invoice.id});
 
   const resolved = await Promise.all(
     pendingStripeBankTransferPayments?.map(async ctx => ({
@@ -280,7 +276,7 @@ export const findInvoice = async ({
     });
 
   const pendingHubPispContexts = await findPendingHubPispPayments({
-    tenantId,
+    client,
     entityId: invoice.id,
     currencySymbol,
     scale,

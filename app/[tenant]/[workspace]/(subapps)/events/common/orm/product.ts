@@ -1,26 +1,28 @@
 import axios from 'axios';
 
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
+import type {TenantConfig} from '@/tenant';
 import {findWorkspace} from '@/orm/workspace';
 import {t} from '@/locale/server';
 import {getSession} from '@/auth';
 
 export async function findProductsFromWS({
   workspaceURL,
-  tenantId,
+  client,
+  config,
   eventId,
 }: {
   workspaceURL: string;
   eventId: string | number;
-  tenantId: Tenant['id'];
+  client: Client;
+  config: TenantConfig;
 }) {
-  if (!workspaceURL && eventId && tenantId) {
+  if (!workspaceURL && eventId) {
     return null;
   }
-  const tenant = await manager.getTenant(tenantId);
 
-  if (!tenant?.config?.aos?.url) {
+  if (!config?.aos?.url) {
     return [];
   }
 
@@ -30,7 +32,7 @@ export async function findProductsFromWS({
   const workspace = await findWorkspace({
     url: workspaceURL,
     user,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -39,7 +41,7 @@ export async function findProductsFromWS({
       message: await t('Invalid workspace'),
     };
   }
-  const {aos} = tenant.config;
+  const {aos} = config;
 
   const ws = `${aos.url}/ws/portal/event/price`;
 

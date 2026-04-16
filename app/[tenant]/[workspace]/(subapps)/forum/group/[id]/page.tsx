@@ -5,6 +5,7 @@ import {Suspense} from 'react';
 import {User} from '@/types';
 import {clone} from '@/utils';
 import {getSession} from '@/auth';
+import {manager} from '@/tenant';
 import {findWorkspace} from '@/orm/workspace';
 import {workspacePathname} from '@/utils/workspace';
 
@@ -47,12 +48,16 @@ async function ForumGroup({
   const userId = user?.id as string;
   const type = searchParams?.type ?? FORUM_CONTENT.POSTS;
 
-  const {workspaceURL, tenant} = workspacePathname(params);
+  const {workspaceURL, tenant: tenantId} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
 
   const workspace: any = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -61,16 +66,14 @@ async function ForumGroup({
 
   const groupId = params.id as string;
 
-  const groups = await findGroups({workspace, tenantId: tenant, user}).then(
-    clone,
-  );
+  const groups = await findGroups({workspace, client, user}).then(clone);
 
   const memberGroups: any = userId
     ? await findGroupsByMembers({
         id: userId,
         orderBy: GROUPS_ORDER_BY,
         workspaceID: workspace?.id,
-        tenantId: tenant,
+        client,
         user,
       })
     : [];
@@ -86,13 +89,11 @@ async function ForumGroup({
   const selectedGroup: any = await findGroupById(
     groupId,
     workspace?.id!,
-    tenant,
+    client,
     user,
   ).then(clone);
 
-  const $user = (await findUser({userId, tenantId: tenant}).then(
-    clone,
-  )) as User;
+  const $user = (await findUser({userId, client}).then(clone)) as User;
 
   if (!selectedGroup) {
     return notFound();
@@ -124,7 +125,7 @@ async function ForumGroup({
                 memberGroupIDs={memberGroupIDs}
                 params={params}
                 searchParams={searchParams}
-                tenant={tenant}
+                client={client}
                 user={user}
                 workspace={workspace}
               />

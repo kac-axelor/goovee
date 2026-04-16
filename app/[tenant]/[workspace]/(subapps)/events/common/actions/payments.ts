@@ -12,6 +12,7 @@ import {createPayboxOrder} from '@/payment/paybox/actions';
 import {PaymentOption} from '@/types';
 import {isPaymentOptionAvailable} from '@/utils/payment';
 import {TENANT_HEADER} from '@/proxy';
+import {manager} from '@/tenant';
 import {scale} from '@/utils';
 
 // ---- LOCAL IMPORTS ---- //
@@ -33,11 +34,14 @@ export async function createStripeCheckoutSession({
 }) {
   const tenantId = (await headers()).get(TENANT_HEADER);
   if (!tenantId) return error(await t('TenantId is required'));
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Tenant not found'));
+  const {client, config} = tenant;
   const validationRes = await validateRegistration({
     eventId: event?.id?.toString(),
     values,
     workspaceURL,
-    tenantId,
+    client,
   });
 
   if (validationRes.error) {
@@ -64,7 +68,8 @@ export async function createStripeCheckoutSession({
 
   const $event = await findEvent({
     id: event.id,
-    tenantId,
+    client,
+    config,
     workspace,
   });
 
@@ -84,7 +89,7 @@ export async function createStripeCheckoutSession({
   let emailAddress;
   let payerId;
   if (user) {
-    const payer = await findGooveeUserByEmail(user.email, tenantId);
+    const payer = await findGooveeUserByEmail(user.email, client);
     emailAddress = payer?.emailAddress?.address!;
     payerId = payer?.id!;
   } else {
@@ -103,6 +108,7 @@ export async function createStripeCheckoutSession({
       currency: currencyCode,
       context: values,
       tenantId,
+      client,
       url: {
         success: `${workspaceURL}/${SUBAPP_CODES.events}/${$event.slug}/register?stripe_session_id={CHECKOUT_SESSION_ID}`,
         error: `${workspaceURL}/${SUBAPP_CODES.events}/${$event.slug}/register?stripe_error=true`,
@@ -136,11 +142,15 @@ export async function paypalCreateOrder({
   const tenantId = (await headers()).get(TENANT_HEADER);
   if (!tenantId) return error(await t('TenantId is required'));
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Tenant not found'));
+  const {client, config} = tenant;
+
   const validationRes = await validateRegistration({
     eventId: event?.id?.toString(),
     values,
     workspaceURL,
-    tenantId,
+    client: client,
   });
 
   if (validationRes.error) {
@@ -168,7 +178,8 @@ export async function paypalCreateOrder({
 
   const $event = await findEvent({
     id: event.id,
-    tenantId,
+    client,
+    config,
     workspace,
   });
 
@@ -187,7 +198,7 @@ export async function paypalCreateOrder({
 
   let emailAddress;
   if (user) {
-    const payer = await findGooveeUserByEmail(user.email, tenantId);
+    const payer = await findGooveeUserByEmail(user.email, client);
     emailAddress = payer?.emailAddress?.address!;
   } else {
     emailAddress = values.emailAddress;
@@ -198,7 +209,7 @@ export async function paypalCreateOrder({
       amount: expectedAmount,
       currency: currencyCode,
       email: emailAddress,
-      tenantId,
+      client,
       context: values,
     });
     return {success: true, order: response?.result};
@@ -226,11 +237,15 @@ export async function payboxCreateOrder({
   const tenantId = (await headers()).get(TENANT_HEADER);
   if (!tenantId) return error(await t('TenantId is required'));
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Tenant not found'));
+  const {client, config} = tenant;
+
   const validationRes = await validateRegistration({
     eventId: event?.id?.toString(),
     values,
     workspaceURL,
-    tenantId,
+    client,
   });
   if (validationRes.error) {
     return validationRes;
@@ -256,7 +271,8 @@ export async function payboxCreateOrder({
 
   const $event = await findEvent({
     id: event.id,
-    tenantId,
+    client,
+    config,
     workspace,
   });
 
@@ -276,7 +292,7 @@ export async function payboxCreateOrder({
   let emailAddress;
   let payerId;
   if (user) {
-    const payer = await findGooveeUserByEmail(user.email, tenantId);
+    const payer = await findGooveeUserByEmail(user.email, client);
     emailAddress = payer?.emailAddress?.address!;
     payerId = payer?.id!;
   } else {
@@ -289,7 +305,7 @@ export async function payboxCreateOrder({
       currency: currencyCode,
       email: emailAddress,
       context: values,
-      tenantId,
+      client,
       url: {
         success: `${process.env.GOOVEE_PUBLIC_HOST}/${uri}?paybox_response=true`,
         failure: `${process.env.GOOVEE_PUBLIC_HOST}/${uri}?paybox_error=true`,

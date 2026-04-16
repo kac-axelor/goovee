@@ -1,10 +1,10 @@
 // ---- CORE IMPORTS ---- //
 import {SUBAPP_CODES} from '@/constants';
-import {manager, type Tenant} from '@/tenant';
 import {getSession} from '@/lib/core/auth';
 import {and} from '@/utils/orm';
 import type {AOSPartner} from '@/goovee/.generated/models';
 import {getPartnerId} from '@/utils';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -16,15 +16,15 @@ import {
 export async function findContacts({
   search = '',
   workspaceURL,
-  tenantId,
+  client,
 }: {
   search?: string;
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   const response = await validate([
-    withWorkspace(workspaceURL, tenantId, {checkAuth: false}),
-    withSubapp(SUBAPP_CODES.events, workspaceURL, tenantId),
+    withWorkspace(workspaceURL, client, {checkAuth: false}),
+    withSubapp(SUBAPP_CODES.events, workspaceURL, client),
   ]);
 
   if (response.error) {
@@ -39,8 +39,6 @@ export async function findContacts({
 
   const partnerId = getPartnerId(user);
 
-  const c = await manager.getClient(tenantId);
-
   const whereClause = and<AOSPartner>([
     {
       isContact: true,
@@ -52,7 +50,7 @@ export async function findContacts({
     {OR: [{archived: false}, {archived: null}]},
   ]);
 
-  const result = await c.aOSPartner.find({
+  const result = await client.aOSPartner.find({
     where: whereClause,
     select: {
       id: true,

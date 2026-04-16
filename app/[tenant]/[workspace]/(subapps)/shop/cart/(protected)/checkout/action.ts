@@ -13,6 +13,7 @@ import {createPayboxOrder, findPayboxOrder} from '@/payment/paybox/actions';
 import {createPaypalOrder, findPaypalOrder} from '@/payment/paypal/actions';
 import {createStripeOrder, findStripeOrder} from '@/payment/stripe/actions';
 import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {PaymentOption, PortalWorkspace} from '@/types';
 import {computeTotal} from '@/utils/cart';
 import {calculateAdvanceAmount, getPaymentModeId} from '@/utils/payment';
@@ -53,13 +54,17 @@ function computeExpectedAmount({
 async function createOrder({
   cart,
   workspaceURL,
-  tenantId,
+  client,
+  config,
   paymentModeId,
+  tenantId,
 }: {
   cart: any;
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
+  config: Tenant['config'];
   paymentModeId?: number;
+  tenantId?: Tenant['id'];
 }) {
   if (!cart?.items?.length) {
     return {
@@ -70,16 +75,14 @@ async function createOrder({
     };
   }
 
-  const tenant = await manager.getTenant(tenantId);
-
-  if (!tenant?.config?.aos?.url) {
+  if (!config?.aos?.url) {
     return {
       error: true,
       message: await t('Order creation failed. Webservice not available'),
     };
   }
 
-  const {aos} = tenant.config;
+  const {aos} = config;
 
   const ws = `${aos.url}/ws/portal/orders/order`;
 
@@ -96,7 +99,7 @@ async function createOrder({
   const workspace = await findWorkspace({
     url: workspaceURL,
     user,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -109,7 +112,7 @@ async function createOrder({
   try {
     const computedProducts = await Promise.all(
       cart.items.map((i: any) =>
-        findProduct({id: i.product, workspace, user, tenantId}),
+        findProduct({id: i.product, workspace, user, client}),
       ),
     );
 
@@ -250,10 +253,14 @@ export async function paypalCaptureOrder({
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -267,7 +274,7 @@ export async function paypalCaptureOrder({
     code: SUBAPP_CODES.shop,
     user,
     url: workspace.url,
-    tenantId,
+    client,
   });
 
   if (!hasShopAccess) {
@@ -305,7 +312,7 @@ export async function paypalCaptureOrder({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId,
+    client,
   });
 
   if (hidePriceAndPurchase) {
@@ -317,7 +324,7 @@ export async function paypalCaptureOrder({
   try {
     const {amount, context} = await findPaypalOrder({
       id: orderId,
-      tenantId,
+      client,
     });
 
     const cart = context.data;
@@ -345,13 +352,15 @@ export async function paypalCaptureOrder({
     const res = await createOrder({
       cart,
       workspaceURL,
-      tenantId,
+      client,
+      config: tenant.config,
       paymentModeId,
+      tenantId,
     });
     await markPaymentAsProcessed({
       contextId: context.id,
       version: context.version,
-      tenantId,
+      client,
     });
     return res;
   } catch (err) {
@@ -403,10 +412,14 @@ export async function paypalCreateOrder({
 
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -420,7 +433,7 @@ export async function paypalCreateOrder({
     code: SUBAPP_CODES.shop,
     user,
     url: workspace.url,
-    tenantId,
+    client,
   });
 
   if (!hasShopAccess) {
@@ -458,7 +471,7 @@ export async function paypalCreateOrder({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId,
+    client,
   });
 
   if (hidePriceAndPurchase) {
@@ -475,11 +488,11 @@ export async function paypalCreateOrder({
 
   const expectedAmount = computeExpectedAmount({total, workspace});
 
-  const payer = await findGooveeUserByEmail(user?.email, tenantId);
+  const payer = await findGooveeUserByEmail(user?.email, client);
 
   try {
     const response = await createPaypalOrder({
-      tenantId,
+      client,
       context: cart,
       amount: expectedAmount,
       currency: currency?.code,
@@ -536,10 +549,14 @@ export async function createStripeCheckoutSession({
 
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -553,7 +570,7 @@ export async function createStripeCheckoutSession({
     code: SUBAPP_CODES.shop,
     user,
     url: workspace.url,
-    tenantId,
+    client,
   });
 
   if (!hasShopAccess) {
@@ -591,7 +608,7 @@ export async function createStripeCheckoutSession({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId,
+    client,
   });
 
   if (hidePriceAndPurchase) {
@@ -609,13 +626,14 @@ export async function createStripeCheckoutSession({
 
   const expectedAmount = computeExpectedAmount({total, workspace});
 
-  const payer = await findGooveeUserByEmail(user.email, tenantId);
+  const payer = await findGooveeUserByEmail(user.email, client);
 
   const currencyCode = currency?.code || DEFAULT_CURRENCY_CODE;
 
   try {
     const session = await createStripeOrder({
       tenantId,
+      client,
       customer: {
         id: payer?.id!,
         email: payer?.emailAddress?.address!,
@@ -676,10 +694,14 @@ export async function validateStripePayment({
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -693,7 +715,7 @@ export async function validateStripePayment({
     code: SUBAPP_CODES.shop,
     user,
     url: workspace.url,
-    tenantId,
+    client,
   });
 
   if (!hasShopAccess) {
@@ -738,7 +760,7 @@ export async function validateStripePayment({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId,
+    client,
   });
 
   if (hidePriceAndPurchase) {
@@ -752,7 +774,7 @@ export async function validateStripePayment({
   try {
     const order = await findStripeOrder({
       id: stripeSessionId,
-      tenantId,
+      client,
     });
     cart = order.context.data;
     paidAmount = order.amount;
@@ -784,11 +806,18 @@ export async function validateStripePayment({
     PaymentOption.stripe,
   );
 
-  const res = await createOrder({cart, workspaceURL, tenantId, paymentModeId});
+  const res = await createOrder({
+    cart,
+    workspaceURL,
+    client,
+    config: tenant.config,
+    paymentModeId,
+    tenantId,
+  });
   await markPaymentAsProcessed({
     contextId: context.id,
     version: context.version,
-    tenantId,
+    client,
   });
   return res;
 }
@@ -836,10 +865,14 @@ export async function payboxCreateOrder({
 
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -853,7 +886,7 @@ export async function payboxCreateOrder({
     code: SUBAPP_CODES.shop,
     user,
     url: workspace.url,
-    tenantId,
+    client,
   });
 
   if (!hasShopAccess) {
@@ -891,7 +924,7 @@ export async function payboxCreateOrder({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId,
+    client,
   });
 
   if (hidePriceAndPurchase) {
@@ -908,11 +941,11 @@ export async function payboxCreateOrder({
 
   const expectedAmount = computeExpectedAmount({total, workspace});
 
-  const payer = await findGooveeUserByEmail(user?.email, tenantId);
+  const payer = await findGooveeUserByEmail(user?.email, client);
 
   try {
     const response = await createPayboxOrder({
-      tenantId,
+      client,
       amount: expectedAmount,
       currency: currency?.code,
       email: payer?.emailAddress?.address!,
@@ -966,10 +999,14 @@ export async function validatePayboxPayment({
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -983,7 +1020,7 @@ export async function validatePayboxPayment({
     code: SUBAPP_CODES.shop,
     user,
     url: workspace.url,
-    tenantId,
+    client,
   });
 
   if (!hasShopAccess) {
@@ -1021,7 +1058,7 @@ export async function validatePayboxPayment({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId,
+    client,
   });
 
   if (hidePriceAndPurchase) {
@@ -1040,7 +1077,7 @@ export async function validatePayboxPayment({
 
   let paidAmount, cart, context;
   try {
-    const order = await findPayboxOrder({params, tenantId});
+    const order = await findPayboxOrder({params, client});
     cart = order.context.data;
     paidAmount = order.amount;
     context = order.context;
@@ -1071,11 +1108,18 @@ export async function validatePayboxPayment({
     PaymentOption.paybox,
   );
 
-  const res = await createOrder({cart, workspaceURL, tenantId, paymentModeId});
+  const res = await createOrder({
+    cart,
+    workspaceURL,
+    client,
+    config: tenant.config,
+    paymentModeId,
+    tenantId,
+  });
   await markPaymentAsProcessed({
     contextId: context.id,
     version: context.version,
-    tenantId,
+    client,
   });
   return res;
 }

@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import {type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {
   DEFAULT_CURRENCY_SCALE,
   DEFAULT_CURRENCY_SYMBOL,
@@ -8,7 +8,6 @@ import {
 } from '@/constants';
 import {getPageInfo, getSkipInfo} from '@/utils';
 import type {ID, PortalWorkspace} from '@/types';
-import {manager} from '@/tenant';
 import {formatNumber} from '@/locale/server/formatters';
 import {and} from '@/utils/orm';
 
@@ -17,7 +16,7 @@ import {QUOTATION_STATUS} from '@/subapps/quotations/common/constants/quotations
 
 export const fetchQuotations = async ({
   params = {},
-  tenantId,
+  client,
   workspaceURL,
 }: {
   archived?: boolean;
@@ -30,16 +29,14 @@ export const fetchQuotations = async ({
     limit?: string | number;
     page?: string | number;
   };
-  tenantId: Tenant['id'];
+  client: Client;
   workspaceURL: PortalWorkspace['url'];
 }) => {
   const {page = DEFAULT_PAGE, limit, where = {}} = params;
   const {id: clientPartnerId} = where.clientPartner || {};
 
-  if (!(clientPartnerId && tenantId && workspaceURL))
+  if (!(clientPartnerId && client && workspaceURL))
     return {quotations: [], pageInfo: {}};
-
-  const client = await manager.getClient(tenantId);
   const skip = getSkipInfo(limit, page);
 
   const whereClause: any = and<any>([
@@ -100,18 +97,16 @@ export const fetchQuotations = async ({
 
 export async function findQuotation({
   id,
-  tenantId,
+  client,
   params,
   workspaceURL,
 }: {
   id: any;
-  tenantId: Tenant['id'];
+  client: Client;
   params?: any;
   workspaceURL: PortalWorkspace['url'];
 }) {
-  if (!(tenantId && workspaceURL)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!(client && workspaceURL)) return null;
 
   const whereClause: any = and<any>([
     params?.where,

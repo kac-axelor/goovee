@@ -10,7 +10,7 @@ import {getSession} from '@/auth';
 import {ModelMap, ORDER_BY, SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {TENANT_HEADER} from '@/proxy';
-import {type Tenant} from '@/tenant';
+import {manager} from '@/tenant';
 import {addComment, findComments} from '@/comments/orm';
 import {
   CreateComment,
@@ -40,11 +40,15 @@ export async function findSearchNews({workspaceURL}: {workspaceURL: string}) {
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.news,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -57,7 +61,7 @@ export async function findSearchNews({workspaceURL}: {workspaceURL: string}) {
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -67,7 +71,7 @@ export async function findSearchNews({workspaceURL}: {workspaceURL: string}) {
     };
   }
 
-  const {news}: any = await findNews({workspace, tenantId, user}).then(clone);
+  const {news}: any = await findNews({workspace, client, user}).then(clone);
 
   return news;
 }
@@ -78,7 +82,7 @@ export async function findRecommendedNews({
   categoryIds,
 }: {
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  tenantId: string;
   categoryIds: string[];
 }) {
   if (!workspaceURL) {
@@ -98,11 +102,15 @@ export async function findRecommendedNews({
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.news,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -115,7 +123,7 @@ export async function findRecommendedNews({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -127,7 +135,7 @@ export async function findRecommendedNews({
 
   const {news}: any = await findNews({
     workspace,
-    tenantId,
+    client,
     limit: DEFAULT_NEWS_ASIDE_LIMIT,
     orderBy: {
       publicationDateTime: ORDER_BY.DESC,
@@ -155,7 +163,11 @@ export const createComment: CreateComment = async formData => {
     CreateCommentPropsSchema,
   );
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
@@ -178,7 +190,7 @@ export const createComment: CreateComment = async formData => {
     code: SUBAPP_CODES.news,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return {error: true, message: await t('Unauthorized Access')};
@@ -187,7 +199,7 @@ export const createComment: CreateComment = async formData => {
   const {news}: any = await findNews({
     id: rest.recordId,
     workspace,
-    tenantId,
+    client,
     user,
   });
   if (!news?.length) {
@@ -201,7 +213,7 @@ export const createComment: CreateComment = async formData => {
       modelName,
       userId: user.id,
       workspaceUserId: workspaceUser.id,
-      tenantId,
+      client,
       commentField: 'note',
       trackingField: 'publicBody',
       subject: `${user.simpleFullName || user.name} added a comment`,
@@ -219,6 +231,7 @@ export const createComment: CreateComment = async formData => {
         userId: parentComment.partner.id,
         tenantId,
         workspaceURL,
+        client,
         payload: {
           title: await tr(
             '{0} replied to your comment on {1}',
@@ -265,7 +278,11 @@ export const fetchComments: FetchComments = async props => {
     };
   }
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
@@ -284,7 +301,7 @@ export const fetchComments: FetchComments = async props => {
     code: SUBAPP_CODES.news,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return {error: true, message: await t('Unauthorized Access')};
@@ -293,7 +310,7 @@ export const fetchComments: FetchComments = async props => {
   const {news}: any = await findNews({
     id: rest.recordId,
     workspace,
-    tenantId,
+    client,
     user,
   });
   if (!news?.length) {
@@ -303,7 +320,7 @@ export const fetchComments: FetchComments = async props => {
   try {
     const data = await findComments({
       modelName,
-      tenantId,
+      client,
       commentField: 'note',
       trackingField: 'publicBody',
       ...rest,

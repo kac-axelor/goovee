@@ -1,4 +1,4 @@
-import {Tenant, manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {SUBAPP_CODES} from '@/constants';
 import type {PortalApp, PortalWorkspace, User} from '@/types';
 import {findSubappAccess} from './workspace';
@@ -8,7 +8,7 @@ type Params = {
   code: PortalApp['code'];
   user: User;
   url: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
 };
 
 type UpdateParams = Params & {
@@ -58,8 +58,7 @@ const pick = (obj: any = {}, ...keys: string[]) =>
   Object.fromEntries(Object.entries(obj).filter(([key]) => keys.includes(key)));
 
 export async function findPartnerPreference(params: Params) {
-  const {code, url, user, tenantId} = params;
-  const client = await manager.getClient(tenantId);
+  const {code, url, user, client} = params;
 
   const preference = await client.aOSPartner
     .findOne({
@@ -87,8 +86,7 @@ export async function findPartnerPreference(params: Params) {
 }
 
 async function createPartnerPreference(params: UpdateParams) {
-  const {code, url, user, tenantId} = params;
-  const client = await manager.getClient(tenantId);
+  const {code, url, user, client} = params;
 
   const partner = await client.aOSPartner.findOne({
     where: {id: user.id},
@@ -183,14 +181,13 @@ const routes = {
 };
 
 async function findEventsCategories(params: Params) {
-  const {user, tenantId, url} = params;
-  const client = await manager.getClient(tenantId);
+  const {user, client, url} = params;
 
   const categories = await client.aOSPortalEventCategory
     .find({
       where: {
         workspace: {url},
-        ...(await filterPrivate({user, tenantId})),
+        ...(await filterPrivate({user, client})),
       },
       select: {
         name: true,
@@ -230,14 +227,13 @@ async function findEventsPreferences(params: Params) {
 }
 
 async function findNewsCategories(params: Params) {
-  const {user, tenantId, url} = params;
-  const client = await manager.getClient(tenantId);
+  const {user, client, url} = params;
 
   const categories = await client.aOSPortalNewsCategory
     .find({
       where: {
         workspace: {url},
-        ...(await filterPrivate({user, tenantId})),
+        ...(await filterPrivate({user, client})),
       },
       select: {
         name: true,
@@ -279,8 +275,7 @@ async function findNewsPreferences(params: Params) {
 }
 
 async function findResourcesFolders(params: Params) {
-  const {user, tenantId, url} = params;
-  const client = await manager.getClient(tenantId);
+  const {user, client, url} = params;
 
   const folders = await client.aOSDMSFile
     .find({
@@ -290,7 +285,7 @@ async function findResourcesFolders(params: Params) {
         parent: {
           id: {eq: null},
         },
-        ...(await filterPrivate({user, tenantId})),
+        ...(await filterPrivate({user, client})),
       },
       select: {
         fileName: true,
@@ -333,8 +328,7 @@ async function findResourcesPreferences(params: Params) {
 }
 
 async function findForumGroups(params: Params) {
-  const {user, tenantId, url} = params;
-  const client = await manager.getClient(tenantId);
+  const {user, client, url} = params;
 
   const groups = await client.aOSPortalForumGroupMember
     .find({
@@ -344,7 +338,7 @@ async function findForumGroups(params: Params) {
         },
         forumGroup: {
           workspace: {url},
-          ...(await filterPrivate({user, tenantId})),
+          ...(await filterPrivate({user, client})),
         },
       },
       select: {
@@ -388,8 +382,7 @@ async function findForumPreferences(params: Params) {
 }
 
 async function findTickets(params: Params) {
-  const {user, tenantId, url} = params;
-  const client = await manager.getClient(tenantId);
+  const {user, client, url} = params;
 
   const tickets = await client.aOSProjectTask
     .find({
@@ -482,8 +475,7 @@ const updatePreferenceConfigs: any = {
 export async function updatePartnerPreference(params: UpdateParams) {
   let preference = await findOrCreatePartnerPreference(params);
 
-  const {code, tenantId, record, activateNotification = false} = params;
-  const client = await manager.getClient(tenantId);
+  const {code, client, record, activateNotification = false} = params;
 
   if (!record) {
     preference = await client.aOSPortalUserPreference.update({

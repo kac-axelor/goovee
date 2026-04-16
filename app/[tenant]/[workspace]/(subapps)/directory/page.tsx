@@ -28,6 +28,7 @@ import {MapSkeleton} from './common/ui/components/map/map-skeleton';
 import {getOrderBy, getPages, getSkip} from './common/utils';
 import {ensureAuth} from './common/utils/auth-helper';
 import Hero from './hero';
+import {Client} from '@/goovee/.generated/client';
 
 const ITEMS_PER_PAGE = 7;
 
@@ -42,6 +43,7 @@ export default async function Page(props: {
   if (error) notFound();
 
   const {workspace} = auth;
+  const {client} = auth.tenant;
 
   const {page = 1, limit = ITEMS_PER_PAGE, sort, city, zip} = searchParams;
 
@@ -49,7 +51,7 @@ export default async function Page(props: {
     orderBy: getOrderBy(sort),
     take: +limit,
     skip: getSkip(limit, page),
-    tenantId: tenant,
+    client,
     city,
     zip,
   });
@@ -80,7 +82,7 @@ export default async function Page(props: {
             {/* NOTE: expand class applied by the map , when it is expanded and when it is in mobile view */}
             <div className="flex has-[.expand]:flex-col gap-4 mt-4">
               <Suspense fallback={<MapSkeleton />}>
-                <ServerMap entries={partners} tenant={tenant} />
+                <ServerMap entries={partners} client={client} />
               </Suspense>
               <main className="grow flex flex-col gap-4">
                 {partners.map(item => (
@@ -107,9 +109,9 @@ export default async function Page(props: {
   );
 }
 
-async function ServerMap(props: {entries: ListEntry[]; tenant: string}) {
-  const {entries, tenant} = props;
-  const mapConfig = await findMapConfig({tenantId: tenant});
+async function ServerMap(props: {entries: ListEntry[]; client: Client}) {
+  const {entries, client} = props;
+  const mapConfig = await findMapConfig({client});
 
   const mapEntries = entries.filter(
     x => x.mainAddress?.longit && x.mainAddress?.latit,

@@ -30,9 +30,13 @@ export async function createAddress(values: Partial<PartnerAddress>) {
 
   if (!(session && tenantId)) return null;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
   const userId = getPartnerId(session?.user);
 
-  const address = await createPartnerAddress(userId, values, tenantId).then(
+  const address = await createPartnerAddress(userId, values, client).then(
     clone,
   );
 
@@ -45,9 +49,13 @@ export async function updateAddress(values: PartnerAddress) {
 
   if (!(session && tenantId)) return null;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
   const userId = getPartnerId(session?.user);
 
-  const address = await updatePartnerAddress(userId, values, tenantId).then(
+  const address = await updatePartnerAddress(userId, values, client).then(
     clone,
   );
 
@@ -68,6 +76,10 @@ export async function updateDefaultAddress({
 
   if (!(session && tenantId)) return null;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
   const updateHandler =
     type === ADDRESS_TYPE.delivery
       ? updateDefaultDeliveryAddress
@@ -78,7 +90,7 @@ export async function updateDefaultAddress({
   return updateHandler({
     partnerAddressId: id,
     partnerId: userId,
-    tenantId,
+    client,
     isDefault,
   }).then(clone);
 }
@@ -89,10 +101,14 @@ export async function deleteAddress(id: PartnerAddress['id']) {
 
   if (!(session?.user && tenantId && id)) return null;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
   const {user} = session;
   const userId = getPartnerId(user);
 
-  const address = await deletePartnerAddress(userId, id, tenantId).then(clone);
+  const address = await deletePartnerAddress(userId, id, client).then(clone);
 
   return address;
 }
@@ -122,6 +138,10 @@ export async function confirmAddresses({
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Bad request')};
+  const {client} = tenant;
+
   if (!record) {
     return {
       error: true,
@@ -143,7 +163,7 @@ export async function confirmAddresses({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -157,7 +177,7 @@ export async function confirmAddresses({
     code: subAppCode,
     user,
     url: workspace.url,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -173,7 +193,7 @@ export async function confirmAddresses({
     const response = await getQuotationRecord({
       id: record.id,
       user,
-      tenantId,
+      client,
       workspaceURL,
       subapp,
     });
@@ -205,7 +225,6 @@ export async function confirmAddresses({
       },
     };
 
-    const client = await manager.getClient(tenantId);
     const result = await client.aOSOrder
       .update({data: reqBody, select: {id: true}})
       .then(clone)

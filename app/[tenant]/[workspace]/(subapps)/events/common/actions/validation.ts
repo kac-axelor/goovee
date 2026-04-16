@@ -2,6 +2,7 @@ import {getTranslation, t, tattr} from '@/locale/server';
 import {getSession} from '@/auth';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -60,12 +61,12 @@ export async function withAuth(
   return {error: null};
 }
 
-export function withSubapp(code: string, url: string, tenantId: Tenant['id']) {
+export function withSubapp(code: string, url: string, client: Client) {
   return async function () {
     const session = await getSession();
     const user = session?.user;
 
-    const subapp = await findSubappAccess({code, user, url, tenantId});
+    const subapp = await findSubappAccess({code, user, url, client});
 
     if (!subapp) {
       return error(await t('Unauthorized'));
@@ -77,12 +78,12 @@ export function withSubapp(code: string, url: string, tenantId: Tenant['id']) {
 
 export function withWorkspace(
   url: string,
-  tenantId: Tenant['id'],
+  client: Client,
   config?: {checkAuth?: boolean},
 ) {
   return async function (): Promise<ValidationResult> {
     if (config?.checkAuth) {
-      const result = await withAuth({tenantId});
+      const result = await withAuth();
       if (result?.error) return result;
       return {error: null};
     }
@@ -90,12 +91,12 @@ export function withWorkspace(
     const session = await getSession();
     const user = session?.user;
 
-    const workspace = await findWorkspace({user, url, tenantId});
+    const workspace = await findWorkspace({user, url, client});
 
     if (!workspace) {
       return {
         error: true,
-        message: await getTranslation({tenant: tenantId}, 'Invalid workspace'),
+        message: await t('Invalid workspace'),
       };
     }
 
@@ -104,15 +105,15 @@ export function withWorkspace(
 }
 
 export async function validateRegistration({
-  tenantId,
   eventId,
   values,
   workspaceURL,
+  client,
 }: {
   eventId: string;
   values: any;
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }): ActionResponse<{
   workspace: PortalWorkspace;
   event: EventConfig;
@@ -139,14 +140,14 @@ export async function validateRegistration({
   const session = await getSession();
   const user = session?.user;
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
   if (!workspace) return error(await t('Invalid workspace'));
 
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.events,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!subapp) {
     return {error: true, message: await t('Unauthorized Access')};
@@ -168,7 +169,7 @@ export async function validateRegistration({
     );
   }
 
-  const event = await findEventConfig({id: eventId, tenantId, workspaceURL});
+  const event = await findEventConfig({id: eventId, client, workspaceURL});
   if (!event) return error(await t('Event not found'));
 
   if (!event.eventAllowRegistration) {
@@ -241,7 +242,7 @@ export async function validateRegistration({
         canEmailBeRegistered({
           event,
           email: participant.emailAddress,
-          tenantId,
+          client,
         }),
       ),
     );

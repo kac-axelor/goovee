@@ -9,6 +9,7 @@ import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {PartnerKey, type User} from '@/types';
 import {SUBAPP_CODES} from '@/constants';
 import {getWhereClauseForEntity} from '@/utils/filters';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -22,8 +23,17 @@ type PageProps = {
     workspace: string;
   }>;
 };
-async function Quotation({params}: PageProps) {
-  const {id, tenant} = params;
+async function Quotation({params: paramsProm}: PageProps) {
+  const params = await paramsProm;
+  const {id, tenant: tenantId} = params;
+
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
+    return notFound();
+  }
+
+  const {client} = tenant;
 
   const session = await getSession();
   const user = session?.user;
@@ -37,7 +47,7 @@ async function Quotation({params}: PageProps) {
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -46,7 +56,7 @@ async function Quotation({params}: PageProps) {
     code: SUBAPP_CODES.quotations,
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   const {role, isContactAdmin} = app;
@@ -60,7 +70,7 @@ async function Quotation({params}: PageProps) {
 
   const quotation = await findQuotation({
     id,
-    tenantId: tenant,
+    client,
     params: {
       where,
     },
@@ -75,7 +85,7 @@ async function Quotation({params}: PageProps) {
     code: SUBAPP_CODES.orders,
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   return (
@@ -88,10 +98,9 @@ async function Quotation({params}: PageProps) {
 }
 
 export default async function Page(props: PageProps) {
-  const params = await props.params;
   return (
     <Suspense fallback={<QuotationSkeleton />}>
-      <Quotation params={params} />
+      <Quotation params={props.params} />
     </Suspense>
   );
 }

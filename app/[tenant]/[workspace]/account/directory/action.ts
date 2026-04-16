@@ -41,10 +41,14 @@ export async function updateDirectorySettings({
       return {error: true, message: await t('Tenant not found')};
     }
 
+    const tenant = await manager.getTenant(tenantId);
+    if (!tenant) return {error: true, message: await t('Tenant not found')};
+    const {client} = tenant;
+
     const workspace = await findWorkspace({
       user,
       url: workspaceURL,
-      tenantId,
+      client,
     });
 
     if (!workspace) {
@@ -63,12 +67,12 @@ export async function updateDirectorySettings({
     const isPartnerUser = !user.isContact;
     const isAdminContactUser = Boolean(
       await isAdminContact({
-        tenantId: tenantId,
+        client,
         workspaceURL,
       }),
     );
 
-    const partner = await findGooveeUserByEmail(session.user.email!, tenantId);
+    const partner = await findGooveeUserByEmail(session.user.email!, client);
     if (!partner) {
       return {error: true, message: await t('Partner not found')};
     }
@@ -79,7 +83,7 @@ export async function updateDirectorySettings({
 
     if (canUpdateCompany && companyPartner) {
       await updatePartner({
-        tenantId,
+        client,
         data: {
           id: companyPartner.id,
           version: companyPartner.version,
@@ -95,7 +99,7 @@ export async function updateDirectorySettings({
 
     if (canUpdateContact) {
       await updatePartner({
-        tenantId,
+        client,
         data: {
           id: partner.id,
           version: partner.version,
@@ -148,10 +152,14 @@ export async function updateCompanyProfileImage(
     return {error: true, message: await t('Tenant not found')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Tenant not found')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -163,7 +171,7 @@ export async function updateCompanyProfileImage(
 
   const isAdminContactUser = Boolean(
     await isAdminContact({
-      tenantId: tenantId,
+      client,
       workspaceURL,
     }),
   );
@@ -172,7 +180,7 @@ export async function updateCompanyProfileImage(
     return {error: true, message: await t('Unauthorized')};
   }
 
-  const partner = await findGooveeUserByEmail(session.user.email!, tenantId);
+  const partner = await findGooveeUserByEmail(session.user.email!, client);
   if (!partner) {
     return {error: true, message: await t('Partner not found')};
   }
@@ -180,11 +188,6 @@ export async function updateCompanyProfileImage(
   const companyPartner = partner.mainPartner;
   if (!companyPartner) {
     return {error: true, message: await t('Company not found')};
-  }
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
-    return {error: true, message: await t('Invalid tenant')};
   }
 
   let uploadedPicture = null;
@@ -236,7 +239,7 @@ export async function updateCompanyProfileImage(
               picture: {select: {id: null}},
             }),
       },
-      tenantId,
+      client: client,
     });
   } catch (err) {
     return {

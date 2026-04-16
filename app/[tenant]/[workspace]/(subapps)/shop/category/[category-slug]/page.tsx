@@ -8,6 +8,7 @@ import {workspacePathname} from '@/utils/workspace';
 import {getSession} from '@/auth';
 import {DEFAULT_LIMIT} from '@/constants';
 import type {Category, PortalAppConfig} from '@/types';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -27,7 +28,7 @@ async function Category({
   params: {tenant: string; workspace: string; 'category-slug': string};
   searchParams: {[key: string]: string | undefined};
 }) {
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const {search, limit, page, sort} = searchParams;
 
   const categorySlug = params['category-slug'];
@@ -37,10 +38,14 @@ async function Category({
 
   const {workspaceURL, workspaceURI} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -49,7 +54,7 @@ async function Category({
 
   const categories = await findCategories({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -99,7 +104,7 @@ async function Category({
     categoryids,
     workspace,
     user,
-    tenantId: tenant,
+    client,
   });
 
   const parentcategories = categories?.filter((c: any) => !c.parent);
@@ -107,7 +112,7 @@ async function Category({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId: tenant,
+    client,
   });
 
   return (

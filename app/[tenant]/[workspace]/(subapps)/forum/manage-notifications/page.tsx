@@ -3,6 +3,7 @@ import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
 import {getSession} from '@/auth';
+import {manager} from '@/tenant';
 import {clone} from '@/utils';
 
 // ---- LOCAL IMPORTS ---- //
@@ -21,15 +22,19 @@ export default async function Page(props: {
 }) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const session = await getSession();
   const user = session?.user;
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {

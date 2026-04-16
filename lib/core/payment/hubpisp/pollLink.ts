@@ -11,6 +11,7 @@ import {getPaymentLinkStatus} from '.';
 import {HUBPISP_CONSENT_STATUS} from './constants';
 import type {HubPispLocalInstrument} from './constants';
 import {pollPaymentRequestStatus} from './poll';
+import {manager} from '@/tenant';
 
 const POLL_LINK_INTERVAL = 30_000; // 30s
 
@@ -52,9 +53,19 @@ export async function pollPaymentLinkStatus({
   while (Date.now() < deadline) {
     await sleep(POLL_LINK_INTERVAL);
 
+    const tenant = await manager.getTenant(tenantId);
+    if (!tenant) {
+      console.error('[HUBPISP][POLL_LINK] Tenant not found, stopping poll', {
+        tenantId,
+        contextId,
+      });
+      return;
+    }
+    const {client} = tenant;
+
     const paymentContext = await findPaymentContext({
       id: contextId,
-      tenantId,
+      client,
       mode: PaymentOption.hubpisp,
       ignoreExpiration: true,
     });
@@ -101,7 +112,7 @@ export async function pollPaymentLinkStatus({
       await markPaymentAsExpired({
         contextId: paymentContext.id,
         version: paymentContext.version,
-        tenantId,
+        client,
       });
       return;
     }
@@ -133,7 +144,7 @@ export async function pollPaymentLinkStatus({
     await updatePaymentContextData({
       id: paymentContext.id,
       version: paymentContext.version,
-      tenantId,
+      client,
       context: {...paymentContext.data, paymentRequestResourceId},
     });
 
@@ -152,9 +163,13 @@ export async function pollPaymentLinkStatus({
     {contextId, resourceId},
   );
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return;
+  const {client} = tenant;
+
   const paymentContext = await findPaymentContext({
     id: contextId,
-    tenantId,
+    client,
     mode: PaymentOption.hubpisp,
     ignoreExpiration: true,
   });
@@ -162,7 +177,7 @@ export async function pollPaymentLinkStatus({
     await markPaymentAsExpired({
       contextId: paymentContext.id,
       version: paymentContext.version,
-      tenantId,
+      client,
     });
   }
 }

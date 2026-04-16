@@ -3,6 +3,7 @@ import sanitizeHtml from 'sanitize-html';
 import {NextResponse} from 'next/server';
 
 import {manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {findPreferences} from '@/orm/notification';
 import NotificationManager, {NotificationType} from '@/notification';
 import {getTranslation} from '@/locale/server';
@@ -10,15 +11,7 @@ import type {PortalApp} from '@/types';
 import {notifyUser} from '@/pwa/utils';
 import {NotificationTag} from '@/pwa/tags';
 
-async function findAppByCode({
-  code,
-  tenantId,
-}: {
-  code: string;
-  tenantId: string;
-}) {
-  const client = await manager.getClient(tenantId);
-
+async function findAppByCode({code, client}: {code: string; client: Client}) {
   return client.aOSPortalApp.findOne({
     where: {
       code,
@@ -176,6 +169,7 @@ async function sendSystemNotification({
   app,
   entity,
   workspace,
+  client,
 }: {
   user: any;
   tenantId: string;
@@ -187,11 +181,13 @@ async function sendSystemNotification({
     name: string;
     url: string;
   };
+  client: any;
 }) {
   notifyUser({
     userId: user.id,
     tenantId,
     workspaceURL: workspace.url,
+    client,
     payload: {
       title:
         mail?.subject ||
@@ -219,12 +215,11 @@ async function sendNotifications(data: {
     subject?: string;
     body?: string;
   };
+  client: Client;
 }) {
-  const {tenantId, workspace, code, record, mail} = data;
+  const {tenantId, workspace, code, record, mail, client} = data;
 
   try {
-    const client = await manager.getClient(tenantId);
-
     const users = await client.aOSPartner
       .find({
         select: {
@@ -246,7 +241,7 @@ async function sendNotifications(data: {
     const checkSubscription = async (user: any) => {
       const preference = await findPreferences({
         user: user as any,
-        tenantId,
+        client,
         code,
         url: workspace.url,
       });
@@ -264,7 +259,7 @@ async function sendNotifications(data: {
       }
     };
 
-    const app: any = await findAppByCode({code, tenantId});
+    const app: any = await findAppByCode({code, client});
 
     processBatch(users, checkSubscription).then(() =>
       processBatch(
@@ -278,6 +273,7 @@ async function sendNotifications(data: {
             entity,
             app,
             workspace,
+            client,
           });
         },
       ),
@@ -321,23 +317,23 @@ export async function POST(request: Request) {
     return response('Unauthorized', 401);
   }
 
-  const tenant = await manager.getConfig(tenantId);
+  const tenantConfig = await manager.getConfig(tenantId);
 
-  if (!tenant) {
+  if (!tenantConfig) {
     return response('Invalid Tenant', 400);
   }
 
   const validUsername =
-    tenant.aos?.auth?.username &&
+    tenantConfig.aos?.auth?.username &&
     crypto.timingSafeEqual(
-      Buffer.from(tenant.aos.auth.username),
+      Buffer.from(tenantConfig.aos.auth.username),
       Buffer.from(credentials.username),
     );
 
   const validPassword =
-    tenant.aos?.auth?.password &&
+    tenantConfig.aos?.auth?.password &&
     crypto.timingSafeEqual(
-      Buffer.from(tenant.aos.auth.password),
+      Buffer.from(tenantConfig.aos.auth.password),
       Buffer.from(credentials.password),
     );
 
@@ -345,10 +341,11 @@ export async function POST(request: Request) {
     return response('Unauthorized', 401);
   }
 
-  const client = await manager.getClient(tenantId);
-  if (!client) {
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
     return response('Unauthorized', 401);
   }
+  const {client} = tenant;
 
   const workspace = await client.aOSPortalWorkspace.findOne({
     where: {url: workspaceUrl},
@@ -359,7 +356,7 @@ export async function POST(request: Request) {
     return response('Invalid Workspace', 401);
   }
 
-  sendNotifications({...payload, workspace});
+  sendNotifications({...payload, workspace, client});
 
   return response('Success', 200);
 }

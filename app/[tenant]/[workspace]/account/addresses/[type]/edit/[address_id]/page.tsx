@@ -8,6 +8,7 @@ import {getSession} from '@/auth';
 import {findCountries, findPartnerAddress} from '@/orm/address';
 import {findGooveeUserByEmail, PartnerTypeMap} from '@/orm/partner';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -22,7 +23,7 @@ export default async function Page(props: {
   }>;
 }) {
   const params = await props.params;
-  const {tenant, type, address_id} = params;
+  const {tenant: tenantId, type, address_id} = params;
   const {workspaceURI} = workspacePathname(params);
 
   const REDIRECT_ADDRESS_URL = `${workspaceURI}/${SUBAPP_PAGE.account}/${SUBAPP_PAGE.addresses}`;
@@ -37,7 +38,11 @@ export default async function Page(props: {
     return notFound();
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenant);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     return notFound();
@@ -49,14 +54,14 @@ export default async function Page(props: {
     ([key, value]) => value === partnerTypeSelect,
   )?.[0];
 
-  const countries: any = await findCountries(tenant).then(clone);
+  const countries: any = await findCountries(client).then(clone);
 
   const userId = getPartnerId(user);
 
   const partnerAddress = await findPartnerAddress({
     partnerId: userId,
     addressId: address_id,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!partnerAddress) {

@@ -1,20 +1,14 @@
-import {t} from '@/lib/core/locale/server';
-import {manager, type Tenant} from '@/lib/core/tenant';
+import type {Client} from '@/goovee/.generated/client';
 
 import {MAP_SELECT} from '../constants';
 import type {MapConfig} from '../types';
 
 export async function findMapConfig({
-  tenantId,
+  client,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<MapConfig> {
-  if (!tenantId) {
-    throw new Error(await t('Missing required parameters'));
-  }
-  const c = await manager.getClient(tenantId);
-
-  const mapConfig = await c.aOSAppBase.findOne({
+  const mapConfig = await client.aOSAppBase.findOne({
     where: {OR: [{archived: false}, {archived: null}]},
     select: {
       mapApiSelect: true,

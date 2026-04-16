@@ -1,21 +1,19 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {clone} from '@/utils';
 
 export async function findModelRecord({
   recordId,
-  tenantId,
+  client,
 }: {
   recordId: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!tenantId) {
+  if (!client) {
     return [];
   }
 
-  const c = await manager.getClient(tenantId);
-
-  const record = await c.aOSMetaJsonRecord
+  const record = await client.aOSMetaJsonRecord
     .findOne({
       where: {id: recordId},
     })
@@ -26,18 +24,16 @@ export async function findModelRecord({
 
 export async function findModelRecords({
   recordIds,
-  tenantId,
+  client,
 }: {
   recordIds: string[];
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!tenantId) {
+  if (!client) {
     return [];
   }
 
-  const c = await manager.getClient(tenantId);
-
-  const record = await c.aOSMetaJsonRecord
+  const record = await client.aOSMetaJsonRecord
     .find({
       where: {
         id: {

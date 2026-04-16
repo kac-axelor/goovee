@@ -42,7 +42,11 @@ export async function subscribe({
 
   const url = workspace?.url;
 
-  const userWorkspaces = await findWorkspaces({url, user, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await getTranslation({}, 'Invalid tenant'));
+  const {client} = tenant;
+
+  const userWorkspaces = await findWorkspaces({url, user, client});
 
   const existing = userWorkspaces?.find((w: any) => w.id === workspace?.id);
 
@@ -51,7 +55,7 @@ export async function subscribe({
   }
 
   const defaultPartnerWorkspaceConfig = await findDefaultPartnerWorkspaceConfig(
-    {url, tenantId},
+    {url, client},
   );
 
   if (!defaultPartnerWorkspaceConfig) {
@@ -62,8 +66,6 @@ export async function subscribe({
       ),
     );
   }
-
-  const client = await manager.getClient(tenantId);
 
   const $user = await client.aOSPartner.findOne({
     where: {
@@ -119,7 +121,7 @@ export async function subscribe({
         id: $user.mainPartner.id!,
         isContact: false,
       } as any,
-      tenantId,
+      client,
     });
 
     const existsInPartner = partnerWorkspaces.find((w: any) => w.url === url);
@@ -168,7 +170,9 @@ export async function subscribe({
   return error(await getTranslation({}, 'Error subscribing, try again'));
 }
 
-export async function registerByEmail(data: RegisterDTO) {
+export async function registerByEmail(
+  data: Omit<RegisterDTO, 'client' | 'config'>,
+) {
   const {email, password, confirmPassword, otp, tenantId} = data;
 
   if (!tenantId) {
@@ -206,21 +210,26 @@ export async function registerByEmail(data: RegisterDTO) {
     return error(await getTranslation({tenant: tenantId}, 'OTP is required'));
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant)
+    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
+  const {client, config} = tenant;
+
   const otpResult = await findOne({
     scope: Scope.Registration,
     entity: email,
-    tenantId,
+    client,
   });
 
   if (!otpResult) {
     return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
   }
 
-  if (!(await isValid({id: otpResult.id, value: otp, tenantId}))) {
+  if (!(await isValid({id: otpResult.id, value: otp, client}))) {
     return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
   }
 
-  await markUsed({id: otpResult.id, tenantId});
+  await markUsed({id: otpResult.id, client});
 
-  return register(data);
+  return register({...data, client, config});
 }

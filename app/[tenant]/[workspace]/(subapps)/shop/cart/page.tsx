@@ -6,6 +6,7 @@ import {findWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
 import type {Cart} from '@/types';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -18,25 +19,29 @@ async function CartView({
 }: {
   params: {tenant: string; workspace: string};
 }) {
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const session = await getSession();
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user: session?.user,
     workspace,
-    tenantId: tenant,
+    client,
   });
 
   if (hidePriceAndPurchase) notFound();
-  return <Content workspace={workspace} tenant={tenant} />;
+  return <Content workspace={workspace} tenant={tenantId} />;
 }
 
 export default async function Cart(props: {

@@ -70,7 +70,9 @@ export async function upload(formData: FormData, workspaceURL: string) {
     };
   }
 
-  const client = await manager.getClient(tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
 
   const parentId = formData.get('parent');
 
@@ -96,7 +98,7 @@ export async function upload(formData: FormData, workspaceURL: string) {
     code: SUBAPP_CODES.resources,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -109,7 +111,7 @@ export async function upload(formData: FormData, workspaceURL: string) {
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -123,7 +125,7 @@ export async function upload(formData: FormData, workspaceURL: string) {
     id: parentId as string,
     workspace,
     user,
-    tenantId,
+    client,
   });
 
   if (!parent) {

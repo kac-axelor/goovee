@@ -72,10 +72,10 @@ export default async function Page(props: {
   const [project, statuses, categories, priorities, contacts] =
     await Promise.all([
       findProject(projectId, auth),
-      findTicketStatuses(projectId, tenant),
-      findTicketCategories(projectId, tenant).then(clone),
-      findTicketPriorities(projectId, tenant).then(clone),
-      findMainPartnerContacts(projectId, tenant).then(clone),
+      findTicketStatuses(projectId, auth.tenant.client),
+      findTicketCategories(projectId, auth.tenant.client).then(clone),
+      findTicketPriorities(projectId, auth.tenant.client).then(clone),
+      findMainPartnerContacts(projectId, auth.tenant.client).then(clone),
     ]);
 
   if (!project) notFound();

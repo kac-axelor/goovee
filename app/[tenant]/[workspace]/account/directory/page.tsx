@@ -5,12 +5,13 @@ import Form from './form';
 import {findGooveeUserByEmail, isAdminContact} from '@/orm/partner';
 import {findWorkspace} from '@/orm/workspace';
 import {t} from '@/lib/core/locale/server';
+import {manager} from '@/lib/core/tenant';
 
 export default async function Page(props: {
   params: Promise<{tenant: string; workspace: string}>;
 }) {
   const params = await props.params;
-  const {tenant, workspaceURL} = workspacePathname(params);
+  const {tenant: tenantId, workspaceURL} = workspacePathname(params);
   const session = await getSession();
   const user = session?.user;
 
@@ -18,17 +19,21 @@ export default async function Page(props: {
     return notFound();
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (!workspace) {
     return notFound();
   }
 
-  const partner = await findGooveeUserByEmail(user.email, tenant);
+  const partner = await findGooveeUserByEmail(user.email, client);
 
   if (!partner) {
     return notFound();
@@ -37,7 +42,7 @@ export default async function Page(props: {
   const isPartnerUser = !user.isContact;
   const isAdminContactUser = Boolean(
     await isAdminContact({
-      tenantId: tenant,
+      client,
       workspaceURL,
     }),
   );

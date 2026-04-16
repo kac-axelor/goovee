@@ -3,6 +3,7 @@ import {NextRequest, NextResponse} from 'next/server';
 // ---- CORE IMPORTS ---- //
 import {RELATED_MODELS, SUBAPP_CODES} from '@/constants';
 import {getSession} from '@/lib/core/auth';
+import {manager} from '@/tenant';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {findLatestDMSFileByName, streamFile} from '@/utils/download';
 import {workspacePathname} from '@/utils/workspace';
@@ -27,6 +28,12 @@ export async function GET(
   const {'invoice-id': invoiceId} = params;
   const token = request.nextUrl.searchParams.get('token') ?? undefined;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return new NextResponse('Bad Request', {status: 400});
+  }
+  const {client} = tenant;
+
   let invoicesWhereClause = {};
   let user: any;
 
@@ -42,7 +49,7 @@ export async function GET(
       code: SUBAPP_CODES.invoices,
       user,
       url: workspaceURL,
-      tenantId,
+      client,
     });
 
     if (!subapp?.isInstalled) {
@@ -59,7 +66,7 @@ export async function GET(
 
   const workspace = await findWorkspace({
     url: workspaceURL,
-    tenantId,
+    client,
     user,
   });
 
@@ -71,7 +78,7 @@ export async function GET(
     id: invoiceId,
     ...(token ? {token} : {params: {where: invoicesWhereClause}}),
     workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!invoice) {
@@ -79,7 +86,8 @@ export async function GET(
   }
 
   const file = await findLatestDMSFileByName({
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
     ...(token ? {skipUserCheck: true} : {user}),
     relatedId: invoiceId,
     relatedModel: RELATED_MODELS.INVOICE,

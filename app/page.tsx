@@ -26,14 +26,18 @@ export default async function Page(props: {
     tenantId = DEFAULT_TENANT;
   }
 
-  if (!tenantId) {
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
     return notFound();
   }
+
+  const {client} = tenant;
 
   const workspaces = await findWorkspaces({
     url: process.env.GOOVEE_PUBLIC_HOST,
     user,
-    tenantId,
+    client,
   });
 
   if (!workspaces?.length) {
@@ -48,7 +52,7 @@ export default async function Page(props: {
     const workspaceApps = await findSubapps({
       user,
       url,
-      tenantId,
+      client,
     }).then(clone);
 
     if (workspaceApps?.length) {
@@ -63,12 +67,12 @@ export default async function Page(props: {
 
     const defaultWorkspace = await findDefaultPartnerWorkspace({
       partnerId,
-      tenantId,
+      client,
     });
 
     if (defaultWorkspace?.workspace?.url) {
       const url = defaultWorkspace?.workspace?.url;
-      const apps = await findSubapps({url, user, tenantId});
+      const apps = await findSubapps({url, user, client});
       if (apps?.length) {
         redirectURL = `${url}/${apps[0].code}`;
       }
@@ -77,7 +81,7 @@ export default async function Page(props: {
 
   if (!redirectURL) {
     for (const w of workspaces) {
-      const apps = await findSubapps({url: w.url!, user, tenantId});
+      const apps = await findSubapps({url: w.url!, user, client});
       if (apps?.length) {
         redirectURL = `${w.url}/${apps[0].code}`;
         break;

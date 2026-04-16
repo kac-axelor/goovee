@@ -1,6 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {PartnerKey, User} from '@/types';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORT ---- //
 import {findQuotation} from '@/app/[tenant]/[workspace]/(subapps)/quotations/common/orm/quotations';
@@ -8,13 +9,13 @@ import {findQuotation} from '@/app/[tenant]/[workspace]/(subapps)/quotations/com
 export async function getQuotationRecord({
   id,
   user,
-  tenantId,
+  client,
   workspaceURL,
   subapp,
 }: {
   id: string;
   user: User;
-  tenantId: string;
+  client: Client;
   workspaceURL: string;
   subapp: {
     role: string;
@@ -31,7 +32,7 @@ export async function getQuotationRecord({
 
   return await findQuotation({
     id,
-    tenantId,
+    client,
     params: {where: quotationWhereClause},
     workspaceURL,
   });

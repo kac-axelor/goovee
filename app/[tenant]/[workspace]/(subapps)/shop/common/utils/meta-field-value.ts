@@ -3,11 +3,12 @@ import {
   JSON_MANY_TO_MANY,
   JSON_MANY_TO_ONE,
 } from '@/subapps/shop/common/constants';
+import type {Client} from '@/goovee/.generated/client';
 
 export async function transformMetaFields(
   metaFields: any[],
   attrs: any,
-  tenantId: any,
+  client: Client,
 ) {
   const transformedFields = [];
 
@@ -19,7 +20,7 @@ export async function transformMetaFields(
         try {
           const modelRecord = await findModelRecord({
             recordId: attrs[field.name].id,
-            tenantId: tenantId,
+            client,
           });
 
           value = modelRecord?.attrs;
@@ -30,7 +31,7 @@ export async function transformMetaFields(
         const recordIds = attrs[field.name].map((attr: any) => attr.id);
         const modelRecords = await findModelRecords({
           recordIds: recordIds,
-          tenantId: tenantId,
+          client,
         });
 
         value = modelRecords.map((modelRecord: any) => modelRecord.attrs);

@@ -3,18 +3,18 @@ import {SUBAPP_WITH_ROLES} from '@/constants';
 import {getSession} from '@/lib/core/auth';
 import {isAdminContact, isPartner} from '@/orm/partner';
 import {findSubapps, findWorkspaceMembers} from '@/orm/workspace';
-import {type Tenant, manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {Partner, PortalWorkspace} from '@/types';
 import {clone} from '@/utils';
 
 export async function findAvailableSubapps({
   url,
-  tenantId,
+  client,
 }: {
   url: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(url && tenantId)) {
+  if (!url) {
     return [];
   }
 
@@ -30,7 +30,7 @@ export async function findAvailableSubapps({
     user: {
       id: user?.isContact ? user.mainPartnerId! : user.id,
     } as any,
-    tenantId,
+    client,
   })
     .then(clone)
     .then(apps =>
@@ -49,20 +49,14 @@ export async function findAvailableSubapps({
 
 export async function findMembers({
   workspaceURL,
-  tenantId,
+  client,
   partnerId,
 }: {
   workspaceURL: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
   partnerId: Partner['id'];
 }) {
-  if (!tenantId && partnerId) {
-    return [];
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!partnerId) {
     return [];
   }
 
@@ -70,13 +64,13 @@ export async function findMembers({
 
   let adminContact;
   if (!admin) {
-    adminContact = await isAdminContact({tenantId, workspaceURL});
+    adminContact = await isAdminContact({client, workspaceURL});
     if (!adminContact) return [];
   }
 
   const workspaceMembers = await findWorkspaceMembers({
     url: workspaceURL,
-    tenantId,
+    client,
     partnerId,
   }).then(clone);
 

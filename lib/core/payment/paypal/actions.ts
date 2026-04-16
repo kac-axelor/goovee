@@ -5,7 +5,7 @@ import {
 } from '@paypal/paypal-server-sdk';
 import PayPalClient from '.';
 import {DEFAULT_CURRENCY_CODE} from '@/constants';
-import type {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {PaymentOption} from '@/types';
 import {createPaymentContext, findPaymentContext} from '../common/orm';
 import type {PaymentOrder} from '../common/type';
@@ -15,13 +15,13 @@ export async function createPaypalOrder({
   email,
   currency = DEFAULT_CURRENCY_CODE,
   context,
-  tenantId,
+  client,
 }: {
   amount: string | number;
   email: string;
   currency: string;
   context: any;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   if (!(amount && currency && email)) {
     throw new Error('Amount, currency and email is required');
@@ -33,7 +33,7 @@ export async function createPaypalOrder({
     context,
     mode: PaymentOption.paypal,
     payer: email,
-    tenantId,
+    client,
   });
 
   let result;
@@ -73,10 +73,10 @@ export async function createPaypalOrder({
 
 export async function findPaypalOrder({
   id,
-  tenantId,
+  client,
 }: {
   id: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<PaymentOrder> {
   if (!id) {
     throw new Error('Order id is required');
@@ -111,7 +111,7 @@ export async function findPaypalOrder({
 
   const context = await findPaymentContext({
     id: customId,
-    tenantId,
+    client,
     mode: PaymentOption.paypal,
   });
 

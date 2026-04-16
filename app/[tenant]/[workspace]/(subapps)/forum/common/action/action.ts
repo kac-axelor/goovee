@@ -115,18 +115,22 @@ export async function pinGroup({
     return {error: true, message: await t('Unauthorized')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
     return {error: true, message: await t('Unauthorized')};
   }
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
@@ -136,7 +140,7 @@ export async function pinGroup({
     id,
     groupID,
     workspaceID: workspace.id,
-    tenantId,
+    client,
     user,
   });
 
@@ -147,7 +151,6 @@ export async function pinGroup({
     };
   }
 
-  const client = await manager.getClient(tenantId);
   try {
     const result = await client.aOSPortalForumGroupMember
       .update({
@@ -207,18 +210,22 @@ export async function exitGroup({
     return {error: true, message: await t('Unauthorized')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
     return {error: true, message: await t('Unauthorized')};
   }
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
@@ -228,7 +235,7 @@ export async function exitGroup({
     id,
     groupID,
     workspaceID: workspace.id,
-    tenantId,
+    client,
     user,
   });
 
@@ -238,8 +245,6 @@ export async function exitGroup({
       message: await t(memberGroup.message || 'Member not part of the group'),
     };
   }
-
-  const client = await manager.getClient(tenantId);
 
   try {
     const result = await client.aOSPortalForumGroupMember
@@ -290,11 +295,15 @@ export async function joinGroup({
     return {error: true, message: await t('Unauthorized')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -304,14 +313,14 @@ export async function joinGroup({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
 
-  const group = await findGroupById(groupID, workspace.id, tenantId, user);
+  const group = await findGroupById(groupID, workspace.id, client, user);
 
   if (!group) {
     return {
@@ -319,8 +328,6 @@ export async function joinGroup({
       message: await t('Member not part of the group'),
     };
   }
-
-  const client = await manager.getClient(tenantId);
 
   try {
     const result = await client.aOSPortalForumGroupMember
@@ -385,11 +392,15 @@ export async function addGroupNotification({
     return {error: true, message: await t('Unauthorized')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -399,7 +410,7 @@ export async function addGroupNotification({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -410,7 +421,7 @@ export async function addGroupNotification({
     id,
     groupID,
     workspaceID: workspace.id,
-    tenantId,
+    client,
     user,
   });
 
@@ -421,7 +432,6 @@ export async function addGroupNotification({
     };
   }
 
-  const client = await manager.getClient(tenantId);
   try {
     const response = await client.aOSPortalForumGroupMember
       .update({
@@ -470,11 +480,15 @@ export async function addPost({
     return {error: true, message: await t('Unauthorized')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -484,14 +498,12 @@ export async function addPost({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
-
-  const client = await manager.getClient(tenantId);
 
   let attachmentListArray: {id: number; fileName: string; title: string}[] = [];
 
@@ -550,7 +562,7 @@ export async function addPost({
         createdOn: timeStamp,
         forumGroup: {
           where: {
-            ...(await filterPrivate({user, tenantId})),
+            ...(await filterPrivate({user, client})),
           },
           select: {id: group.id},
         },
@@ -590,6 +602,7 @@ export async function addPost({
             userId: reciever.member.id,
             tenantId,
             workspaceURL,
+            client,
             payload: {
               title: await tr(
                 '{0} created a new post',
@@ -644,11 +657,15 @@ export async function findMedia({
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -658,14 +675,12 @@ export async function findMedia({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
-
-  const client = await manager.getClient(tenantId);
 
   return await client.aOSPortalForumPost
     .find({
@@ -675,7 +690,7 @@ export async function findMedia({
               forumGroup: {
                 id,
                 AND: [
-                  await filterPrivate({user, tenantId}),
+                  await filterPrivate({user, client}),
                   getArchivedFilter({archived}),
                 ],
               },
@@ -726,10 +741,14 @@ export async function fetchPosts({
 
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -742,7 +761,7 @@ export async function fetchPosts({
     page,
     search,
     workspaceID: workspace.id,
-    tenantId,
+    client,
     user,
     groupIDs,
     memberGroupIDs,
@@ -759,7 +778,9 @@ async function uploadAttachment(formData: FormData): Promise<any> {
     };
   }
 
-  const client = await manager.getClient(tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
 
   const values = extractFileValues(formData);
 
@@ -845,12 +866,16 @@ export async function fetchGroupsByMembers({
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   return await findGroupsByMembers({
     id,
     searchKey,
     orderBy,
     workspaceID,
-    tenantId,
+    client,
     user,
   });
 }
@@ -872,7 +897,11 @@ export const createComment: CreateComment = async formData => {
     CreateCommentPropsSchema,
   );
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
@@ -895,7 +924,7 @@ export const createComment: CreateComment = async formData => {
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!app?.isInstalled) {
@@ -905,7 +934,7 @@ export const createComment: CreateComment = async formData => {
   const {posts = []} = await findPosts({
     whereClause: {id: rest.recordId},
     workspaceID: workspace.id,
-    tenantId,
+    client,
     user,
   });
 
@@ -916,7 +945,7 @@ export const createComment: CreateComment = async formData => {
   const memberGroups: any = await findGroupsByMembers({
     id: user.id,
     workspaceID: workspace.id!,
-    tenantId,
+    client,
     user,
   });
 
@@ -936,7 +965,7 @@ export const createComment: CreateComment = async formData => {
       modelName,
       userId: user.id,
       workspaceUserId: workspaceUser.id,
-      tenantId,
+      client,
       commentField: 'note',
       trackingField: 'publicBody',
       subject: `${user.simpleFullName || user.name} added a comment`,
@@ -975,6 +1004,7 @@ export const createComment: CreateComment = async formData => {
                 userId: parentComment.partner.id,
                 tenantId,
                 workspaceURL,
+                client,
                 payload: {
                   title: await tr(
                     '{0} replied to your comment',
@@ -1022,6 +1052,7 @@ export const createComment: CreateComment = async formData => {
                   userId: reciever.member.id,
                   tenantId,
                   workspaceURL,
+                  client,
                   payload: {
                     title: await tr(
                       '{0} added a comment',
@@ -1085,7 +1116,11 @@ export const fetchComments: FetchComments = async props => {
     return {error: true, message: await t('TenantId is required')};
   }
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
@@ -1103,7 +1138,7 @@ export const fetchComments: FetchComments = async props => {
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return {error: true, message: await t('Unauthorized Access')};
@@ -1112,7 +1147,7 @@ export const fetchComments: FetchComments = async props => {
   const {posts = []}: any = await findPosts({
     whereClause: {id: rest.recordId},
     workspaceID: workspace.id,
-    tenantId,
+    client,
     user,
   });
   if (!posts.length) {
@@ -1122,7 +1157,7 @@ export const fetchComments: FetchComments = async props => {
   try {
     const data = await findComments({
       modelName,
-      tenantId,
+      client,
       commentField: 'note',
       trackingField: 'publicBody',
       ...rest,
@@ -1170,11 +1205,15 @@ export const getSubscribersByGroup = async ({
     return {error: true, message: await t('Unauthorized')};
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.forum,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -1184,20 +1223,19 @@ export const getSubscribersByGroup = async ({
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
 
-  const client = await manager.getClient(tenantId);
   try {
     const result = await client.aOSPortalForumGroupMember.find({
       where: {
         forumGroup: {
           id: groupID,
-          ...(await filterPrivate({user, tenantId})),
+          ...(await filterPrivate({user, client})),
           workspace: {id: workspace.id},
         },
       },

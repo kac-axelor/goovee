@@ -28,12 +28,13 @@ export async function searchEntries({
       message: await t('TenantId is required'),
     };
   }
-  const {error, message} = await ensureAuth(workspaceURL, tenantId);
+  const {error, message, auth} = await ensureAuth(workspaceURL, tenantId);
   if (error) return {error: true, message};
+  const {client} = auth.tenant;
   try {
     const entries = await findEntries({
       search,
-      tenantId,
+      client,
       take: 7,
     });
 

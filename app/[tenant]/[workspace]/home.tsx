@@ -11,8 +11,8 @@ import {
 } from '@/constants';
 import {parseCommentContent} from '@/lib/core/comments';
 import {t} from '@/lib/core/locale/server';
-import type {Tenant} from '@/lib/core/tenant';
 import {PortalWorkspace, User} from '@/types';
+import type {Client} from '@/goovee/.generated/client';
 import {BigNewsCard} from '@/ui/components/big-news-card';
 import {Card, CardContent, CardHeader, CardTitle} from '@/ui/components/card';
 import {Carousel} from '@/ui/components/carousel';
@@ -34,13 +34,13 @@ import {fetchLatestFiles} from './(subapps)/resources/common/orm/dms';
 import {DateDisplay} from './client';
 
 export async function Home({
-  tenant,
+  client,
   user,
   workspace,
   workspaceURI,
   apps,
 }: {
-  tenant: Tenant['id'];
+  client: Client;
   user: User | undefined;
   workspace: PortalWorkspace;
   workspaceURI: string;
@@ -114,7 +114,7 @@ export async function Home({
           <Suspense fallback={<NewsSkeleton />}>
             <LatestNews
               workspace={workspace}
-              tenant={tenant}
+              client={client}
               user={user}
               workspaceURI={workspaceURI}
             />
@@ -138,7 +138,7 @@ export async function Home({
                   <Suspense fallback={<ContentCardSkeleton />}>
                     <EventsCard
                       workspace={workspace}
-                      tenant={tenant}
+                      client={client}
                       user={user}
                       workspaceURI={workspaceURI}
                     />
@@ -148,7 +148,7 @@ export async function Home({
                   <Suspense fallback={<ContentCardSkeleton />}>
                     <ForumCard
                       workspace={workspace}
-                      tenant={tenant}
+                      client={client}
                       user={user}
                       workspaceURI={workspaceURI}
                     />
@@ -159,7 +159,7 @@ export async function Home({
                   <Suspense fallback={<ContentCardSkeleton />}>
                     <ResourcesCard
                       workspace={workspace}
-                      tenant={tenant}
+                      client={client}
                       user={user}
                       workspaceURI={workspaceURI}
                     />
@@ -190,18 +190,18 @@ export async function Home({
 
 async function LatestNews({
   workspace,
-  tenant,
+  client,
   user,
   workspaceURI,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user: User | undefined;
   workspaceURI: string;
 }) {
   const {news} = await findHomePageHeaderNews({
     workspace,
-    tenant,
+    client,
     user,
     limit: 5,
   });
@@ -246,12 +246,12 @@ async function LatestNews({
 
 async function EventsCard({
   workspace,
-  tenant,
+  client,
   user,
   workspaceURI,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user: User | undefined;
   workspaceURI: string;
 }) {
@@ -259,7 +259,7 @@ async function EventsCard({
     limit: 3,
     eventType: EVENT_TYPE.ACTIVE,
     workspace,
-    tenantId: tenant,
+    client,
     user,
     orderBy: {eventStartDateTime: ORDER_BY.ASC},
   });
@@ -311,18 +311,18 @@ async function EventsCard({
 
 async function ForumCard({
   workspace,
-  tenant,
+  client,
   user,
   workspaceURI,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user: User | undefined;
   workspaceURI: string;
 }) {
   const forumPosts = await findRecentlyActivePosts({
     workspaceID: workspace.id,
-    tenantId: tenant,
+    client,
     user,
     limit: 3,
   });
@@ -390,19 +390,19 @@ async function ForumCard({
 
 async function ResourcesCard({
   workspace,
-  tenant,
+  client,
   user,
   workspaceURI,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user: User | undefined;
   workspaceURI: string;
 }) {
   const files = await fetchLatestFiles({
     take: 5,
     workspace,
-    tenantId: tenant,
+    client,
     user,
   });
 

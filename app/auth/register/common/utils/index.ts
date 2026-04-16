@@ -1,3 +1,4 @@
+import type {Client} from '@/goovee/.generated/client';
 import {getSession} from '@/auth';
 import {getPublicEnvironment} from '@/environment';
 import {findWorkspaces} from '@/orm/workspace';
@@ -28,11 +29,11 @@ export function extractSearchParams({
 
 export async function isExistingUser({
   workspaceURL,
-  tenantId,
+  client,
   user: userProp,
 }: {
   workspaceURL: string;
-  tenantId: string;
+  client: Client;
   user?: {
     id: string;
     email: string;
@@ -48,7 +49,7 @@ export async function isExistingUser({
     userWorkspaces = await findWorkspaces({
       url: workspaceURL,
       user,
-      tenantId,
+      client,
     }).then(clone);
   }
 

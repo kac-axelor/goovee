@@ -2,6 +2,7 @@
 import {getSession} from '@/auth';
 import {SUBAPP_CODES} from '@/constants';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {NotFound} from '@/subapps/website/common/components/blocks/not-found';
@@ -27,17 +28,21 @@ export async function generateMetadata(props: {
 }) {
   const params = await props.params;
   const {workspaceURL} = workspacePathname(params);
-  const {tenant, websiteSlug, websitePageSlug} = params;
+  const {tenant: tenantId, websiteSlug, websitePageSlug} = params;
 
   const session = await getSession();
   const user = session?.user;
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
 
   const websitePage = await findWebsitePageSeoBySlug({
     websiteSlug,
     websitePageSlug,
     workspaceURL,
     user,
-    tenantId: tenant,
+    client,
   });
 
   if (!websitePage) {
@@ -61,19 +66,25 @@ export default async function Page(props: {
 }) {
   const params = await props.params;
   const {workspaceURL, workspaceURI} = workspacePathname(params);
-  const {tenant, websiteSlug, websitePageSlug} = params;
+  const {tenant: tenantId, websiteSlug, websitePageSlug} = params;
 
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return <NotFound homePageUrl={`${workspaceURI}/${SUBAPP_CODES.website}`} />;
+  }
+  const {client} = tenant;
+
   const [canUserEditWiki, websitePage] = await Promise.all([
-    canEditWiki({userId: user?.id, tenantId: tenant}),
+    canEditWiki({userId: user?.id, client}),
     findWebsitePageBySlug({
       websiteSlug,
       websitePageSlug,
       workspaceURL,
       user,
-      tenantId: tenant,
+      client,
     }),
   ]);
 
@@ -86,7 +97,7 @@ export default async function Page(props: {
   if (websitePage?.contentLines?.length) {
     contentLinesChunk = populateLinesByChunk({
       contentLines: websitePage?.contentLines,
-      tenantId: tenant,
+      client,
       chunkSize: 5,
     });
   }

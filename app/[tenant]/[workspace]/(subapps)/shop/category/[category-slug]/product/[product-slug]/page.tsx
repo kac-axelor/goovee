@@ -6,6 +6,7 @@ import {getSession} from '@/auth';
 import {findWorkspace} from '@/orm/workspace';
 import {clone, htmlToNormalString} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -31,7 +32,7 @@ export async function generateMetadata(props: {
   }>;
 }) {
   const params = await props.params;
-  const {workspaceURL, tenant} = workspacePathname(params);
+  const {workspaceURL, tenant: tenantId} = workspacePathname(params);
 
   const categorySlug = params['category-slug'];
   const productSlug = params['product-slug'];
@@ -39,10 +40,14 @@ export async function generateMetadata(props: {
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user: user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -51,7 +56,7 @@ export async function generateMetadata(props: {
 
   const categories = await findCategories({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -65,7 +70,7 @@ export async function generateMetadata(props: {
     slug: productSlug,
     workspace,
     user,
-    tenantId: tenant,
+    client,
     categoryids: $category.id,
   });
 
@@ -91,7 +96,7 @@ async function Product({
     'category-slug': string;
   };
 }) {
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
   const categorySlug = params['category-slug'];
 
@@ -106,10 +111,14 @@ async function Product({
     return redirect(`${workspaceURI}/shop`);
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -118,7 +127,7 @@ async function Product({
 
   const categories = await findCategories({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -132,7 +141,7 @@ async function Product({
     slug: productSlug,
     workspace,
     user,
-    tenantId: tenant,
+    client,
     categoryids: $category.id,
   });
 
@@ -141,13 +150,13 @@ async function Product({
   const metaFields = await findModelFields({
     modelName: BASE_PRODUCT_MODEL,
     modelField: PRODUCT_ATTRS,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   const metaFieldsValues = await transformMetaFields(
     metaFields,
     computedProduct?.product?.productAttrs,
-    tenant,
+    client,
   );
 
   let breadcrumbs: any = [];
@@ -183,7 +192,7 @@ async function Product({
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId: tenant,
+    client,
   });
 
   return (

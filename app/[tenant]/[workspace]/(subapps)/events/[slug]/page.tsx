@@ -1,6 +1,7 @@
 import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
+import {manager} from '@/lib/core/tenant/manager';
 import {findEvent} from '@/subapps/events/common/orm/event';
 import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
@@ -14,7 +15,11 @@ export default async function Page(props: {
   params: Promise<{slug: string; tenant: string; workspace: string}>;
 }) {
   const params = await props.params;
-  const {slug, tenant} = params;
+  const {slug, tenant: tenantId} = params;
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) notFound();
+  const {client, config} = tenant;
 
   const session = await getSession();
   const user = session?.user;
@@ -24,7 +29,7 @@ export default async function Page(props: {
   const workspace: any = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -34,7 +39,8 @@ export default async function Page(props: {
   const eventDetails: any = await findEvent({
     slug,
     workspace,
-    tenantId: tenant,
+    client,
+    config,
     user,
   }).then(clone);
 

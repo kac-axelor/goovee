@@ -1,6 +1,6 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
 import type {ID, Participant} from '@/types';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {USER_CREATED_FROM} from '@/constants';
@@ -13,18 +13,16 @@ import {Maybe} from '@/types/util';
 export async function registerParticipants({
   eventId,
   participants,
-  tenantId,
+  client,
 }: {
   eventId: ID;
   workspaceURL: string;
   participants: Participant[];
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  const c = await manager.getClient(tenantId);
-
   const contacts = await getEventContacts({
     participants,
-    tenantId,
+    client,
   });
 
   const timeStamp = new Date();
@@ -76,7 +74,7 @@ export async function registerParticipants({
     },
   );
 
-  const registration = await c.aOSRegistration.create({
+  const registration = await client.aOSRegistration.create({
     data: {
       event: {select: {id: eventId}},
       participantList: {create: participantList},
@@ -110,10 +108,10 @@ type EventContact = {
 
 export async function getEventContacts({
   participants,
-  tenantId,
+  client,
 }: {
   participants: Participant[];
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<EventContact[]> {
   const partners = await Promise.all(
     participants
@@ -127,8 +125,7 @@ export async function getEventContacts({
       ) // Filter out duplicate emails
       .map(async participant => {
         const {emailAddress, name, surname, company, phone} = participant;
-        const c = await manager.getClient(tenantId);
-        const partners = await c.aOSPartner.find({
+        const partners = await client.aOSPartner.find({
           where: {
             emailAddress: {
               OR: [
@@ -145,7 +142,7 @@ export async function getEventContacts({
           return partners.find(p => p.isActivatedOnPortal) ?? partners[0];
         }
 
-        const eventContact = await c.aOSPartner.create({
+        const eventContact = await client.aOSPartner.create({
           data: {
             partnerTypeSelect: PartnerTypeMap[UserType.individual],
             emailAddress: {
@@ -179,21 +176,18 @@ export async function getEventContacts({
 
 export async function findEventRegistration({
   workspaceURL,
-  tenantId,
+  client,
   id,
   eventId,
 }: {
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
   id: ID;
   eventId: ID;
 }) {
-  if (![workspaceURL, tenantId, id, eventId].every(Boolean)) {
+  if (![workspaceURL, client, id, eventId].every(Boolean)) {
     return null;
   }
-
-  const client = await manager.getClient(tenantId);
-  if (!client) return null;
 
   const result = await client.aOSRegistration.findOne({
     where: {

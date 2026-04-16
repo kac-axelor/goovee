@@ -6,6 +6,7 @@ import {headers} from 'next/headers';
 import {t} from '@/locale/server';
 import {getSession} from '@/auth';
 import {TENANT_HEADER} from '@/proxy';
+import {manager} from '@/tenant';
 import {findContactWorkspaces, findPartnerWorkspaces} from '@/orm/workspace';
 
 // ---- CORE IMPORTS ---- //
@@ -32,6 +33,12 @@ export async function updatePreference({
     return error(await 'Bad request');
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(await t('Tenant not found'));
+  }
+  const {client} = tenant;
+
   const session = await getSession();
   const user = session?.user;
 
@@ -40,14 +47,14 @@ export async function updatePreference({
   }
 
   try {
-    const partner = await findGooveeUserByEmail(user.email, tenantId);
+    const partner = await findGooveeUserByEmail(user.email, client);
 
     if (!partner) {
       return error(await t('Invalid partner'));
     }
 
     const availableLocalizations = await findLocalizations({
-      tenantId,
+      client,
     });
 
     if (localization && availableLocalizations?.length) {
@@ -83,7 +90,7 @@ export async function updatePreference({
           : null,
         localization: localization ? {select: {id: localization}} : null,
       },
-      tenantId,
+      client,
     });
 
     if (!updatedPartner?.id) {
@@ -106,6 +113,12 @@ export async function fetchPreference() {
     return error(await 'Bad request');
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(await t('Tenant not found'));
+  }
+  const {client} = tenant;
+
   const session = await getSession();
   const user = session?.user;
 
@@ -114,7 +127,7 @@ export async function fetchPreference() {
   }
 
   try {
-    const partner = await findGooveeUserByEmail(user.email, tenantId);
+    const partner = await findGooveeUserByEmail(user.email, client);
 
     return {
       success: true,
@@ -135,6 +148,12 @@ export async function fetchWorkspaces() {
     return error(await 'Bad request');
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(await t('Tenant not found'));
+  }
+  const {client} = tenant;
+
   const session = await getSession();
   const user = session?.user;
 
@@ -147,11 +166,11 @@ export async function fetchWorkspaces() {
       ? await findContactWorkspaces({
           contactId: user.id,
           partnerId: user.mainPartnerId!,
-          tenantId,
+          client,
         })
       : await findPartnerWorkspaces({
           partnerId: user.id,
-          tenantId,
+          client,
         });
 
     return {
@@ -170,6 +189,12 @@ export async function fetchLocalizations() {
     return error(await 'Bad request');
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(await t('Tenant not found'));
+  }
+  const {client} = tenant;
+
   const session = await getSession();
   const user = session?.user;
 
@@ -179,7 +204,7 @@ export async function fetchLocalizations() {
 
   try {
     const localizations = await findLocalizations({
-      tenantId,
+      client,
     });
     return {
       success: true,

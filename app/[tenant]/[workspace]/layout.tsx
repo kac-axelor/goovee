@@ -10,6 +10,7 @@ import {findWorkspace, findWorkspaces, findSubapps} from '@/orm/workspace';
 import {DEFAULT_THEME_OPTIONS} from '@/constants/theme';
 import {NAVIGATION, SEARCH_PARAMS, SUBAPP_CODES} from '@/constants';
 import {getLoginURL} from '@/utils/url';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Workspace from './workspace-context';
@@ -34,15 +35,19 @@ export async function generateMetadata(props: {
   }>;
 }): Promise<Metadata> {
   const params = await props.params;
-  const {workspaceURL, tenant} = workspacePathname(params);
+  const {workspaceURL, tenant: tenantId} = workspacePathname(params);
 
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
+
   const $workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (!$workspace?.name) {
@@ -62,16 +67,30 @@ export default async function Layout(props: {
 
   const {children} = props;
 
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const session = await getSession();
   const user = session?.user;
 
   const {workspaceURL, workspaceURI, workspace} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return user
+      ? notFound()
+      : redirect(
+          getLoginURL({
+            callbackurl: workspaceURI,
+            workspaceURI,
+            [SEARCH_PARAMS.TENANT_ID]: tenantId,
+          }),
+        );
+  }
+  const {client} = tenant;
+
   const $workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!$workspace) {
@@ -81,7 +100,7 @@ export default async function Layout(props: {
           getLoginURL({
             callbackurl: workspaceURI,
             workspaceURI,
-            [SEARCH_PARAMS.TENANT_ID]: tenant,
+            [SEARCH_PARAMS.TENANT_ID]: tenantId,
           }),
         );
   }
@@ -89,7 +108,7 @@ export default async function Layout(props: {
   const workspaces = await findWorkspaces({
     url: process.env.GOOVEE_PUBLIC_HOST,
     user,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   let theme: any;
@@ -103,13 +122,13 @@ export default async function Layout(props: {
   const subapps = await findSubapps({
     url: $workspace?.url,
     user,
-    tenantId: tenant,
+    client,
   });
 
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace: $workspace,
-    tenantId: tenant,
+    client,
   });
 
   const navigationSelect = $workspace?.navigationSelect || NAVIGATION.left;
@@ -125,7 +144,7 @@ export default async function Layout(props: {
     <Workspace
       id={$workspace.id}
       workspace={workspace}
-      tenant={tenant}
+      tenant={tenantId}
       theme={theme}>
       <CartContext>
         <div className="h-full w-full flex min-h-screen">

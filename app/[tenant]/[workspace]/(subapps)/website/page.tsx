@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {getSession} from '@/auth';
 import {workspacePathname} from '@/utils/workspace';
 import {SUBAPP_CODES} from '@/constants';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {findAllMainWebsites} from '@/subapps/website/common/orm/website';
@@ -17,7 +18,7 @@ export default async function Page(props: {
   params: Promise<{tenant: string; workspace: string}>;
 }) {
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
   const {workspaceURL, workspaceURI} = workspacePathname(params);
 
@@ -36,10 +37,14 @@ export default async function Page(props: {
     }
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return <NotFound homePageUrl={workspaceURI} />;
+  const {client} = tenant;
+
   const mainWebsites = await findAllMainWebsites({
     workspaceURL,
     user,
-    tenantId: tenant,
+    client,
     locale,
   });
 

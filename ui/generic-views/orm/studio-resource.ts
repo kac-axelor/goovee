@@ -18,9 +18,11 @@ export async function findView({
 
   if (!tenantId) return {};
 
-  const c = await manager.getClient(tenantId);
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {};
+  const {client} = tenant;
 
-  const schema: any = await c.aOSStudioResource
+  const schema: any = await client.aOSStudioResource
     .findOne({
       where: {
         name,

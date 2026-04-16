@@ -6,6 +6,7 @@ import {getSession} from '@/auth';
 import {SUBAPP_CODES} from '@/constants';
 import {findSubappAccess} from '@/orm/workspace';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 export default async function Layout(props: {
   params: Promise<{
@@ -21,14 +22,18 @@ export default async function Layout(props: {
   const session = await getSession();
   const user = session?.user;
 
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const {workspaceURL} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
 
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.website,
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (!subapp) return notFound();

@@ -8,7 +8,8 @@ import {
   isValidMailConfig,
   replacePlaceholders,
 } from '@/orm/email-template';
-import {type Tenant} from '@/tenant';
+import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {create} from '../orm';
@@ -95,18 +96,16 @@ const otpTemplateHTML = ({otp}: {otp: string}) => `
 export async function generateOTP({
   email,
   scope = Scope.Registration,
-  tenantId,
+  client,
   mailConfig,
+  tenantId,
 }: {
   email: string;
   scope?: string;
   mailConfig?: MailConfig;
-  tenantId: Tenant['id'];
+  client: Client;
+  tenantId?: Tenant['id'];
 }) {
-  if (!tenantId) {
-    return error('TenantId is required');
-  }
-
   if (!email) {
     return error(await getTranslation({tenant: tenantId}, 'Email is required'));
   }
@@ -116,7 +115,7 @@ export async function generateOTP({
       force: true,
       scope,
       entity: email,
-      tenantId,
+      client,
     });
 
     if (!result) {

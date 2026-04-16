@@ -1,4 +1,4 @@
-import {type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {findPartnerById} from './partner';
 import type {User} from '@/types';
 
@@ -12,9 +12,7 @@ const openRecordFilters = [
 ];
 
 export const filterPrivate = async (
-  {user, tenantId}: {user?: User; tenantId: Tenant['id']} = {
-    tenantId: '',
-  },
+  {user, client}: {user?: User; client: Client},
   config: {
     privateOnly?: boolean;
   } = {},
@@ -23,7 +21,7 @@ export const filterPrivate = async (
     OR: openRecordFilters,
   };
 
-  if (!(tenantId && user)) {
+  if (!(client && user)) {
     return defaultFilter;
   }
 
@@ -33,7 +31,7 @@ export const filterPrivate = async (
     return defaultFilter;
   }
 
-  const partner = await findPartnerById(partnerId, tenantId);
+  const partner = await findPartnerById(partnerId, client);
 
   if (!partner) {
     return defaultFilter;

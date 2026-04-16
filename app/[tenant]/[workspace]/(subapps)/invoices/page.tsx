@@ -10,6 +10,7 @@ import {SUBAPP_CODES, DEFAULT_LIMIT} from '@/constants';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {TableSkeleton} from '@/ui/components/table';
 import {PartnerKey} from '@/types';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -26,8 +27,14 @@ async function Invoices({
   };
   searchParams: {[key: string]: string | undefined};
 }) {
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
+  const tenant = await manager.getTenant(tenantId);
 
+  if (!tenant) {
+    return notFound();
+  }
+
+  const {client} = tenant;
   const {limit, page, type} = searchParams;
   const invoiceType = type ?? INVOICE.UNPAID;
 
@@ -46,7 +53,7 @@ async function Invoices({
   const workspace = await findWorkspace({
     url: workspaceURL,
     user,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -55,7 +62,7 @@ async function Invoices({
     code: SUBAPP_CODES.invoices,
     url: workspace.url,
     user: user,
-    tenantId: tenant,
+    client,
   });
 
   if (!app?.isInstalled) {
@@ -78,7 +85,7 @@ async function Invoices({
       limit: limit ? Number(limit) : DEFAULT_LIMIT,
     },
     type: invoiceType,
-    tenantId: tenant,
+    client,
     workspaceURL,
   });
 

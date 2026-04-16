@@ -1,28 +1,26 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
 import {clone} from '@/utils';
 import type {PortalWorkspace, User} from '@/types';
 import {filterPrivate} from '@/orm/filter';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {COLORS, ICONS} from '@/subapps/resources/common/constants';
 
 export async function fetchFolders({
   workspace,
-  tenantId,
+  client,
   params,
   user,
   archived,
 }: {
   params?: any;
-  tenantId: Tenant['id'];
+  client: Client;
   workspace: PortalWorkspace;
   user?: User;
   archived?: boolean;
 }) {
-  if (!(workspace && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!workspace) return [];
 
   const folders = await client.aOSDMSFile.find({
     where: {
@@ -32,7 +30,7 @@ export async function fetchFolders({
       },
       ...(params?.where || {}),
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         archived
           ? {archived: true}
           : {OR: [{archived: false}, {archived: null}]},
@@ -58,16 +56,16 @@ export async function fetchFolders({
 
 export async function fetchLatestFolders({
   workspace,
-  tenantId,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
 }) {
   return fetchFolders({
     workspace,
-    tenantId,
+    client,
     user,
     params: {
       where: {isHomepage: true},
@@ -80,20 +78,18 @@ export async function fetchFiles({
   id,
   workspace,
   user,
-  tenantId,
+  client,
   archived,
 }: {
   id: string;
   workspace: PortalWorkspace;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
   archived?: boolean;
 }) {
-  if (!(workspace && tenantId)) {
+  if (!workspace) {
     return [];
   }
-
-  const client = await manager.getClient(tenantId);
 
   const files = await client.aOSDMSFile.find({
     where: {
@@ -104,7 +100,7 @@ export async function fetchFiles({
         id,
       },
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         archived
           ? {archived: true}
           : {OR: [{archived: false}, {archived: null}]},
@@ -132,20 +128,18 @@ export async function fetchFiles({
 
 export async function fetchLatestFiles({
   workspace,
-  tenantId,
+  client,
   user,
   archived,
   take = 10,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
   take?: number;
 }) {
-  if (!(workspace && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!workspace) return [];
 
   const files = await client.aOSDMSFile.find({
     where: {
@@ -156,7 +150,7 @@ export async function fetchLatestFiles({
         id: workspace?.id,
       },
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         archived
           ? {archived: true}
           : {OR: [{archived: false}, {archived: null}]},
@@ -193,17 +187,15 @@ export async function fetchFile({
   id,
   workspace,
   user,
-  tenantId,
+  client,
   archived,
 }: {
   id: string;
   workspace: PortalWorkspace;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
   archived?: boolean;
 }) {
-  const client = await manager.getClient(tenantId);
-
   const file = await client.aOSDMSFile.findOne({
     where: {
       id,
@@ -211,7 +203,7 @@ export async function fetchFile({
         id: workspace?.id,
       },
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         archived
           ? {archived: true}
           : {OR: [{archived: false}, {archived: null}]},
@@ -256,17 +248,15 @@ export async function fetchIcons() {
 export async function fetchExplorerCategories({
   workspace,
   user,
-  tenantId,
+  client,
   archived,
 }: {
   workspace: PortalWorkspace;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
   archived?: boolean;
 }) {
-  if (!(workspace && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!workspace) return [];
 
   const categories = await client.aOSDMSFile
     .find({
@@ -276,7 +266,7 @@ export async function fetchExplorerCategories({
           id: workspace.id,
         },
         AND: [
-          await filterPrivate({tenantId, user}),
+          await filterPrivate({client, user}),
           archived
             ? {archived: true}
             : {OR: [{archived: false}, {archived: null}]},

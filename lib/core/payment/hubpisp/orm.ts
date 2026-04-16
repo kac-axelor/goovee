@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {formatNumber} from '@/locale/server/formatters';
 import {
   CONTEXT_STATUS,
@@ -19,19 +19,17 @@ export type PendingHubPispContext = {
 };
 
 export async function findPendingHubPispPayments({
-  tenantId,
+  client,
   entityId,
   currencySymbol,
   scale,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
   entityId: string;
   currencySymbol: string;
   scale: number;
 }): Promise<PendingHubPispContext[]> {
   if (!entityId) return [];
-
-  const client = await manager.getClient(tenantId);
 
   const results = await client.paymentContext.find({
     where: {
@@ -75,7 +73,7 @@ export async function findPendingHubPispPayments({
         await markPaymentAsExpired({
           contextId: ctx.id,
           version: ctx.version!,
-          tenantId,
+          client,
         });
         continue;
       }
@@ -113,19 +111,19 @@ export type PendingHubPispStartupContext = {
   createdOn: Date;
 };
 
-/**
+/*
  * Returns all pending HUB PISP contexts that have a resourceId, used to resume polling on restart.
  * Callers split the result by whether paymentRequestResourceId is set:
  * - set: resume pollPaymentRequestStatus
  * - null: resume pollPaymentLinkStatus
  */
 export async function findAllPendingHubPispContexts({
+  client,
   tenantId,
 }: {
+  client: Client;
   tenantId: string;
 }): Promise<PendingHubPispStartupContext[]> {
-  const client = await manager.getClient(tenantId);
-
   const results = await client.paymentContext.find({
     where: {
       mode: PaymentOption.hubpisp,

@@ -7,6 +7,7 @@ import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';
 import {SUBAPP_CODES} from '@/constants';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -18,17 +19,21 @@ async function Checkout({
 }: {
   params: {tenant: string; workspace: string};
 }) {
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
   const session = await getSession();
   const user = session?.user;
 
   const {workspaceURL, workspaceURI} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace?.config?.confirmOrder) {
@@ -39,19 +44,23 @@ async function Checkout({
     code: SUBAPP_CODES.orders,
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId: tenant,
+    client,
   });
 
   if (hidePriceAndPurchase) notFound();
 
   return (
-    <Content workspace={workspace} orderSubapp={orderSubapp} tenant={tenant} />
+    <Content
+      workspace={workspace}
+      orderSubapp={orderSubapp}
+      tenant={tenantId}
+    />
   );
 }
 

@@ -1,22 +1,22 @@
 import {SUBAPP_CODES} from '@/constants';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {ID} from '@/types';
 import type {Maybe} from '@/types/util';
 
 export async function getMailRecipients({
   contacts,
   workspaceURL,
-  tenantId,
+  client,
 }: {
   contacts: Array<{id: Maybe<ID>}>;
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<NotificationPartner[]> {
   const reciepients = await Promise.all(
     contacts.map(
       contact =>
         contact.id &&
-        findPartnerNotificationEmail({id: contact.id, workspaceURL, tenantId}),
+        findPartnerNotificationEmail({id: contact.id, workspaceURL, client}),
     ),
   );
 
@@ -30,14 +30,12 @@ export type NotificationPartner = NonNullable<
 export async function findPartnerNotificationEmail({
   id,
   workspaceURL,
-  tenantId,
+  client,
 }: {
   id: ID;
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  const client = await manager.getClient(tenantId);
-
   const partner = await client.aOSPartner.findOne({
     where: {
       id,

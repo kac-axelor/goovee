@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {
   AOSPortalAppConfig,
   AOSPortalWorkspace,
@@ -157,23 +157,14 @@ export const portalAppConfigFields: SelectOptions<AOSPortalAppConfig> = {
 
 export async function findWorkspaceMembers({
   url,
-  tenantId,
+  client,
   partnerId,
 }: {
   url?: string;
-  tenantId: Tenant['id'];
+  client: Client;
   partnerId: Partner['id'];
 }) {
-  if (!(url && tenantId && partnerId)) {
-    return {
-      partners: [],
-      contacts: [],
-    };
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(url && partnerId)) {
     return {
       partners: [],
       contacts: [],
@@ -266,16 +257,14 @@ export async function findContactWorkspaceConfig({
   url,
   partnerId,
   contactId,
-  tenantId,
+  client,
 }: {
   url?: string;
   partnerId: Partner['id'];
   contactId: ID;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(url && contactId && tenantId && partnerId)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!(url && contactId && partnerId)) return null;
 
   const contact = await client.aOSPartner.findOne({
     where: {
@@ -331,15 +320,13 @@ export async function findContactWorkspaceConfig({
 export async function findPartnerWorkspaceConfig({
   url,
   partnerId,
-  tenantId,
+  client,
 }: {
   url: string;
   partnerId?: ID;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(url && partnerId && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!(url && partnerId)) return null;
 
   const res: any = await client.aOSPartner.findOne({
     where: {
@@ -390,14 +377,12 @@ export async function findPartnerWorkspaceConfig({
 
 export async function findDefaultPartnerWorkspaceConfig({
   url,
-  tenantId,
+  client,
 }: {
   url: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   if (!url) return null;
-
-  const client = await manager.getClient(tenantId);
 
   const workspace: any = await client.aOSPortalWorkspace.findOne({
     where: {
@@ -431,14 +416,12 @@ export async function findDefaultPartnerWorkspaceConfig({
 
 export async function findDefaultPartnerWorkspace({
   partnerId,
-  tenantId,
+  client,
 }: {
   partnerId?: ID;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   if (!partnerId) return null;
-
-  const client = await manager.getClient(tenantId);
 
   const res: any = await client.aOSPartner.findOne({
     where: {
@@ -458,14 +441,12 @@ export async function findDefaultPartnerWorkspace({
 
 export async function findDefaultGuestWorkspaceConfig({
   url,
-  tenantId,
+  client,
 }: {
   url: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(url && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!url) return null;
 
   const workspace: any = await client.aOSPortalWorkspace.findOne({
     where: {
@@ -508,15 +489,13 @@ export async function findDefaultGuestWorkspaceConfig({
 export async function findWorkspace({
   url = '',
   user,
-  tenantId,
+  client,
 }: {
   url?: string;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<PortalWorkspace | null> {
-  if (!(url && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!url) return null;
 
   const workspace = await client.aOSPortalWorkspace.findOne({
     where: {
@@ -546,7 +525,7 @@ export async function findWorkspace({
     const partnerWorkspaceConfig = await findPartnerWorkspaceConfig({
       partnerId,
       url,
-      tenantId,
+      client,
     });
 
     if (partnerWorkspaceConfig?.config) {
@@ -555,7 +534,7 @@ export async function findWorkspace({
   } else {
     const defaultGuestWorkspaceConfig = await findDefaultGuestWorkspaceConfig({
       url,
-      tenantId,
+      client,
     });
 
     if (defaultGuestWorkspaceConfig?.config) {
@@ -600,15 +579,11 @@ export async function findWorkspace({
 
 export async function findOpenWorkspaces({
   url,
-  tenantId,
+  client,
 }: {
   url?: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!tenantId) return [];
-
-  const client = await manager.getClient(tenantId);
-
   const workspaces = await client.aOSPortalWorkspace
     .find({
       where: {
@@ -651,15 +626,13 @@ export async function findOpenWorkspaces({
 export async function findPartnerWorkspaces({
   url,
   partnerId,
-  tenantId,
+  client,
 }: {
   url?: string;
   partnerId: ID;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(partnerId && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!partnerId) return [];
 
   const res: any = await client.aOSPartner
     .findOne({
@@ -700,25 +673,24 @@ export async function findPartnerWorkspaces({
     .map((item: any) => item.workspace)
     .filter(Boolean);
 }
+
 export async function findContactWorkspaces({
   url,
   partnerId,
   contactId,
-  tenantId,
+  client,
 }: {
   url?: string;
   partnerId: ID;
   contactId: ID;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   if (!(partnerId && contactId)) return [];
-
-  const client = await manager.getClient(tenantId);
 
   const partnerWorkspaces = await findPartnerWorkspaces({
     url,
     partnerId,
-    tenantId,
+    client,
   });
 
   if (!partnerWorkspaces?.length) return [];
@@ -773,16 +745,12 @@ export async function findContactWorkspaces({
 
 export async function findWorkspaceByURL({
   url,
-  tenantId,
+  client,
 }: {
   url: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(url && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+  if (!url) return null;
 
   return client.aOSPortalWorkspace.findOne({
     where: {
@@ -802,16 +770,14 @@ export async function findWorkspaceByURL({
 
 export async function findWorkspaceForRegistration({
   url,
-  tenantId,
+  client,
 }: {
   url: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<(AOSPortalWorkspace & {config?: PortalAppConfig}) | null> {
-  if (!(url && tenantId)) {
+  if (!url) {
     return null;
   }
-
-  const client = await manager.getClient(tenantId);
 
   try {
     const workspace = await client.aOSPortalWorkspace
@@ -873,16 +839,16 @@ export async function findWorkspaceForRegistration({
 
 export async function canRegisterForWorkspace({
   url,
-  tenantId,
+  client,
 }: {
   url: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<boolean> {
-  if (!(url && tenantId)) {
+  if (!url) {
     return false;
   }
 
-  return findWorkspaceForRegistration({url, tenantId}).then(workspace =>
+  return findWorkspaceForRegistration({url, client}).then(workspace =>
     Boolean(workspace?.id),
   );
 }
@@ -890,23 +856,23 @@ export async function canRegisterForWorkspace({
 export async function findWorkspaces({
   url,
   user,
-  tenantId,
+  client,
 }: {
   url?: string;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(url && tenantId)) return [];
+  if (!url) return [];
 
   if (!user) {
-    return findOpenWorkspaces({url, tenantId});
+    return findOpenWorkspaces({url, client});
   }
 
   if (!user.isContact) {
     return findPartnerWorkspaces({
       url,
       partnerId: user.id,
-      tenantId,
+      client,
     });
   }
 
@@ -915,7 +881,7 @@ export async function findWorkspaces({
       url,
       contactId: user.id,
       partnerId: user.mainPartnerId!,
-      tenantId,
+      client,
     });
   }
 
@@ -925,13 +891,13 @@ export async function findWorkspaces({
 export async function findWorkspaceApps({
   url,
   user,
-  tenantId,
+  client,
 }: {
   url?: string;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  const workspace = await findWorkspace({url, user, tenantId});
+  const workspace = await findWorkspace({url, user, client});
 
   const apps = workspace?.apps;
 
@@ -947,7 +913,7 @@ export async function findWorkspaceApps({
     url: workspace.url,
     contactId: user.id,
     partnerId: user.mainPartnerId!,
-    tenantId,
+    client,
   });
 
   if (contactWorkpaceConfig.isAdmin) {
@@ -965,18 +931,16 @@ export async function findWorkspaceApps({
 export async function findSubapps({
   url,
   user,
-  tenantId,
+  client,
 }: {
   url: string;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!tenantId) return [];
-
   const apps = await findWorkspaceApps({
     url,
     user,
-    tenantId,
+    client,
   }).then(clone);
 
   return apps;
@@ -986,16 +950,14 @@ export async function findSubapp({
   code,
   url,
   user,
-  tenantId,
+  client,
 }: {
   code: string;
   url: string;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!tenantId) return null;
-
-  const subapps = await findSubapps({url, user, tenantId});
+  const subapps = await findSubapps({url, user, client});
 
   return subapps.find((app: any) => app.code === code);
 }
@@ -1004,16 +966,16 @@ export async function findSubappAccess({
   code,
   user,
   url,
-  tenantId,
+  client,
 }: {
   code: string;
   user: any;
   url: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(code && url && tenantId)) return null;
+  if (!(code && url)) return null;
 
-  const subapp = await findSubapp({code, url, user, tenantId});
+  const subapp = await findSubapp({code, url, user, client});
 
   if (!subapp?.isInstalled) return null;
 

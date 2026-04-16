@@ -45,12 +45,16 @@ export async function removeWorkpace({
     };
   }
 
-  const workspace = await findWorkspace({url: workspaceURL, user, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({url: workspaceURL, user, client});
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
 
-  const $user: any = await findGooveeUserByEmail(user.email, tenantId);
+  const $user: any = await findGooveeUserByEmail(user.email, client);
 
   if (!$user) {
     return {
@@ -59,12 +63,6 @@ export async function removeWorkpace({
     };
   }
   const isContact = user?.isContact;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
-    return {error: true, message: await t('Invalid tenant')};
-  }
 
   try {
     let result;
@@ -100,7 +98,7 @@ export async function removeWorkpace({
             remove: [contactConfig?.id],
           } as any,
         },
-        tenantId,
+        client,
       });
     } else {
       const partnerWorkspace: any = await client.aOSPartner

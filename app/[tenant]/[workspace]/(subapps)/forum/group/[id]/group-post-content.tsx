@@ -1,4 +1,5 @@
 // ---- CORE IMPORTS ---- //
+import type {Client} from '@/goovee/.generated/client';
 import {DEFAULT_LIMIT} from '@/constants';
 import {PortalWorkspace, User} from '@/types';
 import {clone} from '@/utils';
@@ -13,7 +14,7 @@ export async function GroupPostsContent({
   workspace,
   memberGroupIDs,
   user,
-  tenant,
+  client,
 }: {
   params: {
     id: string;
@@ -24,7 +25,7 @@ export async function GroupPostsContent({
   workspace: PortalWorkspace;
   memberGroupIDs: string[];
   user: User;
-  tenant: string;
+  client: Client;
 }) {
   const {sort, limit, search, searchid} = searchParams;
   const groupId = params.id as string;
@@ -36,7 +37,7 @@ export async function GroupPostsContent({
     limit: limit ? Number(limit) : DEFAULT_LIMIT,
     search,
     ids: searchid ? [searchid] : undefined,
-    tenantId: tenant,
+    client,
     user,
     memberGroupIDs,
   }).then(clone);

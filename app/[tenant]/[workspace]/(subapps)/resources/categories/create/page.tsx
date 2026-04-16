@@ -6,6 +6,7 @@ import {t} from '@/locale/server';
 import {getSession} from '@/auth';
 import {findWorkspace} from '@/orm/workspace';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import CategoryForm from './form';
@@ -22,7 +23,7 @@ export default async function Page(props: {
 }) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const {id} = searchParams;
 
   if (!id) {
@@ -39,10 +40,14 @@ export default async function Page(props: {
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -53,7 +58,7 @@ export default async function Page(props: {
     id,
     workspace,
     user,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!parent) {

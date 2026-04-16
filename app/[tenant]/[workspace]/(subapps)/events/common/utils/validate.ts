@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import type {Tenant} from '@/lib/core/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {t} from '@/locale/server';
 import {findPayboxOrder} from '@/payment/paybox/actions';
 import {findPaypalOrder} from '@/payment/paypal/actions';
@@ -14,11 +14,11 @@ import {error} from './index';
 export const getPaymentInfo = async ({
   mode,
   data,
-  tenantId,
+  client,
 }: {
   mode: PaymentOption;
   data: {id?: string; params?: any};
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<ActionResponse<PaymentOrder>> => {
   try {
     switch (mode) {
@@ -27,14 +27,14 @@ export const getPaymentInfo = async ({
         if (!id) return error(await t('Stripe payment requires an ID'));
         const order = await findStripeOrder({
           id,
-          tenantId,
+          client,
         });
         return {success: true, data: order};
       }
       case PaymentOption.paypal: {
         const {id} = data;
         if (!id) return error(await t('PayPal payment requires an ID'));
-        const order = await findPaypalOrder({id, tenantId});
+        const order = await findPaypalOrder({id, client});
 
         return {success: true, data: order};
       }
@@ -43,7 +43,7 @@ export const getPaymentInfo = async ({
         if (!params) {
           return error(await t('Paybox payment requires parameters'));
         }
-        const order = await findPayboxOrder({params, tenantId});
+        const order = await findPayboxOrder({params, client});
         return {success: true, data: order};
       }
       default:

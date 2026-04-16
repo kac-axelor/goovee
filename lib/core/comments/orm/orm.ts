@@ -8,7 +8,7 @@ import {promisify} from 'util';
 import {ORDER_BY} from '@/constants';
 import {AOSMailMessage} from '@/goovee/.generated/models';
 import {t} from '@/locale/server';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {ID} from '@/types';
 import {getFileSizeText} from '@/utils/files';
 import {sql} from '@/utils/template-string';
@@ -70,7 +70,7 @@ async function getPopularCommentsBySorting({
   skip = 0,
   limit,
   recordId,
-  tenantId,
+  client,
   modelName,
   exclude,
   showRepliesInMainThread,
@@ -78,16 +78,14 @@ async function getPopularCommentsBySorting({
   recordId: ID;
   skip?: number;
   limit?: number;
-  tenantId: Tenant['id'];
+  client: Client;
   modelName: string;
   exclude?: ID[];
   showRepliesInMainThread?: boolean;
 }): Promise<FindCommentsData> {
-  if (!tenantId || !recordId) {
-    throw new Error(await t('TenantId  and RecordId are required'));
+  if (!recordId) {
+    throw new Error(await t('RecordId is required'));
   }
-
-  const client = await manager.getClient(tenantId);
 
   const params = [
     recordId, // $1
@@ -296,17 +294,12 @@ type Attachment = {
 
 async function upload({
   attachments,
-  tenantId,
+  client,
 }: {
   attachments: CommentAttachment[];
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<Attachment[]> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
   if (!attachments.length) return [];
-  const client = await manager.getClient(tenantId);
 
   const getTimestampFilename = (name: string) => {
     return `${new Date().getTime()}-${name}`;
@@ -362,14 +355,13 @@ export async function addComment(
     data,
     parentId,
     messageBody,
-    tenantId,
+    client,
     subject,
     messageType = MAIL_MESSAGE_TYPE.comment,
     showRepliesInMainThread,
     trackingField,
     commentField,
   } = props;
-  const client = await manager.getClient(tenantId);
 
   let parent;
   if (parentId) {
@@ -388,7 +380,7 @@ export async function addComment(
 
   let attachments: Attachment[] = [];
   if (data?.attachments?.length) {
-    attachments = await upload({attachments: data.attachments, tenantId});
+    attachments = await upload({attachments: data.attachments, client});
   }
 
   const timestamp = new Date();
@@ -449,18 +441,17 @@ export async function findComments(
     limit,
     skip,
     sort,
-    tenantId,
+    client,
     exclude,
     showRepliesInMainThread,
     trackingField,
     commentField,
   } = props;
 
-  if (!tenantId || !recordId) {
-    throw new Error(await t('TenantId  and RecordId are required.'));
+  if (!recordId) {
+    throw new Error(await t('RecordId is required.'));
   }
 
-  const client = await manager.getClient(tenantId);
   let orderBy: any = null;
   switch (sort) {
     case SORT_TYPE.old:
@@ -472,7 +463,7 @@ export async function findComments(
         modelName,
         skip,
         limit,
-        tenantId,
+        client,
         exclude,
         showRepliesInMainThread,
       });
@@ -540,17 +531,16 @@ export async function findComments(
 export async function isFileOfRecord({
   fileId,
   recordId,
-  tenantId,
+  client,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
   recordId: ID;
   fileId: ID;
 }): Promise<boolean> {
-  if (!tenantId || !recordId) {
-    throw new Error(await t('TenantId  and RecordId are required.'));
+  if (!recordId) {
+    throw new Error(await t('RecordId is required.'));
   }
 
-  const client = await manager.getClient(tenantId);
   const comment = await client.aOSMailMessage.findOne({
     where: {
       relatedId: Number(recordId),

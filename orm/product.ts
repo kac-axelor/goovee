@@ -1,21 +1,20 @@
 // ---- CORE IMPORTS ---- //
-import {type Tenant, manager} from '@/lib/core/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {User, PortalWorkspace} from '@/types';
 import {getPartnerId} from '@/utils';
 
 export async function shouldHidePricesAndPurchase({
   user,
   workspace,
-  tenantId,
+  client,
 }: {
   user: User | undefined;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   const {hidePriceForEmptyPricelist} = workspace.config || {};
   if (hidePriceForEmptyPricelist) {
     if (!user) return true;
-    const client = await manager.getClient(tenantId);
     const mainPartner = await client.aOSPartner.findOne({
       where: {
         id: getPartnerId(user),

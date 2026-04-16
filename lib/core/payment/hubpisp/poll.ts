@@ -6,6 +6,7 @@ import {fetchPaymentRequestStatus} from './paymentRequest';
 import {HUBPISP_LOCAL_INSTRUMENT} from './constants';
 import type {HubPispLocalInstrument} from './constants';
 import {applyTransactionStatus} from './process';
+import {manager} from '@/tenant';
 
 // Tracks active payment request polls to prevent duplicate sessions.
 const activePolls = new Set<string>();
@@ -75,10 +76,20 @@ export async function pollPaymentRequestStatus({
     while (Date.now() < deadline) {
       await sleep(interval);
 
+      const tenant = await manager.getTenant(tenantId);
+      if (!tenant) {
+        console.error('[HUBPISP][POLL] Tenant not found, stopping poll', {
+          tenantId,
+          contextId,
+        });
+        return;
+      }
+      const {client, config} = tenant;
+
       // Re-fetch context to check if it was already processed (e.g. by a concurrent webhook)
       const paymentContext = await findPaymentContext({
         id: contextId,
-        tenantId,
+        client,
         mode: PaymentOption.hubpisp,
         ignoreExpiration: true,
       });
@@ -150,7 +161,9 @@ export async function pollPaymentRequestStatus({
         paymentContext,
         transactionStatus,
         statusReasonInformation,
+        client,
         tenantId,
+        config,
       });
 
       if (isTerminal) return;

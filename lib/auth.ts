@@ -1,4 +1,5 @@
 import {findGooveeUserByEmail} from '@/orm/partner';
+import {manager} from '@/tenant';
 import {
   betterAuth,
   type BetterAuthOptions,
@@ -39,16 +40,26 @@ const options = {
               });
             }
 
-            let partner = await findGooveeUserByEmail(
-              user.email,
-              data.tenantId,
-            );
+            const tenant = await manager.getTenant(data.tenantId);
+            if (!tenant) {
+              throw new APIError('UNPROCESSABLE_ENTITY', {
+                message: ERROR_CODES.TENANT_ID_REQUIRED,
+              });
+            }
+            const {client, config} = tenant;
+
+            let partner = await findGooveeUserByEmail(user.email, client);
             if (!partner) {
               if (ctx.params?.id === 'google' && data.requestSignUp) {
                 const signUp = data.inviteId ? registerByInvite : register;
                 let res;
                 try {
-                  res = await signUp({...data, email: user.email});
+                  res = await signUp({
+                    ...data,
+                    email: user.email,
+                    client,
+                    config,
+                  });
                 } catch (err) {
                   throw new APIError('UNPROCESSABLE_ENTITY', {
                     message: ERROR_CODES.REGISTRATION_FAILED,
@@ -60,10 +71,7 @@ const options = {
                   });
                 }
 
-                partner = await findGooveeUserByEmail(
-                  user.email,
-                  data.tenantId,
-                );
+                partner = await findGooveeUserByEmail(user.email, client);
               }
               if (ctx.params?.providerId === 'keycloak') {
                 // implicit signup with keycloak
@@ -75,6 +83,7 @@ const options = {
                     workspaceURI: data.workspaceURI,
                     tenantId: data.tenantId,
                     locale: data.locale,
+                    client,
                   });
                 } catch (err) {
                   throw new APIError('UNPROCESSABLE_ENTITY', {
@@ -87,10 +96,7 @@ const options = {
                   });
                 }
 
-                partner = await findGooveeUserByEmail(
-                  user.email,
-                  data.tenantId,
-                );
+                partner = await findGooveeUserByEmail(user.email, client);
               }
             }
 
@@ -160,10 +166,11 @@ export const auth = betterAuth({
     ...options.plugins,
     customSession(async ({user, session}, ctx) => {
       const {tenantId} = session;
+      const tenant = tenantId ? await manager.getTenant(tenantId) : null;
       const partner =
-        tenantId &&
+        tenant &&
         user.email &&
-        (await findGooveeUserByEmail(user.email, tenantId));
+        (await findGooveeUserByEmail(user.email, tenant.client));
 
       if (!partner) {
         // Session cookie exists but partner no longer found — clear cookies and treat as no session

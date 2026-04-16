@@ -74,10 +74,10 @@ const findGeneralTranslations = cache(async function findGeneralTranslations(
 
 const findTenantTranslations = cache(async function findTenantTranslations(
   locale: string,
-  tenant: string,
+  tenantId: string,
   keys?: string[],
 ) {
-  if (!(locale && tenant)) {
+  if (!(locale && tenantId)) {
     return {};
   }
 
@@ -85,8 +85,9 @@ const findTenantTranslations = cache(async function findTenantTranslations(
 
   const find = async (locale: string) => {
     try {
-      const client = await manager.getClient(tenant);
-      return client.aOSMetaTranslation
+      const tenant = await manager.getTenant(tenantId);
+      if (!tenant) return {};
+      return tenant.client.aOSMetaTranslation
         .find({
           where: {language: locale, ...(keys ? {key: {in: keys}} : {})},
           select: {key: true, value: true},
@@ -123,7 +124,7 @@ const findTenantTranslations = cache(async function findTenantTranslations(
 
 export const findTranslations = cache(async function findTranslations(
   locale: string = DEFAULT_LOCALE,
-  tenant?: string,
+  tenantId?: string,
   keys?: string[],
 ) {
   if (!locale) {
@@ -133,7 +134,7 @@ export const findTranslations = cache(async function findTranslations(
   let data: Record<string, string | undefined | null> = {};
   await Promise.all([
     findGeneralTranslations(locale, keys),
-    ...(tenant ? [findTenantTranslations(locale, tenant, keys)] : []),
+    ...(tenantId ? [findTenantTranslations(locale, tenantId, keys)] : []),
   ]).then(([generalTranslations, tenantTranslations]) => {
     data = Object.assign(data, generalTranslations, tenantTranslations);
   });

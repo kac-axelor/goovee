@@ -6,6 +6,7 @@ import {SUBAPP_CODES} from '@/constants';
 import {Website} from '@/types';
 import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {NotFound} from '@/subapps/website/common/components/blocks/not-found';
@@ -32,16 +33,20 @@ export async function generateMetadata(props: {
 }) {
   const params = await props.params;
   const {workspaceURL} = workspacePathname(params);
-  const {tenant, websiteSlug} = params;
+  const {tenant: tenantId, websiteSlug} = params;
 
   const session = await getSession();
   const user = session?.user;
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
 
   const website = await findWebsiteSeoBySlug({
     websiteSlug,
     workspaceURL,
     user,
-    tenantId: tenant,
+    client,
   });
 
   if (!website) {
@@ -71,15 +76,21 @@ export default async function Layout(props: {
   const session = await getSession();
   const user = session?.user;
 
-  const {tenant, websiteSlug} = params;
+  const {tenant: tenantId, websiteSlug} = params;
   const {workspaceURL, workspaceURI} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return <NotFound homePageUrl={`${workspaceURI}/${SUBAPP_CODES.website}`} />;
+  }
+  const {client} = tenant;
 
   const website = await findWebsiteBySlug({
     websiteSlug,
     workspaceURL,
     workspaceURI,
     user,
-    tenantId: tenant,
+    client,
     mountTypes: layoutMountTypes,
   });
 
@@ -91,7 +102,7 @@ export default async function Layout(props: {
     mainWebsiteId: website?.mainWebsite?.id,
     workspaceURL,
     user,
-    tenantId: tenant,
+    client,
   });
 
   const navPosition = website.menu?.component?.typeSelect ?? 1;

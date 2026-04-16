@@ -1,5 +1,6 @@
 import '@/load-swc-env';
 import {seedContents} from '@/subapps/website/common/utils/templates';
+import {manager} from '@/tenant';
 
 const tenantId = process.env.MULTI_TENANCY === 'true' ? process.argv[2] : 'd';
 
@@ -8,7 +9,15 @@ if (!tenantId) {
   process.exit(1);
 }
 
-seedContents(tenantId)
+manager
+  .getTenant(tenantId)
+  .then(tenant => {
+    if (!tenant) {
+      console.error('\x1b[31m✖ Tenant not found.\x1b[0m');
+      process.exit(1);
+    }
+    return seedContents(tenant.client);
+  })
   .then(res => {
     const failed = res.filter(res => res.status === 'rejected');
     if (failed.length) {

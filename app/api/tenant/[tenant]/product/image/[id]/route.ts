@@ -11,21 +11,21 @@ export async function GET(
   props: {params: Promise<{tenant: string; id: string}>},
 ) {
   const params = await props.params;
-  const {id, tenant} = params;
-
-  const client = await manager.getClient(tenant);
+  const {id, tenant: tenantId} = params;
 
   const session = await getSession();
   const user = session?.user;
 
-  if (!client || !id) {
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant || !id) {
     return new NextResponse('Bad request', {status: 400});
   }
+  const {client} = tenant;
 
   const product = await client.aOSProduct.findOne({
     where: {
       ...and<AOSProduct>([
-        await filterPrivate({tenantId: tenant, user}),
+        await filterPrivate({user, client}),
         {
           OR: [
             {picture: {id}},
@@ -53,7 +53,8 @@ export async function GET(
     const file = await findFile({
       id,
       meta: true,
-      tenant,
+      client: tenant.client,
+      storage: tenant.config.aos.storage,
     });
 
     if (!file) {

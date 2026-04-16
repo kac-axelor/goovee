@@ -8,6 +8,7 @@ import {revalidatePath} from 'next/cache';
 import {getSession} from '@/auth';
 import {t} from '@/locale/server';
 import {TENANT_HEADER} from '@/proxy';
+import {manager} from '@/tenant';
 import {
   findContactByEmail,
   findGooveeUserByEmail,
@@ -64,14 +65,18 @@ export async function deleteInvite({
     return error(await t('Bad request'));
   }
 
-  const workspace = await findWorkspace({url: workspaceURL, user, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Tenant not found'));
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({url: workspaceURL, user, client});
 
   if (!workspace) {
     return error(await t('Bad request'));
   }
 
   const isPartnerUser = await isPartner();
-  const isAdminContactUser = await isAdminContact({workspaceURL, tenantId});
+  const isAdminContactUser = await isAdminContact({workspaceURL, client});
 
   const canDelete = isPartnerUser || isAdminContactUser;
 
@@ -79,7 +84,7 @@ export async function deleteInvite({
     return error(await t('Unauthorized'));
   }
 
-  const invite = await findInviteById({id, tenantId});
+  const invite = await findInviteById({id, client});
 
   const partnerId = (user?.isContact ? user.mainPartnerId : user.id)!;
 
@@ -88,7 +93,7 @@ export async function deleteInvite({
   }
 
   try {
-    const result = await deleteInviteById({id, tenantId});
+    const result = await deleteInviteById({id, client});
     if (!result) {
       throw new Error();
     } else {
@@ -141,7 +146,11 @@ export async function sendInvites({
     return error(await t('Bad request'));
   }
 
-  const workspace = await findWorkspace({url: workspaceURL, user, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Tenant not found'));
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({url: workspaceURL, user, client});
 
   if (!workspace) {
     return error(await t('Bad request'));
@@ -152,7 +161,7 @@ export async function sendInvites({
   }
 
   const isPartnerUser = await isPartner();
-  const isAdminContactUser = await isAdminContact({workspaceURL, tenantId});
+  const isAdminContactUser = await isAdminContact({workspaceURL, client});
 
   const canInviteMembers = isPartnerUser || isAdminContactUser;
 
@@ -160,7 +169,7 @@ export async function sendInvites({
     return error(await t('Unauthorized'));
   }
 
-  const isValidUser = await findGooveeUserByEmail(user.email, tenantId);
+  const isValidUser = await findGooveeUserByEmail(user.email, client);
 
   if (!isValidUser) {
     return error(await t('Unauthorized'));
@@ -171,7 +180,7 @@ export async function sendInvites({
   try {
     availableApps = await findAvailableSubapps({
       url: workspaceURL,
-      tenantId,
+      client,
     });
   } catch (err) {
     return error(await t('Error sending invites'));
@@ -193,7 +202,7 @@ export async function sendInvites({
 
   const partnerId = getPartnerId(user);
 
-  const partner = await findPartnerById(partnerId, tenantId);
+  const partner = await findPartnerById(partnerId, client);
 
   if (!partner) {
     return error(await t('Invalid partner'));
@@ -262,7 +271,7 @@ export async function sendInvites({
         error: 'Invalid email address',
       }).parse(email);
 
-      const existingGooveeUser = await findGooveeUserByEmail(email, tenantId);
+      const existingGooveeUser = await findGooveeUserByEmail(email, client);
       const isExistingPartner =
         existingGooveeUser && !existingGooveeUser?.isContact;
 
@@ -271,7 +280,7 @@ export async function sendInvites({
         continue; // don't send invite to partner already registered
       }
 
-      const existingContact = await findContactByEmail(email, tenantId);
+      const existingContact = await findContactByEmail(email, client);
 
       if (workspace.config?.isExistingContactsOnly) {
         if (!existingContact?.isContact) {
@@ -298,7 +307,7 @@ export async function sendInvites({
 
       const existingInvite = await findInviteForEmail({
         email,
-        tenantId,
+        client,
         partnerId,
         workspaceURL,
       });
@@ -310,7 +319,7 @@ export async function sendInvites({
 
       const invite = await createInvite({
         workspace,
-        tenantId,
+        client,
         email,
         role,
         apps: filteredApps,

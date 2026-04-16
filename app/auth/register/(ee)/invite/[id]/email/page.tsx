@@ -4,6 +4,7 @@ import {notFound} from 'next/navigation';
 import {getSession} from '@/auth';
 import {SEARCH_PARAMS} from '@/constants';
 import {t} from '@/locale/server';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Form from './form';
@@ -25,7 +26,11 @@ export default async function Page(props: {
     return notFound();
   }
 
-  const invite = await findInviteById({id, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
+  const invite = await findInviteById({id, client});
 
   if (!invite?.emailAddress?.address) {
     return notFound();

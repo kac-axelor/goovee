@@ -2,7 +2,7 @@ import {getSession} from '@/auth';
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
-import {Tenant} from '@/tenant';
+import {manager, type Tenant} from '@/tenant';
 import {Subapp, PortalWorkspace, User} from '@/types';
 import {Maybe} from '@/types/util';
 import {cache} from 'react';
@@ -15,7 +15,7 @@ export type AuthProps = {
   subapp: Subapp;
   workspace: PortalWorkspaceWithConfig;
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  tenant: Tenant;
 };
 
 export const ensureAuth = cache(async function ensureAuth(
@@ -44,11 +44,20 @@ export const ensureAuth = cache(async function ensureAuth(
 
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return {
+      error: true,
+      message: await t('Invalid tenant'),
+    };
+  }
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.directory,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp) {
@@ -61,7 +70,7 @@ export const ensureAuth = cache(async function ensureAuth(
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace?.config) {
@@ -78,7 +87,7 @@ export const ensureAuth = cache(async function ensureAuth(
       subapp,
       workspace: workspace as PortalWorkspaceWithConfig,
       workspaceURL,
-      tenantId,
+      tenant,
     },
   };
 });

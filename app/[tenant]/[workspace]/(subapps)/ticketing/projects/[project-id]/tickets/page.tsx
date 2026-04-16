@@ -1,7 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
-import {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {PortalAppConfig} from '@/types';
 import {
   Breadcrumb,
@@ -180,7 +180,7 @@ export default async function Page(props: {
               url={url}
               searchParams={searchParams}
               projectId={projectId}
-              tenantId={tenant}
+              client={auth.tenant.client}
               fields={workspace.config.ticketingFieldSet}
             />
           </Suspense>
@@ -274,23 +274,23 @@ async function AsyncFilter({
   url,
   searchParams,
   projectId,
-  tenantId,
+  client,
   fields,
 }: {
   url: string;
   searchParams: SearchParams;
   projectId: ID;
-  tenantId: Tenant['id'];
+  client: Client;
   fields: PortalAppConfig['ticketingFieldSet'];
 }) {
   const [contacts, statuses, priorities, company, clientPartner, categories] =
     await Promise.all([
-      findMainPartnerContacts(projectId, tenantId),
-      findTicketStatuses(projectId, tenantId),
-      findTicketPriorities(projectId, tenantId),
-      findCompany(projectId, tenantId),
-      findClientPartner(projectId, tenantId),
-      findTicketCategories(projectId, tenantId),
+      findMainPartnerContacts(projectId, client),
+      findTicketStatuses(projectId, client),
+      findTicketPriorities(projectId, client),
+      findCompany(projectId, client),
+      findClientPartner(projectId, client),
+      findTicketCategories(projectId, client),
     ]).then(clone);
 
   return (

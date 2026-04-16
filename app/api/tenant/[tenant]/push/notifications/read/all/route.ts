@@ -7,17 +7,18 @@ export async function POST(
   props: {params: Promise<{tenant: string}>},
 ) {
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
   const session = await getSession();
   if (!session?.user) {
     return new NextResponse('Unauthorized', {status: 401});
   }
 
-  const client = await manager.getClient(tenant);
-  if (!client) {
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
     return new NextResponse('Bad request', {status: 400});
   }
+  const {client} = tenant;
 
   try {
     await client.pushNotification.updateAll({

@@ -15,6 +15,7 @@ import {
 import {findPendingStripeBankTransfers} from './orm';
 import {PaymentOption} from '@/types';
 import type {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {
   type PaymentContextData,
   type PaymentOrder,
@@ -58,8 +59,10 @@ export async function createStripeOrder({
   url,
   context,
   tenantId,
+  client,
 }: {
   tenantId: Tenant['id'];
+  client: Client;
   customer: {email: string; id: string};
   currency: string;
   name: string;
@@ -72,7 +75,6 @@ export async function createStripeOrder({
 }) {
   if (
     !(
-      tenantId &&
       name &&
       amount &&
       customer?.email &&
@@ -91,7 +93,7 @@ export async function createStripeOrder({
       context,
       mode: PaymentOption.stripe,
       payer: customer.email,
-      tenantId,
+      client,
     });
 
     const session: Stripe.Checkout.Session =
@@ -126,10 +128,10 @@ export async function createStripeOrder({
 
 export async function findStripeOrder({
   id,
-  tenantId,
+  client,
 }: {
   id: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<PaymentOrder> {
   if (!id) {
     throw new Error('Session id is required');
@@ -154,7 +156,7 @@ export async function findStripeOrder({
 
   const context = await findPaymentContext({
     id: contextId,
-    tenantId,
+    client,
     mode: PaymentOption.stripe,
   });
 
@@ -195,16 +197,18 @@ export async function createStripePaymentIntent({
   amount,
   context,
   tenantId,
+  client,
   countryCode,
 }: {
   tenantId: Tenant['id'];
+  client: Client;
   customer: {email: string; id: string};
   currency: string;
   amount: number;
   context: PaymentContextData;
   countryCode: CountryCode;
 }): Promise<BankTransferIntentResult> {
-  if (!(tenantId && amount && customer?.email && currency && countryCode)) {
+  if (!(amount && customer?.email && currency && countryCode)) {
     throw new Error(
       'Name, amount, customer, currency and Country code are required',
     );
@@ -217,7 +221,7 @@ export async function createStripePaymentIntent({
       context,
       mode: PaymentOption.stripe,
       payer: customer.email,
-      tenantId,
+      client,
     });
 
     const stripeCustomerId = await getOrCreateStripeCustomer(
@@ -256,7 +260,7 @@ export async function createStripePaymentIntent({
       await markPaymentAsFailed({
         contextId: paymentContext.id,
         version: paymentContext.version,
-        tenantId,
+        client,
       });
       throw new Error('Payment confirmation failed');
     }
@@ -265,7 +269,7 @@ export async function createStripePaymentIntent({
     await updatePaymentContextData({
       id: paymentContext.id,
       version: paymentContext.version,
-      tenantId,
+      client,
       context: {
         ...context,
         paymentIntent: confirmedIntent.id,
@@ -337,18 +341,14 @@ export async function findStripePaymentIntent(paymentIntentId: string) {
 export async function cancelStripePaymentIntent({
   id,
   cancellationReason,
-  tenantId,
+  client,
 }: {
   id: string;
   cancellationReason: Stripe.PaymentIntentCancelParams.CancellationReason;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   if (!id) {
     throw new Error('Payment intent id is required');
-  }
-
-  if (!tenantId) {
-    throw new Error('Tenant id is required to cancel payment intent');
   }
 
   if (!cancellationReason) {
@@ -372,7 +372,7 @@ export async function cancelStripePaymentIntent({
 
     const paymentContext = await findPaymentContext({
       id: contextId,
-      tenantId,
+      client,
       mode: PaymentOption.stripe,
       ignoreExpiration: true,
     });
@@ -397,7 +397,7 @@ export async function cancelStripePaymentIntent({
     await markPaymentAsCancelled({
       contextId: paymentContext.id,
       version: paymentContext.version,
-      tenantId,
+      client,
     });
 
     return {
@@ -415,11 +415,11 @@ export async function cancelStripePaymentIntent({
 }
 
 export async function cancelInvalidPendingBankTransfers({
-  tenantId,
+  client,
   sourceId,
   amountRemaining,
 }: {
-  tenantId: string;
+  client: Client;
   sourceId: string;
   amountRemaining: number;
 }) {
@@ -427,12 +427,8 @@ export async function cancelInvalidPendingBankTransfers({
     throw new Error('Source id is required');
   }
 
-  if (!tenantId) {
-    throw new Error('Tenant id is required');
-  }
-
   const pendingContexts = await findPendingStripeBankTransfers({
-    tenantId,
+    client,
     id: sourceId,
   });
 
@@ -480,7 +476,7 @@ export async function cancelInvalidPendingBankTransfers({
       await cancelStripePaymentIntent({
         id: String(paymentIntentId),
         cancellationReason,
-        tenantId,
+        client,
       });
     }),
   );

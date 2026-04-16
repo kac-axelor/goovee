@@ -6,6 +6,7 @@ import {findGooveeUserByEmail} from '@/orm/partner';
 import {findWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from '@/app/[tenant]/[workspace]/(subapps)/events/[slug]/register/content';
@@ -24,17 +25,21 @@ export default async function Page(props: {
   params: Promise<{slug: string; tenant: string; workspace: string}>;
 }) {
   const params = await props.params;
-  const {slug, tenant} = params;
+  const {slug, tenant: tenantId} = params;
 
   const session = await getSession();
   const user: any = session?.user;
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client, config} = tenant;
+
   const workspace: any = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -44,7 +49,8 @@ export default async function Page(props: {
   const eventDetails = await findEvent({
     slug,
     workspace,
-    tenantId: tenant,
+    client,
+    config,
     user,
   }).then(clone);
 
@@ -69,7 +75,7 @@ export default async function Page(props: {
   const metaFields = await findModelFields({
     modelName: PORTAL_PARTICIPANT_MODEL,
     modelField: CONTACT_ATTRS,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   const fields = eventDetails.additionalFieldSet || [];
@@ -79,7 +85,7 @@ export default async function Page(props: {
     if (_f.selection != null) {
       const options = await findSelectionItems({
         selectionName: _f.selection,
-        tenantId: tenant,
+        client,
       });
       result.push({..._f, selectionOptions: options});
     } else {
@@ -95,7 +101,7 @@ export default async function Page(props: {
   );
 
   const partner = user
-    ? await findGooveeUserByEmail(user.email, tenant).then(clone)
+    ? await findGooveeUserByEmail(user.email, client).then(clone)
     : {};
 
   return (

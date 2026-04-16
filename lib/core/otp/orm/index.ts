@@ -1,6 +1,6 @@
 // ---- CORE IMPORTS ---- /
 import {hash, compare as compareHashed} from '@/auth/utils';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {clone} from '@/utils';
 import type {ID} from '@/types';
 
@@ -12,21 +12,17 @@ export async function create({
   entity,
   force,
   digit,
-  tenantId,
+  client,
 }: {
   scope: string;
   entity: string;
   force?: boolean;
   digit?: number;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(tenantId && scope && entity)) return null;
+  if (!(scope && entity)) return null;
 
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
-
-  const existing = await findOne({scope, entity, tenantId});
+  const existing = await findOne({scope, entity, client});
 
   const createOTP = async () => {
     const otp = generateOTP(digit);
@@ -82,17 +78,13 @@ export async function create({
 export async function findOne({
   scope,
   entity,
-  tenantId,
+  client,
 }: {
   scope: string;
   entity: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(tenantId && scope && entity)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+  if (!(scope && entity)) return null;
 
   return client.otp.findOne({
     where: {
@@ -112,18 +104,8 @@ export async function findOne({
   });
 }
 
-export async function findOneById({
-  id,
-  tenantId,
-}: {
-  id: ID;
-  tenantId: Tenant['id'];
-}) {
-  if (!(tenantId && id)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+export async function findOneById({id, client}: {id: ID; client: Client}) {
+  if (!id) return null;
 
   return client.otp.findOne({
     where: {
@@ -145,15 +127,15 @@ export async function findOneById({
 export async function isValid({
   id,
   value,
-  tenantId,
+  client,
 }: {
   id?: ID;
   value: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(id && value && tenantId)) return false;
+  if (!(id && value)) return false;
 
-  const existing = await findOneById({id, tenantId});
+  const existing = await findOneById({id, client});
 
   if (!existing?.value) return false;
 
@@ -164,20 +146,10 @@ export async function isValid({
   return Boolean(matched);
 }
 
-export async function markUsed({
-  id,
-  tenantId,
-}: {
-  id: string;
-  tenantId: Tenant['id'];
-}) {
-  const existing = await findOneById({id, tenantId});
+export async function markUsed({id, client}: {id: string; client: Client}) {
+  const existing = await findOneById({id, client});
 
   if (!existing) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
 
   const {version} = existing;
 

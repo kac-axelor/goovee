@@ -7,6 +7,7 @@ import {SUBAPP_CODES} from '@/constants';
 import {findPreferences} from '@/orm/notification';
 import {workspacePathname} from '@/utils/workspace';
 import {t} from '@/locale/server';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {Title} from '../common/ui/components';
@@ -27,6 +28,10 @@ export default async function Page(props: {
     return notFound();
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const [
     eventsPreference,
     newsPreference,
@@ -43,7 +48,7 @@ export default async function Page(props: {
     ].map(code =>
       findPreferences({
         code,
-        tenantId,
+        client,
         url,
         user,
       }),

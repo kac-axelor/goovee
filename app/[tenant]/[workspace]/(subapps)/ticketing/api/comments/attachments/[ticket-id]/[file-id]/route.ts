@@ -39,14 +39,21 @@ export async function GET(
     return new NextResponse('Forbidden', {status: 403});
   }
 
-  if (!(await isFileOfRecord({recordId: ticketId, fileId, tenantId: tenant}))) {
+  if (
+    !(await isFileOfRecord({
+      recordId: ticketId,
+      fileId,
+      client: auth.tenant.client,
+    }))
+  ) {
     return new NextResponse('Forbidden', {status: 403});
   }
 
   const file = await findFile({
     id: fileId,
     meta: true,
-    tenant,
+    client: auth.tenant.client,
+    storage: auth.tenant.config.aos.storage,
   });
 
   if (!file) {

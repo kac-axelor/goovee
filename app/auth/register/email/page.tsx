@@ -2,6 +2,7 @@ import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
 import {findWorkspaceForRegistration} from '@/orm/workspace';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Form from './form';
@@ -24,7 +25,11 @@ export default async function Page(props: {
     return notFound();
   }
 
-  const existing = await isExistingUser({workspaceURL, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
+  const existing = await isExistingUser({workspaceURL, client});
 
   if (existing) {
     return <UserExists workspaceURL={workspaceURL} />;
@@ -32,7 +37,7 @@ export default async function Page(props: {
 
   const workspace = await findWorkspaceForRegistration({
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {

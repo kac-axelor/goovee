@@ -9,6 +9,7 @@ import {SUBAPP_CODES} from '@/constants';
 import {workspacePathname} from '@/utils/workspace';
 import {PartnerKey, type User} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -30,7 +31,16 @@ async function Invoice({
   searchParams: SearchParams;
   session: Session;
 }) {
-  const {id, tenant} = params;
+  const {id, tenant: tenantId} = params;
+
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
+    return notFound();
+  }
+
+  const {client} = tenant;
+
   const token = searchParams.token;
   const {workspaceURL, workspaceURI} = workspacePathname(params);
 
@@ -44,7 +54,7 @@ async function Invoice({
   const workspace = await findWorkspace({
     url: workspaceURL,
     user,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -56,7 +66,7 @@ async function Invoice({
       code: SUBAPP_CODES.invoices,
       user: user!,
       url: workspaceURL,
-      tenantId: tenant,
+      client,
     });
 
     if (!app?.isInstalled) {
@@ -76,7 +86,7 @@ async function Invoice({
   const invoice = await findInvoice({
     id,
     ...(token ? {token} : {params: {where: invoicesWhereClause}}),
-    tenantId: tenant,
+    client,
     workspaceURL,
   });
 

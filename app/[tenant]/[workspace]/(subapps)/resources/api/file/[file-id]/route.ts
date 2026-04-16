@@ -23,10 +23,15 @@ export async function GET(
 
   const session = await getSession();
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return new NextResponse('Bad Request', {status: 400});
+  const {client} = tenant;
+  const storage = tenant?.config?.aos?.storage;
+
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -37,7 +42,7 @@ export async function GET(
     code: SUBAPP_CODES.resources,
     user: session?.user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp?.isInstalled) {
@@ -46,7 +51,7 @@ export async function GET(
 
   const file = await fetchFile({
     id: fileId,
-    tenantId,
+    client,
     workspace,
     user: session?.user,
   });
@@ -54,9 +59,6 @@ export async function GET(
   if (!file?.metaFile?.id) {
     return new NextResponse('File not found', {status: 404});
   }
-
-  const tenant = await manager.getTenant(tenantId);
-  const storage = tenant?.config?.aos?.storage;
   if (!storage) {
     return new NextResponse('Bad config', {status: 500});
   }

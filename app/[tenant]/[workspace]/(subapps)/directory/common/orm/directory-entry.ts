@@ -1,7 +1,6 @@
 import type {AOSPartner} from '@/goovee/.generated/models';
+import type {Client} from '@/goovee/.generated/client';
 import {t} from '@/lib/core/locale/server';
-import type {Tenant} from '@/tenant';
-import {manager} from '@/tenant';
 import type {ID} from '@/types';
 import type {OrderByOptions} from '@goovee/orm';
 
@@ -17,20 +16,12 @@ export type Entry = ExpandRecursively<
   NonNullable<Awaited<ReturnType<typeof findEntry>>>
 >;
 
-export async function findEntry({
-  id,
-  tenantId,
-}: {
-  id: ID;
-  tenantId: Tenant['id'];
-}) {
-  if (!(id && tenantId)) {
+export async function findEntry({id, client}: {id: ID; client: Client}) {
+  if (!id) {
     throw new Error(await t('Missing required parameters'));
   }
 
-  const c = await manager.getClient(tenantId);
-
-  const entry = await c.aOSPartner.findOne({
+  const entry = await client.aOSPartner.findOne({
     where: and<AOSPartner>([{id}, getCompanyAccessFilter()]),
     select: {
       id: true,
@@ -96,7 +87,7 @@ export type ListEntry = ExpandRecursively<
 export async function findEntries({
   take,
   skip,
-  tenantId,
+  client,
   orderBy,
   search,
   city,
@@ -107,14 +98,10 @@ export async function findEntries({
   city?: string;
   zip?: string;
   search?: string;
-  tenantId: Tenant['id'];
+  client: Client;
   orderBy?: OrderByOptions<AOSPartner>;
 }) {
-  if (!tenantId) {
-    throw new Error(await t('Missing required parameters'));
-  }
-  const c = await manager.getClient(tenantId);
-  const entries = await c.aOSPartner.find({
+  const entries = await client.aOSPartner.find({
     where: and<AOSPartner>([
       getCompanyAccessFilter(),
       city && {mainAddress: {city: {name: {like: `%${city}%`}}}},

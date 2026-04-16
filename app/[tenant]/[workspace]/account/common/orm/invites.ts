@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {findEmailAddress, isAdminContact, isPartner} from '@/orm/partner';
 import {clone} from '@/utils';
 import type {Partner, PortalWorkspace} from '@/types';
@@ -9,18 +9,12 @@ import {InviteAppsConfig, Role} from '../types';
 
 export async function findInviteById({
   id,
-  tenantId,
+  client,
 }: {
   id: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(id && tenantId)) {
-    return null;
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!id) {
     return null;
   }
 
@@ -64,22 +58,16 @@ export async function findInviteById({
 
 export async function deleteInviteById({
   id,
-  tenantId,
+  client,
 }: {
   id: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(id && tenantId)) {
+  if (!id) {
     return null;
   }
 
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
-    return null;
-  }
-
-  const invite = await findInviteById({id, tenantId});
+  const invite = await findInviteById({id, client});
   const contactConfig = invite?.contactAppPermissionList?.[0];
 
   if (!invite) {
@@ -116,18 +104,16 @@ export async function deleteInviteById({
 
 export async function findInvites({
   workspaceURL,
-  tenantId,
+  client,
   partnerId,
 }: {
   workspaceURL: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
   partnerId: Partner['id'];
 }) {
-  if (!(tenantId && partnerId)) {
+  if (!partnerId) {
     return [];
   }
-
-  const client = await manager.getClient(tenantId);
 
   if (!client) {
     return [];
@@ -138,7 +124,7 @@ export async function findInvites({
   let adminContact;
 
   if (!admin) {
-    adminContact = await isAdminContact({tenantId, workspaceURL});
+    adminContact = await isAdminContact({client, workspaceURL});
     if (!adminContact) return [];
   }
 
@@ -179,20 +165,18 @@ export async function findInvites({
 
 export async function findInviteForEmail({
   email,
-  tenantId,
+  client,
   partnerId,
   workspaceURL,
 }: {
   email: string;
   workspaceURL: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
   partnerId: Partner['id'];
 }) {
-  if (!tenantId) {
+  if (false) {
     return null;
   }
-
-  const client = await manager.getClient(tenantId);
 
   if (!client) {
     return null;
@@ -218,24 +202,22 @@ export async function findInviteForEmail({
 
 export async function createInvite({
   workspace,
-  tenantId,
+  client,
   role = Role.user,
   email,
   apps,
   partnerId,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   role: Role;
   email: string;
   apps: InviteAppsConfig;
   partnerId: Partner['id'];
 }) {
-  if (!(workspace?.id && tenantId && role && email && apps && partnerId)) {
+  if (!(workspace?.id && role && email && apps && partnerId)) {
     return null;
   }
-
-  const client = await manager.getClient(tenantId);
 
   if (!client) {
     return null;
@@ -276,7 +258,7 @@ export async function createInvite({
     return null;
   }
 
-  const emailAddress = await findEmailAddress(email, tenantId);
+  const emailAddress = await findEmailAddress(email, client);
 
   try {
     const contactInvite = await client.aOSPortalInvitation

@@ -9,6 +9,7 @@ import {t, getTranslation} from '@/locale/server';
 import {DEFAULT_LOCALE} from '@/locale/contants';
 import {TENANT_HEADER} from '@/proxy';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
+import {manager} from '@/tenant';
 import {clone} from '@/utils';
 import {addComment, findComments} from '@/comments/orm';
 import {
@@ -44,7 +45,11 @@ export const createComment: CreateComment = async formData => {
     CreateCommentPropsSchema,
   );
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({user, url: workspaceURL, client});
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
   }
@@ -67,7 +72,7 @@ export const createComment: CreateComment = async formData => {
     code: SUBAPP_CODES.quotations,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return {error: true, message: await t('Unauthorized Access')};
@@ -83,7 +88,7 @@ export const createComment: CreateComment = async formData => {
 
   const quotation = await findQuotation({
     id: rest.recordId,
-    tenantId,
+    client,
     params: {where: quotationWhereClause},
     workspaceURL,
   });
@@ -96,7 +101,7 @@ export const createComment: CreateComment = async formData => {
       modelName,
       userId: user.id,
       workspaceUserId: workspaceUser.id,
-      tenantId,
+      client,
       commentField: 'body',
       trackingField: 'body',
       subject: `${user.simpleFullName || user.name} added a comment`,
@@ -113,6 +118,7 @@ export const createComment: CreateComment = async formData => {
       notifyUser({
         userId: parentComment.partner.id,
         tenantId,
+        client,
         workspaceURL,
         payload: {
           title: await tr(
@@ -162,7 +168,15 @@ export const fetchComments: FetchComments = async props => {
     };
   }
 
-  const workspace = await findWorkspace({user, url: workspaceURL, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  const workspace = await findWorkspace({
+    user,
+    url: workspaceURL,
+    client,
+  });
 
   if (!workspace) {
     return {error: true, message: await t('Invalid workspace')};
@@ -181,7 +195,7 @@ export const fetchComments: FetchComments = async props => {
     code: SUBAPP_CODES.quotations,
     user,
     url: workspaceURL,
-    tenantId,
+    client: client,
   });
   if (!app?.isInstalled) {
     return {error: true, message: await t('Unauthorized Access')};
@@ -198,7 +212,7 @@ export const fetchComments: FetchComments = async props => {
 
   const quotation = await findQuotation({
     id: rest.recordId,
-    tenantId,
+    client,
     params: {where: quotationWhereClause},
     workspaceURL,
   });
@@ -209,7 +223,7 @@ export const fetchComments: FetchComments = async props => {
   try {
     const data = await findComments({
       modelName,
-      tenantId,
+      client,
       commentField: 'body',
       trackingField: 'body',
       ...rest,

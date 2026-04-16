@@ -54,11 +54,15 @@ export async function getLocaleRedirectionURL({
     };
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.website,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp)
@@ -72,7 +76,7 @@ export async function getLocaleRedirectionURL({
     workspaceURL,
     workspaceURI,
     user,
-    tenantId,
+    client,
   });
 
   if (!website) {
@@ -86,7 +90,7 @@ export async function getLocaleRedirectionURL({
     mainWebsiteId: website?.mainWebsite?.id,
     workspaceURL,
     user,
-    tenantId,
+    client,
   });
 
   if (!mainWebsiteLanguages?.length) {
@@ -119,7 +123,6 @@ export async function getLocaleRedirectionURL({
   const baseURL = `${workspaceURI}/${SUBAPP_CODES.website}/${websiteSlug}`;
 
   if (websitePageSlug) {
-    const client = await manager.getClient(tenantId);
     const websitePage = await client.aOSPortalCmsPage.findOne({
       where: {
         slug: websitePageSlug,
@@ -194,7 +197,11 @@ export async function updateWikiContent({
     };
   }
 
-  if (!(await canEditWiki({userId: user.id, tenantId}))) {
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return {error: true, message: await t('Invalid tenant')};
+  const {client} = tenant;
+
+  if (!(await canEditWiki({userId: user.id, client}))) {
     return {
       error: true,
       message: await t('Unauthorized'),
@@ -205,7 +212,7 @@ export async function updateWikiContent({
     code: SUBAPP_CODES.website,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp)
@@ -219,7 +226,7 @@ export async function updateWikiContent({
     websitePageSlug,
     workspaceURL,
     user,
-    tenantId,
+    client,
     contentId: String(contentId),
   });
 
@@ -243,7 +250,6 @@ export async function updateWikiContent({
 
   const attributes = await contentLine.content?.attrs;
 
-  const client = await manager.getClient(tenantId);
   const fieldName = getWiki1ContentFieldName();
   const newContent = await client.aOSPortalCmsContent.update({
     data: {

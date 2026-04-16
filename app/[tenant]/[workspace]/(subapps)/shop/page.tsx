@@ -6,6 +6,9 @@ import {getSession} from '@/auth';
 import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
 import {findWorkspace} from '@/orm/workspace';
+import {manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
+import type {PortalWorkspace, User} from '@/types';
 
 // ---- LOCAL IMPORTS ---- //
 import {findProducts} from '@/app/[tenant]/[workspace]/(subapps)/shop/common/orm/product';
@@ -25,10 +28,18 @@ import {
   OrderAlert,
 } from '@/app/[tenant]/[workspace]/(subapps)/shop/common/ui/components';
 
-async function Categories({tenant, user, workspace}: any) {
+async function Categories({
+  client,
+  user,
+  workspace,
+}: {
+  client: Client;
+  user: User | undefined;
+  workspace: PortalWorkspace;
+}) {
   const categories = await findCategories({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -43,10 +54,18 @@ async function Carousel({workspace}: any) {
   return <HomeCarousel images={carouselList} />;
 }
 
-async function Featured({tenant, user, workspace}: any) {
+async function Featured({
+  client,
+  user,
+  workspace,
+}: {
+  client: Client;
+  user: User | undefined;
+  workspace: PortalWorkspace;
+}) {
   const featuredCategories: any = await findFeaturedCategories({
     workspace: workspace!,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -56,7 +75,7 @@ async function Featured({tenant, user, workspace}: any) {
         ids: category.productList.map((p: any) => p.id),
         workspace: workspace!,
         user,
-        tenantId: tenant,
+        client,
         categoryids: [category.id],
       }).then(clone);
 
@@ -67,7 +86,7 @@ async function Featured({tenant, user, workspace}: any) {
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user,
     workspace,
-    tenantId: tenant,
+    client,
   });
 
   return (
@@ -80,48 +99,32 @@ async function Featured({tenant, user, workspace}: any) {
 }
 
 async function Shop({params}: {params: {tenant: string; workspace: string}}) {
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
   const session = await getSession();
   const user = session?.user;
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
     return notFound();
   }
 
-  const featuredCategories: any = await findFeaturedCategories({
-    workspace,
-    tenantId: tenant,
-    user,
-  }).then(clone);
-
-  for (const category of featuredCategories) {
-    if (category?.productList?.length) {
-      const res: any = await findProducts({
-        ids: category.productList.map((p: any) => p.id),
-        workspace,
-        user,
-        tenantId: tenant,
-        categoryids: [category.id],
-      }).then(clone);
-
-      category.products = res?.products;
-    }
-  }
-
   return (
     <div>
       <div className="relative">
         <Suspense fallback={<CategoriesSkeleton />}>
-          <Categories workspace={workspace} user={user} tenant={tenant} />
+          <Categories workspace={workspace} user={user} client={client} />
         </Suspense>
       </div>
       <Suspense fallback={<CarouselSkeleton />}>
@@ -129,7 +132,7 @@ async function Shop({params}: {params: {tenant: string; workspace: string}}) {
       </Suspense>
       <div className="container flex flex-col gap-6 mx-auto px-2 mb-4">
         <Suspense fallback={<FeaturedCategoriesSkeleton />}>
-          <Featured workspace={workspace} user={user} tenant={tenant} />
+          <Featured workspace={workspace} user={user} client={client} />
         </Suspense>
       </div>
     </div>

@@ -5,6 +5,7 @@ import {getSession} from '@/auth';
 import {findWorkspace, findSubapps} from '@/orm/workspace';
 import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -13,7 +14,14 @@ export default async function Account(props: {
   params: Promise<{tenant: string; workspace: string}>;
 }) {
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
+    return notFound();
+  }
+
+  const {client} = tenant;
   const session = await getSession();
 
   if (!session) return notFound();
@@ -23,7 +31,7 @@ export default async function Account(props: {
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -31,7 +39,7 @@ export default async function Account(props: {
   const subapps = await findSubapps({
     url: workspace.url,
     user: session?.user,
-    tenantId: tenant,
+    client,
   });
 
   return (

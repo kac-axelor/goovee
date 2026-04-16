@@ -7,13 +7,13 @@ export async function GET(
   props: {params: Promise<{tenant: string; 'file-id': string}>},
 ) {
   const params = await props.params;
-  const {'file-id': fileId, tenant} = params;
+  const {'file-id': fileId, tenant: tenantId} = params;
 
-  const client = await manager.getClient(tenant);
-
-  if (!client) {
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
     return new NextResponse('Bad request', {status: 400});
   }
+  const {client} = tenant;
   //NOTE: No authentication required since partner images are public
 
   const partner = await client.aOSPartner.findOne({
@@ -28,7 +28,8 @@ export async function GET(
   const file = await findFile({
     id: partner.picture.id,
     meta: true,
-    tenant,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

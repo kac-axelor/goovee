@@ -11,8 +11,10 @@ export interface MattermostUser {
   update_at?: number;
 }
 
+import type {TenantConfig} from '@/tenant';
+
 export interface CreateMattermostUserParams {
-  tenantId: string;
+  config: TenantConfig;
   name: string;
   firstName: string;
   mail: string;

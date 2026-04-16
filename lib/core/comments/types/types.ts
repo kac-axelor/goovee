@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import type {Tenant} from '@/lib/core/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {ID} from '@/types';
 import type {ActionResponse} from '@/types/action';
 import type {Cloned} from '@/types/util';
@@ -37,7 +37,7 @@ export type CreateComment = (
 ) => ActionResponse<Cloned<[Comment, Comment | undefined]>>;
 
 export type AddCommentProps = {
-  tenantId: Tenant['id'];
+  client: Client;
   userId: ID;
   recordId: ID;
   workspaceUserId: ID;
@@ -63,7 +63,7 @@ export type FindCommentsData = {
 };
 
 export type FindCommentsProps = {
-  tenantId: Tenant['id'];
+  client: Client;
   recordId: ID;
   modelName: string;
   trackingField: TrackingField;

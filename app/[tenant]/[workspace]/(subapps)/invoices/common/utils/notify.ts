@@ -1,26 +1,25 @@
-import {manager} from '@/tenant';
 import {notifyUser} from '@/pwa/utils';
 import {NotificationTag} from '@/pwa/tags';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {SUBAPP_CODES} from '@/constants';
 import {getTranslation} from '@/locale/server';
 import {DEFAULT_LOCALE} from '@/locale/contants';
+import type {Client} from '@/goovee/.generated/client';
 
 export async function notifyInvoicePaymentSuccess({
   invoiceId,
   payer,
+  client,
   tenantId,
 }: {
   invoiceId: string | number;
   payer: string;
+  client: Client;
   tenantId: string;
 }): Promise<void> {
   try {
-    const user = await findGooveeUserByEmail(payer, tenantId);
+    const user = await findGooveeUserByEmail(payer, client);
     if (!user?.id) return;
-
-    const client = await manager.getClient(tenantId);
-    if (!client) return;
 
     const invoice = await client.aOSInvoice.findOne({
       where: {id: invoiceId},
@@ -43,6 +42,7 @@ export async function notifyInvoicePaymentSuccess({
     notifyUser({
       userId: user.id,
       tenantId,
+      client,
       workspaceURL,
       payload: {
         title: await tr(

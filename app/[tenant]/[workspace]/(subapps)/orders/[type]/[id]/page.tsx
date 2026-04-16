@@ -9,6 +9,7 @@ import {workspacePathname} from '@/utils/workspace';
 import {SUBAPP_CODES} from '@/constants';
 import {PartnerKey, User} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -22,7 +23,7 @@ async function Order({
 }: {
   params: {tenant: string; workspace: string; type: OrderType; id: string};
 }) {
-  const {type, id, tenant} = params;
+  const {type, id, tenant: tenantId} = params;
 
   const session = await getSession();
   const user = session?.user as User;
@@ -33,10 +34,14 @@ async function Order({
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -45,7 +50,7 @@ async function Order({
     code: SUBAPP_CODES.orders,
     url: workspace.url,
     user: session?.user,
-    tenantId: tenant,
+    client,
   });
 
   if (!app?.isInstalled) {
@@ -71,7 +76,7 @@ async function Order({
 
   const order = await findOrder({
     id,
-    tenantId: tenant,
+    client,
     params: {
       where,
     },

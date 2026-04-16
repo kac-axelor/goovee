@@ -6,6 +6,7 @@ import {findSubapps, findWorkspace} from '@/orm/workspace';
 import {workspacePathname} from '@/utils/workspace';
 import {SEARCH_PARAMS} from '@/constants';
 import {getLoginURL} from '@/utils/url';
+import {manager} from '@/lib/core/tenant';
 import {ClientRedirection} from './client';
 import {Home} from './home';
 
@@ -13,8 +14,16 @@ export default async function Page(props: {
   params: Promise<{workspace: string; tenant: string}>;
 }) {
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const session = await getSession();
+
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
+    return notFound();
+  }
+
+  const {client} = tenant;
 
   const {workspaceURL, workspaceURI} = workspacePathname(params);
   const user = session?.user;
@@ -32,7 +41,7 @@ export default async function Page(props: {
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (!workspace) {
@@ -42,13 +51,13 @@ export default async function Page(props: {
   const apps = await findSubapps({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (workspace.config?.isHomepageDisplay) {
     return (
       <Home
-        tenant={tenant}
+        client={client}
         user={session?.user}
         workspace={workspace}
         workspaceURI={workspaceURI}

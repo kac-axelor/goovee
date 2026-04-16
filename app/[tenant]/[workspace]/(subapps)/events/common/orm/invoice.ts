@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // ---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
-import {manager, type Tenant} from '@/tenant';
+import type {TenantConfig} from '@/tenant';
 import {ID, PortalWorkspace} from '@/types';
 
 // ---- LOCAL IMPORTS ---- //
@@ -11,19 +11,18 @@ import {ActionResponse} from '@/types/action';
 
 export async function createInvoice({
   workspace,
-  tenantId,
+  config,
   registrationId,
   currencyCode,
   paymentModeId,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  config: TenantConfig;
   registrationId: ID;
   currencyCode: string;
   paymentModeId?: number;
 }): ActionResponse<any> {
-  const tenant = await manager.getTenant(tenantId);
-  const aos = tenant?.config?.aos;
+  const aos = config?.aos;
 
   if (!aos?.url) {
     return error(await t('Invoice creation failed. Webservice not available.'));

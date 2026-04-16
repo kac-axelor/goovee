@@ -9,6 +9,7 @@ import {fetchFile} from '@/subapps/resources/common/orm/dms';
 import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
 import {findWorkspace} from '@/orm/workspace';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import DownloadIcon from './download-icon';
@@ -31,16 +32,20 @@ export default async function Page(props: {
   params: Promise<{tenant: string; workspace: string; id: string}>;
 }) {
   const params = await props.params;
-  const {id, tenant} = params;
+  const {id, tenant: tenantId} = params;
   const {workspaceURL} = workspacePathname(params);
 
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -49,7 +54,7 @@ export default async function Page(props: {
 
   const file = await fetchFile({
     id,
-    tenantId: tenant,
+    client,
     workspace,
     user,
   }).then(clone);

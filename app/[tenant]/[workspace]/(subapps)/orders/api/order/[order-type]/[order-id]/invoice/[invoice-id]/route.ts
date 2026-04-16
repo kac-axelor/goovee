@@ -8,6 +8,7 @@ import {findLatestDMSFileByName, streamFile} from '@/utils/download';
 import {workspacePathname} from '@/utils/workspace';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {PartnerKey} from '@/types';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {findOrder} from '@/subapps/orders/common/orm/orders';
@@ -41,10 +42,14 @@ export async function GET(
 
   const user = session.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return new NextResponse('Bad Request', {status: 400});
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -55,7 +60,7 @@ export async function GET(
     code: SUBAPP_CODES.orders,
     user: session?.user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!subapp?.isInstalled) {
@@ -71,7 +76,7 @@ export async function GET(
 
   const order = await findOrder({
     id: orderId,
-    tenantId,
+    client,
     workspaceURL,
     params: {where: orderWhereClause},
     isCompleted,
@@ -90,7 +95,8 @@ export async function GET(
   }
 
   const file = await findLatestDMSFileByName({
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
     user,
     relatedId: invoice.id,
     relatedModel: RELATED_MODELS.INVOICE,

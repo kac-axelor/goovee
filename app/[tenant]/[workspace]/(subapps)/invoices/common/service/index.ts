@@ -2,16 +2,16 @@ import axios from 'axios';
 
 // ---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
-import {manager, Tenant} from '@/tenant';
+import type {TenantConfig} from '@/tenant';
 import {ID} from '@goovee/orm';
 
 export async function updateInvoice({
-  tenantId,
+  config,
   amount,
   invoiceId,
   paymentModeId,
 }: {
-  tenantId: Tenant['id'];
+  config: TenantConfig;
   amount: string | number;
   invoiceId: ID;
   paymentModeId?: number;
@@ -25,16 +25,7 @@ export async function updateInvoice({
     };
   }
 
-  const tenant = await manager.getTenant(tenantId);
-
-  if (!tenant) {
-    return {
-      error: true,
-      message: await t('Invalid Tenant'),
-    };
-  }
-
-  const aos = tenant?.config?.aos;
+  const aos = config?.aos;
   if (!aos?.url) {
     return {error: true, message: await t('Webservice not available.')};
   }

@@ -10,6 +10,7 @@ import {findFile, streamFile} from '@/utils/download';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {workspacePathname} from '@/utils/workspace';
 import {findQuotation} from '../../../../../common/orm/quotations';
+import {manager} from '@/tenant';
 
 export async function GET(
   request: NextRequest,
@@ -32,10 +33,14 @@ export async function GET(
     return new NextResponse('Unauthorized', {status: 401});
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return new NextResponse('Bad Request', {status: 400});
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -50,7 +55,7 @@ export async function GET(
     code: SUBAPP_CODES.quotations,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return new NextResponse('Unauthorized', {status: 401});
@@ -67,7 +72,7 @@ export async function GET(
 
   const quotation = await findQuotation({
     id: quotationId,
-    tenantId,
+    client,
     params: {where: quotationWhereClause},
     workspaceURL,
   });
@@ -76,14 +81,15 @@ export async function GET(
     return new NextResponse('Forbidden', {status: 403});
   }
 
-  if (!(await isFileOfRecord({recordId: quotationId, fileId, tenantId}))) {
+  if (!(await isFileOfRecord({recordId: quotationId, fileId, client}))) {
     return new NextResponse('Forbidden', {status: 403});
   }
 
   const file = await findFile({
     id: fileId,
     meta: true,
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

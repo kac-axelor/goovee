@@ -15,6 +15,7 @@ import {
   MOUNT_TYPE,
   mountTypes,
 } from '@/app/[tenant]/[workspace]/(subapps)/website/common/constants';
+import {manager} from '@/tenant';
 
 export async function GET(
   req: NextRequest,
@@ -32,7 +33,11 @@ export async function GET(
   },
 ) {
   const params = await props.params;
-  const {workspaceURL, tenant: tenantId} = workspacePathname(params);
+  const {
+    workspaceURL,
+    workspaceURI,
+    tenant: tenantId,
+  } = workspacePathname(params);
   const {
     'content-id': contentId,
     'file-id': fileId,
@@ -53,10 +58,16 @@ export async function GET(
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return new NextResponse('Invalid tenant', {status: 401});
+  }
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -67,7 +78,7 @@ export async function GET(
     code: SUBAPP_CODES.website,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return new NextResponse('Unauthorized', {status: 401});
@@ -80,7 +91,7 @@ export async function GET(
       websitePageSlug: websitePageSlug,
       workspaceURL: workspaceURL,
       user,
-      tenantId,
+      client,
       contentId,
     });
 
@@ -90,7 +101,7 @@ export async function GET(
 
     const line = await populateContent({
       line: websitePage.contentLines[0],
-      tenantId,
+      client,
       path: stringToPath(path),
     });
     attrs = line?.content?.attrs;
@@ -100,7 +111,7 @@ export async function GET(
       workspaceURL,
       workspaceURI,
       user,
-      tenantId,
+      client,
       mountTypes: [mountType],
       path: stringToPath(path),
     });
@@ -126,7 +137,8 @@ export async function GET(
   const file = await findFile({
     id: metaFile.id,
     meta: true,
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

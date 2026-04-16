@@ -5,36 +5,25 @@ import type {ReadableOptions} from 'stream';
 
 // ---- CORE IMPORTS ---- //
 import {filterPrivate} from '@/orm/filter';
-import {manager} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {ID, User} from '@/types';
 
 export async function findFile({
   id,
   meta,
-  tenant: tenantId,
+  client,
+  storage,
 }: {
   id: ID;
   meta?: boolean;
-  tenant: string;
+  client: Client;
+  storage: string | undefined | null;
 }) {
-  if (!id && tenantId) {
+  if (!id) {
     return null;
   }
 
-  let tenant;
-
-  try {
-    tenant = await manager.getTenant(tenantId);
-  } catch (err) {
-    return null;
-  }
-
-  if (!(tenant?.client && tenant?.config && tenant?.config?.aos?.storage)) {
-    return null;
-  }
-
-  const storage = tenant?.config?.aos?.storage;
-  const {client} = tenant;
+  if (!storage) return null;
 
   let record, filePath, fileName, fileType;
 
@@ -85,37 +74,29 @@ export async function findFile({
 }
 
 export async function findLatestDMSFileByName({
-  tenant: tenantId,
+  client,
+  storage,
   user,
   relatedId,
   relatedModel,
   name,
   skipUserCheck,
 }: {
-  tenant: string;
+  client: Client;
+  storage: string | undefined | null;
   relatedId: any;
   relatedModel: string;
   user?: User;
   name: string;
   skipUserCheck?: boolean;
 }) {
-  if (!tenantId) {
-    return null;
-  }
-
   if (!skipUserCheck && !user) {
     return null;
   }
 
+  if (!storage) return null;
+
   try {
-    const tenant = await manager.getTenant(tenantId);
-    if (!(tenant?.client && tenant?.config && tenant?.config?.aos?.storage)) {
-      return null;
-    }
-
-    const storage = tenant?.config?.aos?.storage;
-    const {client} = tenant;
-
     const record = await client.aOSDMSFile.findOne({
       where: {
         isDirectory: false,
@@ -123,7 +104,7 @@ export async function findLatestDMSFileByName({
         relatedModel,
         parent: {relatedModel},
         fileName: {like: `%${name}%`},
-        ...(skipUserCheck ? {} : await filterPrivate({tenantId, user})),
+        ...(skipUserCheck ? {} : await filterPrivate({client, user})),
       },
       select: {
         metaFile: {

@@ -3,7 +3,7 @@ import {Suspense} from 'react';
 // ---- CORE IMPORTS ----//
 import {clone} from '@/utils';
 import {SUBAPP_CODES} from '@/constants';
-import {type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {PortalWorkspace} from '@/types';
 import {t} from '@/locale/server';
 import {getSession} from '@/auth';
@@ -70,17 +70,17 @@ interface CategorySegment {
 
 export async function CategorySliderWrapper({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
   user: any;
-  tenant: Tenant['id'];
+  client: Client;
 }) {
   const parentCategories = await findCategories({
     category: null,
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -97,17 +97,17 @@ export async function CategorySliderWrapper({
 
 export async function NavMenuWrapper({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user: any;
 }) {
   const allCategories = await findCategories({
     showAllCategories: true,
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -116,17 +116,17 @@ export async function NavMenuWrapper({
 
 export async function HomePageHeaderNewsWrapper({
   workspace,
-  tenant,
+  client,
   navigatingPathFrom,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   navigatingPathFrom: string;
 }) {
   const session = await getSession();
   const user = session?.user;
 
-  const response = await findHomePageHeaderNews({workspace, tenant, user});
+  const response = await findHomePageHeaderNews({workspace, client, user});
 
   const news = Array.isArray(response) ? [] : response.news || [];
 
@@ -148,17 +148,17 @@ export async function HomePageHeaderNewsWrapper({
 
 export async function FeaturedHomePageNewsWrapper({
   workspace,
-  tenant,
+  client,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
 }) {
   const session = await getSession();
   const user = session?.user;
 
   const response = await findHomePageFeaturedNews({
     workspace,
-    tenant,
+    client,
     user,
   }).then(clone);
 
@@ -177,15 +177,15 @@ export async function FeaturedHomePageNewsWrapper({
 
 export async function HomePageAsideNewsWrapper({
   workspace,
-  tenant,
+  client,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
 }) {
   const session = await getSession();
   const user = session?.user;
 
-  const response = await findHomePageAsideNews({workspace, tenant, user});
+  const response = await findHomePageAsideNews({workspace, client, user});
 
   const news = Array.isArray(response) ? [] : response.news || [];
 
@@ -203,15 +203,15 @@ export async function HomePageAsideNewsWrapper({
 
 export async function HomePageFooterNewsWrapper({
   workspace,
-  tenant,
+  client,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
 }) {
   const session = await getSession();
   const user = session?.user;
 
-  const response = await findHomePageFooterNews({workspace, tenant, user});
+  const response = await findHomePageFooterNews({workspace, client, user});
 
   const news = Array.isArray(response) ? [] : response.news || [];
 
@@ -229,21 +229,21 @@ export async function HomePageFooterNewsWrapper({
 
 export async function SubCategorySliderWrapper({
   workspace,
-  tenant,
+  client,
   user,
   slug,
   title,
 }: {
   workspace: PortalWorkspace;
   user: any;
-  tenant: Tenant['id'];
+  client: Client;
   slug: string;
   title: string;
 }) {
   const subCategories = await findCategories({
     slug,
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 
@@ -265,13 +265,13 @@ export async function SubCategorySliderWrapper({
 
 export async function CategoryPageHeaderNewsWrapper({
   workspace,
-  tenant,
+  client,
   navigatingPathFrom,
   slug,
   page,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   navigatingPathFrom: string;
   slug: string;
   page: number;
@@ -281,7 +281,7 @@ export async function CategoryPageHeaderNewsWrapper({
 
   const response: any = await findCategoryPageHeaderNews({
     workspace,
-    tenant,
+    client,
     user,
     slug,
   });
@@ -304,13 +304,13 @@ export async function CategoryPageHeaderNewsWrapper({
 
 export async function CategoryNewsGridLayoutWrapper({
   workspace,
-  tenant,
+  client,
   slug,
   navigatingPathFrom,
   page,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   slug: string;
   navigatingPathFrom: string;
   page: string | number;
@@ -321,7 +321,7 @@ export async function CategoryNewsGridLayoutWrapper({
         <Suspense fallback={<FeedListSkeleton count={5} />}>
           <CategoryFeaturedNewsWrapper
             workspace={workspace}
-            tenant={tenant}
+            client={client}
             slug={slug}
             navigatingPathFrom={navigatingPathFrom}
           />
@@ -329,7 +329,7 @@ export async function CategoryNewsGridLayoutWrapper({
         <Suspense fallback={<NewsListSkeleton width={'flex-1'} count={4} />}>
           <CategoryAsideNewsWrapper
             workspace={workspace}
-            tenant={tenant}
+            client={client}
             slug={slug}
             navigatingPathFrom={navigatingPathFrom}
             page={page}
@@ -339,7 +339,7 @@ export async function CategoryNewsGridLayoutWrapper({
       <Suspense fallback={<NewsCardSkeleton count={5} />}>
         <CategoryFooterNewsWrapper
           workspace={workspace}
-          tenant={tenant}
+          client={client}
           slug={slug}
           navigatingPathFrom={navigatingPathFrom}
           page={page}
@@ -348,7 +348,7 @@ export async function CategoryNewsGridLayoutWrapper({
       <Suspense fallback={<NewsListSkeleton width="w-full" count={4} />}>
         <CategoryBottomFeedNewsWrapper
           workspace={workspace}
-          tenant={tenant}
+          client={client}
           slug={slug}
           navigatingPathFrom={navigatingPathFrom}
           page={page}
@@ -356,7 +356,7 @@ export async function CategoryNewsGridLayoutWrapper({
       </Suspense>
       <PaginationWrapper
         workspace={workspace}
-        tenant={tenant}
+        client={client}
         slug={slug}
         page={page}
       />
@@ -366,12 +366,12 @@ export async function CategoryNewsGridLayoutWrapper({
 
 export async function CategoryFeaturedNewsWrapper({
   workspace,
-  tenant,
+  client,
   slug,
   navigatingPathFrom,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   slug: string;
   navigatingPathFrom: string;
 }) {
@@ -380,7 +380,7 @@ export async function CategoryFeaturedNewsWrapper({
 
   const response = await findCategoryPageFeaturedNews({
     workspace,
-    tenant,
+    client,
     user,
     slug,
   }).then(clone);
@@ -400,13 +400,13 @@ export async function CategoryFeaturedNewsWrapper({
 
 export async function CategoryAsideNewsWrapper({
   workspace,
-  tenant,
+  client,
   slug,
   navigatingPathFrom,
   page,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   slug: string;
   navigatingPathFrom: string;
   page: any;
@@ -416,7 +416,7 @@ export async function CategoryAsideNewsWrapper({
 
   const response = await findCategoryAsideNews({
     workspace,
-    tenant,
+    client,
     user,
     slug,
     page,
@@ -442,13 +442,13 @@ export async function CategoryAsideNewsWrapper({
 
 export async function CategoryFooterNewsWrapper({
   workspace,
-  tenant,
+  client,
   slug,
   navigatingPathFrom,
   page,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   slug: string;
   navigatingPathFrom: string;
   page: any;
@@ -458,7 +458,7 @@ export async function CategoryFooterNewsWrapper({
 
   const response = await findCategoryFooterNews({
     workspace,
-    tenant,
+    client,
     user,
     slug,
     page,
@@ -484,13 +484,13 @@ export async function CategoryFooterNewsWrapper({
 
 export async function CategoryBottomFeedNewsWrapper({
   workspace,
-  tenant,
+  client,
   slug,
   navigatingPathFrom,
   page,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   slug: string;
   navigatingPathFrom: string;
   page: any;
@@ -500,7 +500,7 @@ export async function CategoryBottomFeedNewsWrapper({
 
   const response = await findCategoryBottomFeedNews({
     workspace,
-    tenant,
+    client,
     user,
     slug,
     page,
@@ -526,12 +526,12 @@ export async function CategoryBottomFeedNewsWrapper({
 
 export async function PaginationWrapper({
   workspace,
-  tenant,
+  client,
   slug,
   page,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   slug: string;
   page: any;
 }) {
@@ -540,7 +540,7 @@ export async function PaginationWrapper({
 
   const response: NewsResponse = await findNewsByCategory({
     workspace,
-    tenantId: tenant,
+    client,
     user,
     slug,
     page,
@@ -558,13 +558,13 @@ export async function PaginationWrapper({
 
 export async function BreadcrumbsWrapper({
   workspace,
-  tenantId,
+  client,
   segments,
   newsTitle,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   segments: string[];
   newsTitle: string;
   user: any;
@@ -577,7 +577,7 @@ export async function BreadcrumbsWrapper({
         const categoryTitle = await findCategoryTitleBySlugName({
           slug: categorySegment,
           workspace,
-          tenantId,
+          client,
           user,
         });
         if (!categoryTitle) {
@@ -654,11 +654,11 @@ export async function SocialMediaWrapper({
 
 export async function AttachmentListWrapper({
   workspace,
-  tenantId,
+  client,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   slug: string;
 }) {
   const session = await getSession();
@@ -666,7 +666,7 @@ export async function AttachmentListWrapper({
 
   const attachmentList = await findNewsAttachments({
     workspace,
-    tenantId,
+    client,
     slug,
     user,
   });
@@ -689,12 +689,12 @@ export async function AttachmentListWrapper({
 
 export async function RelatedNewsWrapper({
   workspace,
-  tenantId,
+  client,
   slug,
   navigatingPathFrom,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   slug: string;
   navigatingPathFrom: string;
 }) {
@@ -703,7 +703,7 @@ export async function RelatedNewsWrapper({
 
   const relatedNewsSet = await findNewsRelatedNews({
     workspace,
-    tenantId,
+    client,
     slug,
     user,
   });
@@ -733,7 +733,7 @@ export async function RecommendedNewsWrapper({
   navigatingPathFrom: string;
   isRecommendationEnable: boolean;
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  tenantId: string;
   categoryIds: any;
 }) {
   if (!isRecommendationEnable) {

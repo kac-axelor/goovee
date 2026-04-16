@@ -9,7 +9,7 @@ import {getTranslation, t} from '@/locale/server';
 import {findPartnerByEmail, updatePartner} from '@/orm/partner';
 import {Scope} from '@/otp/constants';
 import {findOne, isValid, markUsed} from '@/otp/orm';
-import {Tenant} from '@/tenant';
+import {manager, Tenant} from '@/tenant';
 import {PortalWorkspace} from '@/types';
 
 import {findInviteById} from '../../../common/orm/register';
@@ -21,7 +21,9 @@ function error(message: string) {
   };
 }
 
-export async function registerByEmail(data: RegisterInviteDTO) {
+export async function registerByEmail(
+  data: Omit<RegisterInviteDTO, 'client' | 'config'>,
+) {
   const {email, password, otp, tenantId} = data;
 
   if (!tenantId) {
@@ -45,23 +47,27 @@ export async function registerByEmail(data: RegisterInviteDTO) {
     return error(await getTranslation({tenant: tenantId}, 'OTP is required.'));
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client, config} = tenant;
+
   const otpResult = await findOne({
     scope: Scope.Registration,
     entity: email,
-    tenantId,
+    client,
   });
 
   if (!otpResult) {
     return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
   }
 
-  if (!(await isValid({id: otpResult.id, value: otp, tenantId}))) {
+  if (!(await isValid({id: otpResult.id, value: otp, client}))) {
     return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
   }
 
-  await markUsed({id: otpResult.id, tenantId});
+  await markUsed({id: otpResult.id, client});
 
-  return registerByInvite(data);
+  return registerByInvite({...data, client, config});
 }
 
 export async function subscribe({
@@ -84,7 +90,11 @@ export async function subscribe({
     return error(await t('Unauthorized'));
   }
 
-  const invite = await findInviteById({id: inviteId, tenantId});
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return error(await t('Invalid tenant'));
+  const {client} = tenant;
+
+  const invite = await findInviteById({id: inviteId, client});
 
   if (
     !(
@@ -105,7 +115,7 @@ export async function subscribe({
     return error(await t('Bad request'));
   }
 
-  const $user = await findPartnerByEmail(user.email, tenantId, {
+  const $user = await findPartnerByEmail(user.email, client, {
     where: {
       isContact: {
         eq: true,
@@ -124,9 +134,9 @@ export async function subscribe({
   } as any;
 
   try {
-    const updatedUser = await updatePartner({
+    await updatePartner({
       data,
-      tenantId,
+      client,
     });
 
     revalidatePath('/', 'layout');
@@ -136,7 +146,7 @@ export async function subscribe({
 
   deleteInviteById({
     id: invite.id,
-    tenantId,
+    client,
   }).catch(err => {
     console.error(err);
   });

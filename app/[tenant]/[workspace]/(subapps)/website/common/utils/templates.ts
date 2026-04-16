@@ -1,4 +1,4 @@
-import {manager, Tenant} from '@/lib/core/tenant';
+import type {GooveeClient} from '@/goovee/.generated/client';
 import {
   ArrayFieldTypes,
   COMPONENT_MODEL,
@@ -271,13 +271,12 @@ function formatSchema<T extends TemplateSchema>(schema: T): T {
   };
 }
 
-export async function seedComponents(tenantId: Tenant['id']) {
+export async function seedComponents(client: GooveeClient) {
   const _schemas = metas.map(demo => demo.schema);
   if (!validateSchemas(_schemas)) {
     throw new Error('\x1b[31m✖ Invalid schema.\x1b[0m');
   }
   const schemas = _schemas.map(formatSchema);
-  const client = await manager.getClient(tenantId);
   return await client.$transaction(async client => {
     const components = await processBatch(metas, ({schema}) =>
       createCMSComponent({schema, client}),
@@ -348,8 +347,7 @@ export async function seedComponents(tenantId: Tenant['id']) {
   });
 }
 
-export async function resetFields(tenantId: Tenant['id']) {
-  const client = await manager.getClient(tenantId);
+export async function resetFields(client: GooveeClient) {
   await client.$transaction(async client => {
     await Promise.all([
       deleteCustomFields({
@@ -374,12 +372,11 @@ export async function resetFields(tenantId: Tenant['id']) {
   });
 }
 
-export async function seedContents(tenantId: Tenant['id']) {
+export async function seedContents(client: GooveeClient) {
   const _schemas = metas.map(demo => demo.schema);
   if (!validateSchemas(_schemas)) {
     throw new Error('\x1b[31m✖ Invalid schema.\x1b[0m');
   }
-  const client = await manager.getClient(tenantId);
   return await client.$transaction(async client => {
     const fileCache = new Cache<Promise<{id: string}>>();
     return await processBatch(metas, async ({schema, demos}) => {
@@ -393,12 +390,11 @@ export async function seedContents(tenantId: Tenant['id']) {
   });
 }
 
-export async function seedWebsite(tenantId: Tenant['id']) {
+export async function seedWebsite(client: GooveeClient) {
   const _schemas = metas.map(meta => meta.schema);
   if (!validateSchemas(_schemas)) {
     throw new Error('\x1b[31m✖ Invalid schema.\x1b[0m');
   }
-  const client = await manager.getClient(tenantId);
   await client.$transaction(async client => {
     const {sites} = await createCMSWebsite({
       client,

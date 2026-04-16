@@ -2,7 +2,8 @@ import axios from 'axios';
 
 // ---- CORE IMPORTS ---- //
 import {filterPrivate} from '@/orm/filter';
-import {manager, type Tenant} from '@/tenant';
+import type {TenantConfig} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {
   ID,
   MainWebsite,
@@ -30,21 +31,15 @@ import {Maybe} from '@/types/util';
 export async function findAllMainWebsites({
   workspaceURL,
   user,
-  tenantId,
+  client,
   locale,
 }: {
   workspaceURL: PortalWorkspace['url'];
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
   locale?: string;
 }) {
-  if (!(workspaceURL && tenantId)) {
-    return [];
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(workspaceURL && client)) {
     return [];
   }
 
@@ -54,7 +49,7 @@ export async function findAllMainWebsites({
         url: workspaceURL,
       },
       defaultWebsite: {
-        ...(await filterPrivate({tenantId, user})),
+        ...(await filterPrivate({client, user})),
       },
       AND: [{OR: [{archived: false}, {archived: null}]}],
     },
@@ -74,7 +69,7 @@ export async function findAllMainWebsites({
               }
             : {}),
           website: {
-            ...(await filterPrivate({tenantId, user})),
+            ...(await filterPrivate({client, user})),
           },
         },
         select: {
@@ -104,19 +99,13 @@ export async function findAllMainWebsites({
 export async function findAllWebsites({
   workspaceURL,
   user,
-  tenantId,
+  client,
 }: {
   workspaceURL: PortalWorkspace['url'];
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(workspaceURL && tenantId)) {
-    return [];
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(workspaceURL && client)) {
     return [];
   }
 
@@ -128,7 +117,7 @@ export async function findAllWebsites({
         },
       },
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         {OR: [{archived: false}, {archived: null}]},
       ],
     },
@@ -166,20 +155,14 @@ export async function findWebsiteSeoBySlug({
   websiteSlug,
   workspaceURL,
   user,
-  tenantId,
+  client,
 }: {
   websiteSlug: Website['slug'];
   workspaceURL: PortalWorkspace['url'];
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(websiteSlug && workspaceURL && tenantId)) {
-    return null;
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(websiteSlug && workspaceURL && client)) {
     return null;
   }
 
@@ -188,7 +171,7 @@ export async function findWebsiteSeoBySlug({
       slug: websiteSlug,
       mainWebsite: {workspaceSet: {url: workspaceURL}},
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         {OR: [{archived: false}, {archived: null}]},
       ],
     },
@@ -202,7 +185,7 @@ export async function findWebsiteBySlug({
   workspaceURL,
   workspaceURI,
   user,
-  tenantId,
+  client,
   mountTypes,
   path,
 }: {
@@ -210,7 +193,7 @@ export async function findWebsiteBySlug({
   workspaceURL: PortalWorkspace['url'];
   workspaceURI: string;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
   mountTypes?: LayoutMountType[];
   /** @param mounTypes should be an array of single mountType for path to work
    * ex: mountTypes:[ "header" ]
@@ -218,13 +201,7 @@ export async function findWebsiteBySlug({
    **/
   path?: string[];
 }) {
-  if (!(websiteSlug && tenantId)) {
-    return null;
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(websiteSlug && client)) {
     return null;
   }
 
@@ -237,7 +214,7 @@ export async function findWebsiteBySlug({
       slug: websiteSlug,
       mainWebsite: {workspaceSet: {url: workspaceURL}},
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         {OR: [{archived: false}, {archived: null}]},
       ],
     },
@@ -279,7 +256,7 @@ export async function findWebsiteBySlug({
             id: website.menu.id,
           },
           page: {
-            ...(await filterPrivate({tenantId, user})),
+            ...(await filterPrivate({client, user})),
           },
         },
         select: {
@@ -317,7 +294,7 @@ export async function findWebsiteBySlug({
       attributes: await website.footer.attrs,
       modelName: CONTENT_MODEL,
       modelField: CONTENT_MODEL_ATTRS,
-      tenantId,
+      client,
       path,
       modelFieldCache,
       modelRecordCache,
@@ -331,7 +308,7 @@ export async function findWebsiteBySlug({
       attributes: await website.header.attrs,
       modelName: CONTENT_MODEL,
       modelField: CONTENT_MODEL_ATTRS,
-      tenantId,
+      client,
       path,
       modelFieldCache,
       modelRecordCache,
@@ -357,20 +334,14 @@ export async function findAllWebsitePages({
   websiteSlug,
   workspaceURL,
   user,
-  tenantId,
+  client,
 }: {
   websiteSlug: Website['slug'];
   workspaceURL: PortalWorkspace['url'];
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(websiteSlug && workspaceURL && tenantId)) {
-    return [];
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(websiteSlug && workspaceURL && client)) {
     return [];
   }
 
@@ -380,7 +351,7 @@ export async function findAllWebsitePages({
         slug: websiteSlug,
       },
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         {OR: [{archived: false}, {archived: null}]},
       ],
     },
@@ -397,21 +368,15 @@ export async function findWebsitePageSeoBySlug({
   websitePageSlug,
   workspaceURL,
   user,
-  tenantId,
+  client,
 }: {
   websiteSlug: Website['slug'];
   websitePageSlug: WebsitePage['slug'];
   workspaceURL: PortalWorkspace['url'];
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(websiteSlug && websitePageSlug && workspaceURL && tenantId)) {
-    return null;
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(websiteSlug && websitePageSlug && workspaceURL && client)) {
     return null;
   }
 
@@ -428,7 +393,7 @@ export async function findWebsitePageSeoBySlug({
         },
       },
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         {OR: [{archived: false}, {archived: null}]},
       ],
     },
@@ -442,23 +407,17 @@ export async function findWebsitePageBySlug({
   websitePageSlug,
   workspaceURL,
   user,
-  tenantId,
+  client,
   contentId,
 }: {
   websiteSlug: Website['slug'];
   websitePageSlug: WebsitePage['slug'];
   workspaceURL: PortalWorkspace['url'];
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
   contentId?: string;
 }) {
-  if (!(websiteSlug && websitePageSlug && workspaceURL && tenantId)) {
-    return null;
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(websiteSlug && websitePageSlug && workspaceURL && client)) {
     return null;
   }
 
@@ -476,7 +435,7 @@ export async function findWebsitePageBySlug({
       },
       ...(contentId && {contentLines: {content: {id: contentId}}}),
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         {OR: [{archived: false}, {archived: null}]},
       ],
     },
@@ -515,20 +474,14 @@ export async function findAllMainWebsiteLanguages({
   mainWebsiteId,
   workspaceURL,
   user,
-  tenantId,
+  client,
 }: {
   mainWebsiteId: MainWebsite['id'] | undefined;
   workspaceURL: PortalWorkspace['url'];
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(mainWebsiteId && workspaceURL && tenantId)) {
-    return [];
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(mainWebsiteId && workspaceURL && client)) {
     return [];
   }
 
@@ -545,7 +498,7 @@ export async function findAllMainWebsiteLanguages({
         languageList: {
           where: {
             website: {
-              ...(await filterPrivate({tenantId, user})),
+              ...(await filterPrivate({client, user})),
             },
           },
           select: {
@@ -566,7 +519,7 @@ async function getRelationalFieldTypeData({
   field,
   value,
   modelRecordCache,
-  tenantId,
+  client,
 }: any) {
   const targetModel = field?.targetModel;
 
@@ -599,7 +552,7 @@ async function getRelationalFieldTypeData({
     const uncachedIds = difference(ids, cachedIds);
 
     let records = await findModelRecords({
-      tenantId,
+      client,
       modelName: targetModel,
       ids: uncachedIds,
     });
@@ -634,7 +587,7 @@ async function getCustomRelationalFieldTypeData({
   modelRecordCache,
   jsonModelCache,
   jsonModelRecordCache,
-  tenantId,
+  client,
   path,
 }: any) {
   const pathFieldName = path?.[0];
@@ -647,8 +600,6 @@ async function getCustomRelationalFieldTypeData({
   const isToOneRelation = value?.id;
 
   const isToManyRelation = Array.isArray(value);
-
-  const client = await manager.getClient(tenantId);
 
   let targetJsonModel = jsonModelCache.get(targetJsonModelName);
 
@@ -716,7 +667,7 @@ async function getCustomRelationalFieldTypeData({
                 attributes: attrs,
                 modelField: JSON_MODEL_ATTRS,
                 jsonModelName: targetJsonModelName,
-                tenantId,
+                client,
                 modelFieldCache,
                 modelRecordCache,
                 jsonModelCache,
@@ -796,14 +747,14 @@ const getModelFields = async ({
   modelField,
   modelFieldCache,
   fieldName,
-  tenantId,
+  client,
 }: {
   fieldName?: string;
   modelName?: string;
   jsonModelName?: string;
   modelField: string;
   modelFieldCache: Cache;
-  tenantId: Tenant['id'];
+  client: Client;
 }) => {
   const cacheKey = `${modelName || jsonModelName}-${modelField}-${fieldName || ''}`;
   if (modelFieldCache.has(cacheKey)) {
@@ -811,7 +762,7 @@ const getModelFields = async ({
   }
 
   const fields = await findModelFields({
-    tenantId,
+    client,
     jsonModelName,
     modelName,
     modelField,
@@ -827,7 +778,7 @@ const populateAttributes = async ({
   modelName,
   jsonModelName,
   modelField,
-  tenantId,
+  client,
   modelFieldCache,
   modelRecordCache,
   jsonModelCache,
@@ -838,7 +789,7 @@ const populateAttributes = async ({
   modelName?: string;
   jsonModelName?: string;
   modelField: string;
-  tenantId: Tenant['id'];
+  client: Client;
   modelFieldCache: Cache;
   modelRecordCache: Cache;
   jsonModelCache: Cache;
@@ -866,7 +817,7 @@ const populateAttributes = async ({
       jsonModelName,
       modelField,
       modelFieldCache,
-      tenantId,
+      client,
       fieldName: pathFieldName,
     });
 
@@ -902,7 +853,7 @@ const populateAttributes = async ({
       modelRecordCache,
       jsonModelCache,
       jsonModelRecordCache,
-      tenantId,
+      client,
       path: path?.[1] ? path.slice(1) : undefined,
     });
 
@@ -915,18 +866,18 @@ const populateAttributes = async ({
 export async function populateContent({
   line,
   path,
-  tenantId,
+  client,
   modelFieldCache = new Cache(),
   modelRecordCache = new Cache(),
   jsonModelCache = new Cache(),
   jsonModelRecordCache = new Cache(),
 }: {
   line: ContentLine;
-  /**
+  /*
    * ex: path:[ "team1Reviews", "1", "attrs", "image" ]
-   **/
+   */
   path?: string[];
-  tenantId: Tenant['id'];
+  client: Client;
   modelFieldCache?: Cache;
   modelRecordCache?: Cache;
   jsonModelCache?: Cache;
@@ -942,7 +893,7 @@ export async function populateContent({
         attributes: attrs,
         modelName: CONTENT_MODEL,
         modelField: CONTENT_MODEL_ATTRS,
-        tenantId,
+        client,
         modelFieldCache,
         modelRecordCache,
         jsonModelCache,
@@ -955,17 +906,17 @@ export async function populateContent({
 
 export function populateLinesByChunk({
   contentLines,
-  tenantId,
+  client,
   path,
   chunkSize,
 }: {
-  /**
+  /*
    * ex: path:[ "team1Reviews", "1", "attrs", "image" ]
-   **/
+   */
   path?: string[];
   chunkSize?: number;
   contentLines: ContentLine[];
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<ReplacedContentLine[]>[] {
   const jsonModelCache = new Cache();
   const jsonModelRecordCache = new Cache();
@@ -985,7 +936,7 @@ export function populateLinesByChunk({
         chunk.map(line =>
           populateContent({
             line,
-            tenantId,
+            client,
             path,
             modelFieldCache,
             modelRecordCache,
@@ -1013,18 +964,19 @@ export function populateLinesByChunk({
 }
 
 async function findModelRecords({
-  tenantId,
+  client,
+  config,
   modelName,
   ids,
 }: {
-  tenantId: Tenant['id'];
+  client: Client;
+  config?: TenantConfig;
   modelName: string;
   ids: string[];
 }) {
   const metaModel = metaModels[modelName];
   const entity = metaModel?.entity;
   if (entity) {
-    const client = await manager.getClient(tenantId);
     // @ts-expect-error  it's dynamic so no issues
     const records = await client[entity].find({
       where: {id: {in: ids}},
@@ -1033,8 +985,7 @@ async function findModelRecords({
     return records;
   }
 
-  const tenant = await manager.getTenant(tenantId);
-  const aos = tenant?.config?.aos;
+  const aos = config?.aos;
 
   if (!aos?.url) return [];
   const res = await axios
@@ -1060,12 +1011,11 @@ async function findModelRecords({
 
 export async function canEditWiki({
   userId,
-  tenantId,
+  client,
 }: {
   userId: Maybe<ID>;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  const client = await manager.getClient(tenantId);
   if (!userId) return false;
   const user = await client.aOSPartner.findOne({
     where: {id: userId},

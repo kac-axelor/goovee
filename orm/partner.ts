@@ -8,7 +8,7 @@ import type {
 import {getSession} from '@/auth';
 import {UserType} from '@/auth/types';
 import {hash} from '@/auth/utils';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {USER_CREATED_FROM} from '@/constants';
 import {clone} from '@/utils';
 import {ID, Localization, PortalWorkspace} from '@/types';
@@ -109,16 +109,8 @@ export type Partner = Cloned<
   Payload<AOSPartner, {select: typeof partnerFields}>
 >;
 
-export async function findPartnerById(
-  id: ID,
-  tenantId: Tenant['id'],
-  params?: any,
-) {
-  if (!(id && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+export async function findPartnerById(id: ID, client: Client, params?: any) {
+  if (!id) return null;
 
   const partner = await client.aOSPartner
     .findOne({
@@ -150,10 +142,10 @@ export async function isPartner() {
 
 export async function isAdminContact({
   workspaceURL,
-  tenantId,
+  client,
 }: {
   workspaceURL: PortalWorkspace['url'];
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   const session = await getSession();
   const user = session?.user;
@@ -167,7 +159,7 @@ export async function isAdminContact({
   }
 
   const contactWorkspaceConfig = await findContactWorkspaceConfig({
-    tenantId,
+    client,
     url: workspaceURL,
     contactId: user.id,
     partnerId: user.mainPartnerId!,
@@ -180,14 +172,8 @@ export async function isAdminContact({
   return user;
 }
 
-export async function findEmailAddress(email: string, tenantId: Tenant['id']) {
-  if (!(email && tenantId)) {
-    return null;
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+export async function findEmailAddress(email: string, client: Client) {
+  if (!email) {
     return null;
   }
 
@@ -199,11 +185,8 @@ export async function findEmailAddress(email: string, tenantId: Tenant['id']) {
   });
 }
 
-export async function findGooveeUserByEmail(
-  email: string,
-  tenantId: Tenant['id'],
-) {
-  return findPartnerByEmail(email, tenantId, {
+export async function findGooveeUserByEmail(email: string, client: Client) {
+  return findPartnerByEmail(email, client, {
     where: {
       isActivatedOnPortal: {
         eq: true,
@@ -212,11 +195,8 @@ export async function findGooveeUserByEmail(
   });
 }
 
-export async function findContactByEmail(
-  email: string,
-  tenantId: Tenant['id'],
-) {
-  return findPartnerByEmail(email, tenantId, {
+export async function findContactByEmail(email: string, client: Client) {
+  return findPartnerByEmail(email, client, {
     where: {
       isContact: {
         eq: true,
@@ -225,11 +205,8 @@ export async function findContactByEmail(
   });
 }
 
-export async function findContactById(
-  id: Partner['id'],
-  tenantId: Tenant['id'],
-) {
-  return findPartnerById(id, tenantId, {
+export async function findContactById(id: Partner['id'], client: Client) {
+  return findPartnerById(id, client, {
     where: {
       isContact: {
         eq: true,
@@ -240,14 +217,10 @@ export async function findContactById(
 
 export async function findPartnerByEmail(
   email: string,
-  tenantId: Tenant['id'],
+  client: Client,
   params?: {where: WhereOptions<AOSPartner>},
 ) {
-  if (!(email && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+  if (!email) return null;
 
   const partner = await client.aOSPartner
     .findOne({
@@ -268,11 +241,11 @@ export async function findPartnerByEmail(
 
 export async function findPartnerAllowedToRegister(
   email: string,
-  tenantId: Tenant['id'],
+  client: Client,
 ) {
-  if (!(email && tenantId)) return null;
+  if (!email) return null;
 
-  return findPartnerByEmail(email, tenantId, {
+  return findPartnerByEmail(email, client, {
     where: {
       isAllowedToRegister: true,
     },
@@ -281,16 +254,12 @@ export async function findPartnerAllowedToRegister(
 
 export async function updatePartner({
   data,
-  tenantId,
+  client,
 }: {
   data: UpdateArgs<AOSPartner>;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(data && tenantId)) return null;
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
+  if (!data) return null;
 
   if (!(data?.id && data?.version)) return null;
 
@@ -312,7 +281,7 @@ export async function registerContact({
   firstName,
   email,
   password,
-  tenantId,
+  client,
   contactConfig,
   partnerId,
   localizationId,
@@ -322,19 +291,15 @@ export async function registerContact({
   firstName?: string;
   email: string;
   password?: string;
-  tenantId: Tenant['id'];
+  client: Client;
   contactConfig?: any;
   partnerId: string;
   localizationId?: Localization['id'];
   existingRecord?: {id: string; version: number} | null;
 }) {
-  if (!(name && email && tenantId && partnerId)) {
+  if (!(name && email && partnerId)) {
     return null;
   }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) return null;
 
   const hashedPassword = password && (await hash(password));
 
@@ -434,7 +399,7 @@ export async function registerPartner({
   password = '',
   email,
   workspaceURL,
-  tenantId,
+  client,
   isContact,
   localizationId,
 }: {
@@ -447,12 +412,10 @@ export async function registerPartner({
   password?: string;
   email: string;
   workspaceURL?: string;
-  tenantId: Tenant['id'];
+  client: Client;
   isContact?: boolean;
   localizationId?: Localization['id'];
 }) {
-  const client = await manager.getClient(tenantId);
-
   const hashedPassword = await hash(password);
 
   const isCompany = type === UserType.company;
@@ -485,7 +448,7 @@ export async function registerPartner({
 
   if (workspaceURL) {
     const defaultPartnerWorkspaceConfig =
-      await findDefaultPartnerWorkspaceConfig({url: workspaceURL, tenantId});
+      await findDefaultPartnerWorkspaceConfig({url: workspaceURL, client});
 
     const id = defaultPartnerWorkspaceConfig?.id;
 
@@ -495,7 +458,7 @@ export async function registerPartner({
     }
   }
 
-  const existingPartner = await findPartnerByEmail(email, tenantId);
+  const existingPartner = await findPartnerByEmail(email, client);
 
   if (existingPartner && !existingPartner.isActivatedOnPortal) {
     const {id, version} = existingPartner;

@@ -5,6 +5,7 @@ import {getSession} from '@/auth';
 import {SUBAPP_CODES} from '@/constants';
 import {workspacePathname} from '@/utils/workspace';
 import {Website} from '@/types';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -24,15 +25,19 @@ export default async function Layout(props: {
   const session = await getSession();
   const user = session?.user;
 
-  const {tenant, websiteSlug} = params;
+  const {tenant: tenantId, websiteSlug} = params;
   const {workspaceURL, workspaceURI} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
 
   const website = await findWebsiteBySlug({
     websiteSlug,
     workspaceURL,
     workspaceURI,
     user,
-    tenantId: tenant,
+    client,
   });
 
   if (!website) {
@@ -46,7 +51,7 @@ export default async function Layout(props: {
       websiteSlug,
       workspaceURL,
       user,
-      tenantId: tenant,
+      client,
     });
 
     websitePageSlug = pages?.[0]?.slug;

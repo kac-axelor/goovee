@@ -7,6 +7,7 @@ import {workspacePathname} from '@/utils/workspace';
 import {findWorkspace, findSubapp} from '@/orm/workspace';
 import {clone} from '@/utils';
 import {SUBAPP_CODES} from '@/constants';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import MobileMenuCategory from './mobile-menu-category';
@@ -23,16 +24,20 @@ export default async function Layout(props: {
 
   const {children} = props;
 
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const session = await getSession();
   const user = session?.user;
 
   const {workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) return notFound();
@@ -41,7 +46,7 @@ export default async function Layout(props: {
     code: SUBAPP_CODES.shop,
     url: workspace.url,
     user,
-    tenantId: tenant,
+    client,
   });
 
   if (!app?.isInstalled) {
@@ -50,7 +55,7 @@ export default async function Layout(props: {
 
   const categories = await findCategories({
     workspace,
-    tenantId: tenant,
+    client,
     user,
   }).then(clone);
 

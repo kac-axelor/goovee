@@ -1,19 +1,13 @@
-import {Tenant, manager} from '@/tenant';
+import {Client} from '@/goovee/.generated/client';
 
 export async function findInviteById({
   id,
-  tenantId,
+  client,
 }: {
   id: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(id && tenantId)) {
-    return null;
-  }
-
-  const client = await manager.getClient(tenantId);
-
-  if (!client) {
+  if (!(id && client)) {
     return null;
   }
 

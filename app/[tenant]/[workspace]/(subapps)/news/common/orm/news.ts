@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {clone, getPageInfo, getSkipInfo} from '@/utils';
 import type {PortalWorkspace, User} from '@/types';
 import {ORDER_BY} from '@/constants';
@@ -33,15 +33,13 @@ const EMPTY_NEWS_RESPONSE: NewsResponse = {
 export async function findNonArchivedNewsCategories({
   workspace,
   user,
-  tenantId,
+  client,
 }: {
   workspace: PortalWorkspace;
   user?: User;
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
-  if (!(workspace && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!workspace) return [];
 
   const categories = await client.aOSPortalNewsCategory
     .find({
@@ -50,7 +48,7 @@ export async function findNonArchivedNewsCategories({
           id: workspace.id,
         },
 
-        ...(await filterPrivate({tenantId, user})),
+        ...(await filterPrivate({client, user})),
       },
       select: {
         parentCategory: {
@@ -120,7 +118,7 @@ export async function findNews({
   slug = null,
   workspace,
   categoryIds = [],
-  tenantId,
+  client,
   user,
   archived = false,
   params,
@@ -134,25 +132,20 @@ export async function findNews({
   slug?: string | null;
   workspace: any;
   categoryIds?: any[];
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
   params?: any;
   skip?: number;
 }) {
-  if (!(workspace && tenantId)) {
-    return EMPTY_NEWS_RESPONSE;
-  }
-
-  const client = await manager.getClient(tenantId);
-  if (!client) {
+  if (!workspace) {
     return EMPTY_NEWS_RESPONSE;
   }
 
   const nonarchivedcategory = await findNonArchivedNewsCategories({
-    tenantId: tenantId,
-    workspace: workspace,
-    user: user,
+    client,
+    workspace,
+    user,
   });
 
   const nonarchivedcategoryids = nonarchivedcategory?.map((c: any) => c.id);
@@ -188,7 +181,7 @@ export async function findNews({
     },
     ...(params?.where || {}),
     AND: [
-      await filterPrivate({user, tenantId}),
+      await filterPrivate({user, client}),
       getArchivedFilter({archived}),
       ...(params?.where?.AND || []),
     ],
@@ -246,28 +239,27 @@ export async function findNews({
 export async function findNewsImageBySlug({
   slug,
   workspace,
-  tenantId,
+  client,
   user,
   archived = false,
   isFullView = false,
 }: {
   slug: string;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
   isFullView?: boolean;
 }): Promise<string | undefined> {
-  if (!tenantId || !workspace) return;
+  if (!workspace) return;
 
-  const client = await manager.getClient(tenantId);
   const archivedFilter = getArchivedFilter({archived});
 
   const news = await client.aOSPortalNews.findOne({
     where: {
       slug,
       categorySet: {workspace: {id: workspace.id}},
-      AND: [await filterPrivate({user, tenantId}), archivedFilter],
+      AND: [await filterPrivate({user, client}), archivedFilter],
     },
     select: {image: {id: true}, thumbnailImage: {id: true}},
   });
@@ -281,23 +273,21 @@ export async function findNewsImageBySlug({
 export async function findCategoryImageBySlug({
   slug,
   workspace,
-  tenantId,
+  client,
   user,
 }: {
   slug: string;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
 }): Promise<string | undefined> {
-  if (!tenantId || !workspace) return;
+  if (!workspace) return;
 
-  const c = await manager.getClient(tenantId);
-
-  const news = await c.aOSPortalNewsCategory.findOne({
+  const news = await client.aOSPortalNewsCategory.findOne({
     where: {
       slug,
       workspace: {id: workspace.id},
-      ...(await filterPrivate({user, tenantId})),
+      ...(await filterPrivate({user, client})),
     },
     select: {
       image: {id: true},
@@ -312,25 +302,23 @@ export async function isAttachmentOfNews({
   slug,
   fileId,
   workspace,
-  tenantId,
+  client,
   user,
 }: {
   slug: string;
   fileId: string;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
 }): Promise<boolean> {
-  if (!tenantId || !workspace) return false;
-
-  const client = await manager.getClient(tenantId);
+  if (!workspace) return false;
 
   const news = await client.aOSPortalNews.findOne({
     where: {
       slug,
       attachmentList: {metaFile: {id: fileId}},
       categorySet: {workspace: {id: workspace.id}},
-      ...(await filterPrivate({user, tenantId})),
+      ...(await filterPrivate({user, client})),
     },
     select: {id: true},
   });
@@ -343,7 +331,7 @@ export async function findCategories({
   showAllCategories = false,
   slug = null,
   workspace,
-  tenantId,
+  client,
   user,
   archived = false,
 }: {
@@ -351,21 +339,20 @@ export async function findCategories({
   showAllCategories?: boolean;
   slug?: string | null;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
 }) {
-  if (!(workspace && tenantId)) return [];
+  if (!workspace) return [];
 
-  const c = await manager.getClient(tenantId);
   const archivedFilter = getArchivedFilter({archived});
 
-  const categories = await c.aOSPortalNewsCategory.find({
+  const categories = await client.aOSPortalNewsCategory.find({
     where: {
       workspace: {
         id: workspace.id,
       },
-      AND: [await filterPrivate({user, tenantId}), archivedFilter],
+      AND: [await filterPrivate({user, client}), archivedFilter],
       ...(category
         ? {
             parentCategory: {
@@ -405,30 +392,29 @@ export async function findCategories({
 export async function findCategoryTitleBySlugName({
   slug,
   workspace,
-  tenantId,
+  client,
   archived = false,
   user,
 }: {
   slug: any;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   archived?: boolean;
   user?: User;
 }) {
-  if (!tenantId) {
+  if (false) {
     return null;
   }
 
-  const c = await manager.getClient(tenantId);
   const archivedFilter = getArchivedFilter({archived});
 
-  const title = await c.aOSPortalNewsCategory.findOne({
+  const title = await client.aOSPortalNewsCategory.findOne({
     where: {
       slug,
       workspace: {
         id: workspace.id,
       },
-      AND: [await filterPrivate({user, tenantId}), archivedFilter],
+      AND: [await filterPrivate({user, client}), archivedFilter],
     },
     select: {
       name: true,
@@ -445,7 +431,7 @@ export async function findNewsByCategory({
   slug,
   workspace,
   isFeaturedNews,
-  tenantId,
+  client,
   user,
   params,
   skip,
@@ -456,17 +442,17 @@ export async function findNewsByCategory({
   limit?: number;
   slug?: string;
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   params?: any;
   skip?: number;
 }) {
-  if (!tenantId) return EMPTY_NEWS_RESPONSE;
+  // guard removed
 
   const categories = await findCategories({
     showAllCategories: true,
     workspace,
-    tenantId,
+    client,
     user,
   });
 
@@ -501,7 +487,7 @@ export async function findNewsByCategory({
     limit,
     workspace,
     categoryIds,
-    tenantId,
+    client,
     user,
     params,
     skip,
@@ -510,19 +496,19 @@ export async function findNewsByCategory({
 
 export async function findHomePageHeaderNews({
   workspace,
-  tenant,
+  client,
   user,
   limit = HEADER_NEWS_LIMIT,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
   limit?: number;
 }) {
   const result = await findNews({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit,
     params: {
@@ -536,17 +522,17 @@ export async function findHomePageHeaderNews({
 
 export async function findHomePageFeaturedNews({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
 }) {
   const result = await findNews({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: DEFAULT_NEWS_ASIDE_LIMIT,
     params: {
@@ -560,17 +546,17 @@ export async function findHomePageFeaturedNews({
 
 export async function findHomePageAsideNews({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
 }) {
   const result = await findNews({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: ASIDE_NEWS_LIMIT,
     skip: HEADER_NEWS_LIMIT,
@@ -580,17 +566,17 @@ export async function findHomePageAsideNews({
 
 export async function findHomePageFooterNews({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
 }) {
   const result = await findNews({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: FOOTER_NEWS_LIMIT,
     skip: HEADER_NEWS_LIMIT + ASIDE_NEWS_LIMIT,
@@ -600,19 +586,19 @@ export async function findHomePageFooterNews({
 
 export async function findCategoryPageHeaderNews({
   workspace,
-  tenant,
+  client,
   user,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
   slug: string;
 }) {
   const result = await findNewsByCategory({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: HEADER_NEWS_LIMIT,
     slug,
@@ -623,19 +609,19 @@ export async function findCategoryPageHeaderNews({
 
 export async function findCategoryPageFeaturedNews({
   workspace,
-  tenant,
+  client,
   user,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
   slug: string;
 }) {
   const result = await findNewsByCategory({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: DEFAULT_NEWS_ASIDE_LIMIT,
     slug,
@@ -650,13 +636,13 @@ export async function findCategoryPageFeaturedNews({
 }
 export async function findCategoryAsideNews({
   workspace,
-  tenant,
+  client,
   user,
   slug,
   page = DEFAULT_PAGE,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
   slug: string;
   page?: number;
@@ -669,7 +655,7 @@ export async function findCategoryAsideNews({
   const result = await findNewsByCategory({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: ASIDE_NEWS_LIMIT,
     skip,
@@ -681,13 +667,13 @@ export async function findCategoryAsideNews({
 
 export async function findCategoryFooterNews({
   workspace,
-  tenant,
+  client,
   user,
   slug,
   page = DEFAULT_PAGE,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
   slug: string;
   page?: number;
@@ -700,7 +686,7 @@ export async function findCategoryFooterNews({
   const result = await findNewsByCategory({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: FOOTER_NEWS_LIMIT,
     skip,
@@ -712,13 +698,13 @@ export async function findCategoryFooterNews({
 
 export async function findCategoryBottomFeedNews({
   workspace,
-  tenant,
+  client,
   user,
   slug,
   page = DEFAULT_PAGE,
 }: {
   workspace: PortalWorkspace;
-  tenant: Tenant['id'];
+  client: Client;
   user?: User;
   slug: string;
   page?: number;
@@ -734,7 +720,7 @@ export async function findCategoryBottomFeedNews({
   const result = await findNewsByCategory({
     orderBy: {publicationDateTime: ORDER_BY.DESC},
     workspace,
-    tenantId: tenant,
+    client,
     user,
     limit: ASIDE_NEWS_LIMIT,
     skip,
@@ -746,38 +732,38 @@ export async function findCategoryBottomFeedNews({
 
 export async function findNewsCount({
   workspace,
-  tenantId,
+  client,
   user,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   slug?: string;
 }) {
-  if (!workspace || !tenantId) return null;
+  if (!workspace) return null;
 
   const {news} =
-    (await findNews({workspace, tenantId, user, slug, limit: 1})) ?? {};
+    (await findNews({workspace, client, user, slug, limit: 1})) ?? {};
   return news?.length ?? 0;
 }
 
 export async function findNewsAttachments({
   workspace,
-  tenantId,
+  client,
   user,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   slug?: string;
 }) {
-  if (!workspace || !tenantId) return null;
+  if (!workspace) return null;
 
   const response = await findNews({
     workspace,
-    tenantId,
+    client,
     user,
     slug,
     params: {
@@ -804,19 +790,19 @@ export async function findNewsAttachments({
 
 export async function findNewsRelatedNews({
   workspace,
-  tenantId,
+  client,
   user,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   slug?: string;
 }) {
-  if (!workspace || !tenantId) return null;
+  if (!workspace) return null;
 
   const nonarchivedcategory = await findNonArchivedNewsCategories({
-    tenantId: tenantId,
+    client,
     workspace: workspace,
     user: user,
   });
@@ -825,7 +811,7 @@ export async function findNewsRelatedNews({
 
   const response = await findNews({
     workspace,
-    tenantId,
+    client,
     user,
     slug,
     params: {
@@ -849,7 +835,7 @@ export async function findNewsRelatedNews({
                 : {}),
             },
             AND: [
-              await filterPrivate({user, tenantId}),
+              await filterPrivate({user, client}),
               getArchivedFilter({archived: false}),
             ],
           },
@@ -887,20 +873,19 @@ export async function findNewsRelatedNews({
 
 export async function findNewsByCategoryCount({
   workspace,
-  tenantId,
+  client,
   user,
   slug,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   slug?: string;
 }) {
-  if (!workspace || !tenantId) return null;
+  if (!workspace) return null;
 
   const {news} =
-    (await findNewsByCategory({workspace, tenantId, user, slug, limit: 1})) ??
-    {};
+    (await findNewsByCategory({workspace, client, user, slug, limit: 1})) ?? {};
 
   return news?.length ?? 0;
 }

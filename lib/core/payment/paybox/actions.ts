@@ -1,5 +1,5 @@
 import {DEFAULT_CURRENCY_CODE} from '@/constants';
-import type {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {PaymentOption} from '@/types';
 import {decodeFilter as decode} from '@/utils/url';
 import {getPaymentURL} from '.';
@@ -15,7 +15,7 @@ export async function createPayboxOrder({
   currency = DEFAULT_CURRENCY_CODE,
   context,
   url,
-  tenantId,
+  client,
 }: {
   amount: string | number;
   email: string;
@@ -25,7 +25,7 @@ export async function createPayboxOrder({
     success: string;
     failure: string;
   };
-  tenantId: Tenant['id'];
+  client: Client;
 }) {
   if (!(amount && currency && email)) {
     throw new Error('Amount, currency and email is required');
@@ -35,7 +35,7 @@ export async function createPayboxOrder({
     context,
     mode: PaymentOption.paybox,
     payer: email,
-    tenantId,
+    client,
   });
 
   return {
@@ -51,10 +51,10 @@ export async function createPayboxOrder({
 
 export async function findPayboxOrder({
   params,
-  tenantId,
+  client,
 }: {
   params: any;
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<PaymentOrder> {
   if (!params) {
     throw new Error('Cannot find paybox order');
@@ -88,7 +88,7 @@ export async function findPayboxOrder({
 
   const context = await findPaymentContext({
     id: reference.context_id,
-    tenantId,
+    client,
     mode: PaymentOption.paybox,
   });
 

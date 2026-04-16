@@ -31,16 +31,23 @@ export async function GET(
   },
 ) {
   const params = await props.params;
-  const {'product-id': productId, 'file-id': fileId, tenant} = params;
+  const {'product-id': productId, 'file-id': fileId, tenant: tenantId} = params;
   const {workspaceURL} = workspacePathname(params);
 
   const session = await getSession();
   const user = session?.user;
 
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
+    return new NextResponse('Bad request', {status: 400});
+  }
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (!workspace) {
@@ -51,22 +58,17 @@ export async function GET(
     code: SUBAPP_CODES.shop,
     user: session?.user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (!subapp?.isInstalled) {
     return new NextResponse('Unauthorized', {status: 401});
   }
 
-  const client = await manager.getClient(tenant);
-  if (!client) {
-    return new NextResponse('Bad request', {status: 400});
-  }
-
   const metaFields = await findModelFields({
     modelName: BASE_PRODUCT_MODEL,
     modelField: PRODUCT_ATTRS,
-    tenantId: tenant,
+    client,
   });
 
   const relationalFields = metaFields.filter(field =>
@@ -76,7 +78,7 @@ export async function GET(
   const product = await client.aOSProduct.findOne({
     where: {
       ...and<AOSProduct>([
-        await filterPrivate({tenantId: tenant, user}),
+        await filterPrivate({user, client}),
         {id: productId},
       ]),
     },
@@ -112,7 +114,8 @@ export async function GET(
   const file = await findFile({
     id: fileId,
     meta: true,
-    tenant,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

@@ -25,7 +25,8 @@ export async function GET(
   const file = await findFile({
     id: bgImageId,
     meta: true,
-    tenant,
+    client: auth.tenant.client,
+    storage: auth.tenant.config.aos.storage,
   });
 
   if (!file) {

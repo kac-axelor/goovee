@@ -26,11 +26,14 @@ export default async function Page(props: {
   const params = await props.params;
   const {id} = params;
   const {workspaceURL, workspaceURI, tenant} = workspacePathname(params);
-  const {error} = await ensureAuth(workspaceURL, tenant);
+  const {error, auth} = await ensureAuth(workspaceURL, tenant);
   if (error) notFound();
+
+  const {client} = auth.tenant;
+
   const [entry, config] = await Promise.all([
-    findEntry({id, tenantId: tenant}),
-    findMapConfig({tenantId: tenant}),
+    findEntry({id, client}),
+    findMapConfig({client}),
   ]);
 
   if (!entry) notFound();

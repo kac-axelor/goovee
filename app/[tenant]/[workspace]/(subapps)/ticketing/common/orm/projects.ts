@@ -1,7 +1,6 @@
 // ---- CORE IMPORTS ---- //
 import {ORDER_BY, SUBAPP_CODES} from '@/constants';
-import {t} from '@/locale/server';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {AOSProject} from '@/goovee/.generated/models';
 import type {ID} from '@goovee/orm';
 
@@ -24,13 +23,7 @@ export async function findProjects(
 ) {
   const {where, take, orderBy, skip, auth} = props;
 
-  if (!auth.tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(auth.tenantId);
-
-  const projects = await client.aOSProject.find({
+  const projects = await auth.tenant.client.aOSProject.find({
     ...(take ? {take} : {}),
     ...(skip ? {skip} : {}),
     ...(orderBy ? {orderBy} : {}),
@@ -56,13 +49,7 @@ export async function findProjectsWithTaskCount(
 }
 
 export async function findProject(id: ID, auth: AuthProps) {
-  if (!auth.tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(auth.tenantId);
-
-  const project = await client.aOSProject.findOne({
+  const project = await auth.tenant.client.aOSProject.findOne({
     where: {
       id: id,
       ...getProjectAccessFilter(auth),
@@ -75,14 +62,8 @@ export async function findProject(id: ID, auth: AuthProps) {
 
 export async function findTicketCategories(
   projectId: ID,
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<Category[]> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {
@@ -98,14 +79,8 @@ export async function findTicketCategories(
 
 export async function findTicketPriorities(
   projectId: ID,
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<Priority[]> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {
@@ -121,14 +96,8 @@ export async function findTicketPriorities(
 
 export async function findTicketStatuses(
   projectId: ID,
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<Status[]> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {
@@ -145,14 +114,8 @@ export async function findTicketStatuses(
 
 export async function findCompany(
   projectId: ID,
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<Company | undefined> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {company: {id: true, name: true}},
@@ -163,14 +126,8 @@ export async function findCompany(
 
 export async function findClientPartner(
   projectId: ID,
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<ClientPartner | undefined> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {
@@ -182,14 +139,8 @@ export async function findClientPartner(
 }
 
 export async function findTicketDoneStatus(
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<string | undefined> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const projectAppConfig = await client.aOSAppProject.findOne({
     select: {completedTaskStatus: {id: true}},
   });
@@ -198,14 +149,8 @@ export async function findTicketDoneStatus(
 }
 
 export async function findTicketCancelledStatus(
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<string | undefined> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const projectAppConfig = await client.aOSAppProject.findOne({
     select: {cancelledTaskStatus: {id: true}},
   });
@@ -215,14 +160,8 @@ export async function findTicketCancelledStatus(
 
 export async function findMainPartnerContacts(
   projectId: ID,
-  tenantId: Tenant['id'],
+  client: Client,
 ): Promise<ContactPartner[]> {
-  if (!tenantId) {
-    throw new Error(await t('TenantId is required'));
-  }
-
-  const client = await manager.getClient(tenantId);
-
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {

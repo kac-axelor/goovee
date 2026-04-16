@@ -4,6 +4,7 @@ import {Suspense} from 'react';
 // ---- CORE IMPORTS ----//
 import {clone} from '@/utils';
 import {getSession} from '@/auth';
+import {manager} from '@/tenant';
 import {workspacePathname} from '@/utils/workspace';
 import {findWorkspace} from '@/orm/workspace';
 import {DEFAULT_PAGE} from '@/constants';
@@ -20,16 +21,20 @@ export default async function Page(props: {
 }) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
 
   const session = await getSession();
   const user = session?.user;
   const {workspaceURL, workspaceURI} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -42,7 +47,7 @@ export default async function Page(props: {
   const {page = DEFAULT_PAGE} = searchParams;
 
   if (homepage) {
-    return <Homepage workspace={workspace} tenant={tenant} />;
+    return <Homepage workspace={workspace} client={client} />;
   }
 
   const slug = segments?.at(-1) || '';
@@ -54,7 +59,8 @@ export default async function Page(props: {
         <ArticleNews
           workspace={workspace}
           segments={segments}
-          tenantId={tenant}
+          client={client}
+          tenantId={tenantId}
           workspaceURL={workspace.url}
           workspaceURI={workspaceURI}
           user={user}
@@ -67,7 +73,7 @@ export default async function Page(props: {
   return (
     <CategoryNews
       workspace={workspace}
-      tenant={tenant}
+      client={client}
       page={Number(page)}
       segments={segments}
       slug={slug}

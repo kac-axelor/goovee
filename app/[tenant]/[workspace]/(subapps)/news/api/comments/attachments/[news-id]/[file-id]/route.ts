@@ -4,6 +4,7 @@ import {getSession} from '@/auth';
 import {isFileOfRecord} from '@/comments/orm';
 import {SUBAPP_CODES} from '@/constants';
 import {isCommentEnabled} from '@/lib/core/comments';
+import {manager} from '@/tenant';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {findFile, streamFile} from '@/utils/download';
 import {workspacePathname} from '@/utils/workspace';
@@ -25,13 +26,19 @@ export async function GET(
   const {workspaceURL, tenant: tenantId} = workspacePathname(params);
   const {'news-id': newsId, 'file-id': fileId} = params;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return new NextResponse('Bad Request', {status: 400});
+  }
+  const {client} = tenant;
+
   const session = await getSession();
   const user = session?.user;
 
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -46,7 +53,7 @@ export async function GET(
     code: SUBAPP_CODES.news,
     user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!app?.isInstalled) {
     return new NextResponse('Unauthorized', {status: 401});
@@ -55,20 +62,21 @@ export async function GET(
   const {news}: any = await findNews({
     id: newsId,
     workspace,
-    tenantId,
+    client,
     user,
   });
   if (!news?.length) {
     return new NextResponse('Forbidden', {status: 403});
   }
-  if (!(await isFileOfRecord({recordId: newsId, fileId, tenantId}))) {
+  if (!(await isFileOfRecord({recordId: newsId, fileId, client}))) {
     return new NextResponse('Forbidden', {status: 403});
   }
 
   const file = await findFile({
     id: fileId,
     meta: true,
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

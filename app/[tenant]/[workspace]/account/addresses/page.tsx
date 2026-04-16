@@ -9,6 +9,7 @@ import {SUBAPP_CODES} from '@/constants';
 import {PartnerKey, type Partner} from '@/types';
 import {findDeliveryAddresses, findInvoicingAddresses} from '@/orm/address';
 import {getWhereClauseForEntity} from '@/utils/filters';
+import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -34,17 +35,21 @@ async function fetchUser() {
 
 async function fetchQuotationData(
   quotationId: string,
-  tenant: string,
-  params: PageParams['params'],
+  tenantId: string,
+  params: {id: string; tenant: string; workspace: string},
   user: any,
 ) {
   const {workspaceURL} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return null;
+  const {client} = tenant;
 
   const subapp = await findSubappAccess({
     code: SUBAPP_CODES.quotations,
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   });
 
   if (!subapp) {
@@ -61,7 +66,7 @@ async function fetchQuotationData(
 
   const quotation: any = await findQuotation({
     id: quotationId,
-    tenantId: tenant,
+    client,
     params: {where},
     workspaceURL,
   }).then(clone);
@@ -79,11 +84,11 @@ async function fetchQuotationData(
   };
 }
 
-async function fetchAddresses(userId: Partner['id'], tenant: string) {
-  const deliveryAddresses = await findDeliveryAddresses(userId, tenant).then(
+async function fetchAddresses(userId: Partner['id'], client: any) {
+  const deliveryAddresses = await findDeliveryAddresses(userId, client).then(
     clone,
   );
-  const invoicingAddresses = await findInvoicingAddresses(userId, tenant).then(
+  const invoicingAddresses = await findInvoicingAddresses(userId, client).then(
     clone,
   );
 
@@ -93,7 +98,7 @@ async function fetchAddresses(userId: Partner['id'], tenant: string) {
 export default async function Page(props: PageParams) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const {
     quotation: quotationId = null,
     checkout = false,
@@ -106,6 +111,10 @@ export default async function Page(props: PageParams) {
   }
   const {user} = userSession;
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   let data = {
     recordId: null,
     address: {invoicingAddress: null, deliveryAddress: null},
@@ -114,7 +123,7 @@ export default async function Page(props: PageParams) {
   if (quotationId) {
     const quotation = await fetchQuotationData(
       quotationId,
-      tenant,
+      tenantId,
       params,
       user,
     );
@@ -128,7 +137,7 @@ export default async function Page(props: PageParams) {
 
   const {deliveryAddresses, invoicingAddresses} = await fetchAddresses(
     userId,
-    tenant,
+    client,
   );
 
   const fromQuotation: boolean = !!quotationId;

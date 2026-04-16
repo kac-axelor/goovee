@@ -1,6 +1,6 @@
 // ---- CORE IMPORTS ---- //
 import {filterPrivate} from '@/orm/filter';
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import type {PortalWorkspace, User} from '@/types';
 
 function transform($categories: any[]) {
@@ -26,18 +26,16 @@ function transform($categories: any[]) {
 
 export async function findCategories({
   workspace,
-  tenantId,
+  client,
   user,
   archived,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
 }) {
-  if (!(workspace && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!(workspace && client)) return [];
 
   const categories = await client.aOSProductCategory.find({
     where: {
@@ -45,7 +43,7 @@ export async function findCategories({
         id: workspace.id,
       },
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         archived
           ? {archived: true}
           : {OR: [{archived: false}, {archived: null}]},
@@ -63,18 +61,16 @@ export async function findCategories({
 
 export async function findFeaturedCategories({
   workspace,
-  tenantId,
+  client,
   user,
   archived,
 }: {
   workspace: PortalWorkspace;
-  tenantId: Tenant['id'];
+  client: Client;
   user?: User;
   archived?: boolean;
 }) {
-  if (!(workspace && tenantId)) return [];
-
-  const client = await manager.getClient(tenantId);
+  if (!(workspace && client)) return [];
 
   const categories = await client.aOSProductCategory.find({
     where: {
@@ -83,7 +79,7 @@ export async function findFeaturedCategories({
       },
       isFeatured: true,
       AND: [
-        await filterPrivate({tenantId, user}),
+        await filterPrivate({client, user}),
         archived
           ? {archived: true}
           : {OR: [{archived: false}, {archived: null}]},

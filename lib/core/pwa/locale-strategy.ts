@@ -65,9 +65,7 @@ export class CacheFirstWithSWR extends Strategy {
       }
 
       // Stale — return immediately, revalidate in background
-      void handler.waitUntil(
-        handler.fetchAndCachePut(request).catch(() => {}),
-      );
+      void handler.waitUntil(handler.fetchAndCachePut(request).catch(() => {}));
       return cached;
     }
 

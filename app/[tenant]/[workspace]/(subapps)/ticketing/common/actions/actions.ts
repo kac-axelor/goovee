@@ -188,7 +188,8 @@ export async function mutate(
 
       const updateData = await refinedSchema.parseAsync(action.data);
       if (force) {
-        const version = await findTicketVersion(updateData.id, tenantId);
+        const {client} = auth.tenant;
+        const version = await findTicketVersion(updateData.id, client);
         updateData.version = version;
       }
       ticket = await updateTicket({
@@ -256,7 +257,8 @@ export async function updateAssignment(
     });
 
     if (force) {
-      const version = await findTicketVersion(updateData.id, tenantId);
+      const {client} = auth.tenant;
+      const version = await findTicketVersion(updateData.id, client);
       updateData.version = version;
     }
 
@@ -310,8 +312,10 @@ export async function closeTicket(
     };
   }
 
+  const {client} = auth.tenant;
+
   try {
-    const status = await findTicketDoneStatus(tenantId);
+    const status = await findTicketDoneStatus(client);
 
     if (!status) {
       return {
@@ -327,7 +331,7 @@ export async function closeTicket(
     });
 
     if (force) {
-      const version = await findTicketVersion(updateData.id, tenantId);
+      const version = await findTicketVersion(updateData.id, client);
       updateData.version = version;
     }
 
@@ -377,8 +381,10 @@ export async function cancelTicket(
     };
   }
 
+  const {client} = auth.tenant;
+
   try {
-    const status = await findTicketCancelledStatus(tenantId);
+    const status = await findTicketCancelledStatus(client);
     if (!status) {
       return {
         error: true,
@@ -393,7 +399,7 @@ export async function cancelTicket(
     });
 
     if (force) {
-      const version = await findTicketVersion(updateData.id, tenantId);
+      const version = await findTicketVersion(updateData.id, client);
       updateData.version = version;
     }
 
@@ -720,12 +726,14 @@ export const createComment: CreateComment = async formData => {
     return {error: true, message: await t('Record not found')};
   }
 
+  const {client} = auth.tenant;
+
   try {
     const res = await addComment({
       modelName,
       userId: auth.user.id,
       workspaceUserId: workspaceUser.id,
-      tenantId,
+      client,
       commentField: 'note',
       trackingField: 'publicBody',
       subject: `${user.simpleFullName || user.name} added a comment`,
@@ -761,6 +769,7 @@ export const createComment: CreateComment = async formData => {
           userId: partner.id,
           tenantId,
           workspaceURL,
+          client,
           payload: {
             title: await tr(
               '{0} replied to your comment on {1}',
@@ -789,6 +798,7 @@ export const createComment: CreateComment = async formData => {
           userId: contact.id,
           tenantId,
           workspaceURL,
+          client,
           payload: {
             title: await tr(
               '{0} added a comment on {1}',
@@ -811,7 +821,7 @@ export const createComment: CreateComment = async formData => {
 
     getMailRecipients({
       contacts,
-      tenantId,
+      client,
       workspaceURL,
     })
       .then(reciepients => {
@@ -883,10 +893,12 @@ export const fetchComments: FetchComments = async props => {
     return {error: true, message: await t('Record not found')};
   }
 
+  const {client} = auth.tenant;
+
   try {
     const data = await findComments({
       modelName,
-      tenantId,
+      client,
       commentField: 'note',
       trackingField: 'publicBody',
       ...rest,

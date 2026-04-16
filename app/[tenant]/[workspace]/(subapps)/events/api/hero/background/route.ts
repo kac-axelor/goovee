@@ -4,6 +4,7 @@ import {NextRequest, NextResponse} from 'next/server';
 import {SUBAPP_CODES} from '@/constants';
 import {getSession} from '@/lib/core/auth';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
+import {manager} from '@/tenant';
 import {findFile, streamFile} from '@/utils/download';
 import {workspacePathname} from '@/utils/workspace';
 
@@ -16,12 +17,16 @@ export async function GET(
   const params = await props.params;
   const {workspaceURL, tenant: tenantId} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return new NextResponse('Bad Request', {status: 400});
+  const {client} = tenant;
+
   const session = await getSession();
 
   const workspace = await findWorkspace({
     user: session?.user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   if (!workspace) {
@@ -32,7 +37,7 @@ export async function GET(
     code: SUBAPP_CODES.events,
     user: session?.user,
     url: workspaceURL,
-    tenantId,
+    client,
   });
   if (!subapp) {
     return new NextResponse('Unauthorized', {status: 401});
@@ -47,7 +52,8 @@ export async function GET(
   const file = await findFile({
     id: bgImageId,
     meta: true,
-    tenant: tenantId,
+    client: tenant.client,
+    storage: tenant.config.aos.storage,
   });
 
   if (!file) {

@@ -4,6 +4,7 @@ import {notFound} from 'next/navigation';
 import {getSession} from '@/auth';
 import {isAdminContact, isPartner} from '@/orm/partner';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/tenant';
 
 export default async function Layout(props: {
   children: React.ReactNode;
@@ -19,12 +20,16 @@ export default async function Layout(props: {
   const session = await getSession();
   if (!session) return notFound();
 
-  const {tenant, workspaceURL} = workspacePathname(params);
+  const {tenant: tenantId, workspaceURL} = workspacePathname(params);
+
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
 
   const isAdmin =
     (await isPartner()) ||
     (await isAdminContact({
-      tenantId: tenant,
+      client,
       workspaceURL,
     }));
 

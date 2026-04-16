@@ -93,7 +93,7 @@ export default async function Page(props0: {
       where: {status: {isCompleted: false}},
       auth,
     }).then(clone),
-    findTicketStatuses(projectId, tenant),
+    findTicketStatuses(projectId, auth.tenant.client),
   ]);
 
   if (!project) notFound();

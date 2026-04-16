@@ -6,7 +6,7 @@ import {SUBAPP_CODES} from '@/constants';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {PartnerKey, PortalWorkspace, User} from '@/types';
 import type {ActionResponse} from '@/types/action';
-import type {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {findInvoice} from '@/subapps/invoices/common/orm/invoices';
@@ -20,7 +20,7 @@ export async function validatePaymentData({
   workspaceURL,
   invoice,
   amount,
-  tenantId,
+  client,
   token,
 }: {
   workspaceURL: string;
@@ -28,7 +28,7 @@ export async function validatePaymentData({
     id: string | number;
   };
   amount: string;
-  tenantId: Tenant['id'];
+  client: Client;
   token?: string;
 }): Promise<
   ActionResponse<{
@@ -62,7 +62,7 @@ export async function validatePaymentData({
 
   const workspace = await findWorkspace({
     url: workspaceURL,
-    tenantId,
+    client,
     user,
   });
   if (!workspace) {
@@ -75,7 +75,7 @@ export async function validatePaymentData({
       code: SUBAPP_CODES.invoices,
       user: user!,
       url: workspace.url,
-      tenantId,
+      client,
     });
     if (!subapp) {
       return {error: true, message: await t('Unauthorized app access')};
@@ -95,7 +95,7 @@ export async function validatePaymentData({
     type: INVOICE.UNPAID,
     ...(token ? {token} : {params: {where: invoicesWhereClause}}),
     workspaceURL,
-    tenantId,
+    client,
   });
   if (!$invoice) {
     return {error: true, message: await t('Invalid invoice')};

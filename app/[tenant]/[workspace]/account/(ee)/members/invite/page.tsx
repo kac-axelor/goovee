@@ -4,6 +4,7 @@ import {notFound} from 'next/navigation';
 import {getSession} from '@/auth';
 import {findWorkspace} from '@/orm/workspace';
 import {workspacePathname} from '@/utils/workspace';
+import {manager} from '@/lib/core/tenant';
 
 // ---- LOCAL IMPORTS ---- //
 import {findAvailableSubapps} from '../../../common/orm/members';
@@ -15,13 +16,21 @@ export default async function Page(props: {
   const params = await props.params;
   const {tenant: tenantId, workspaceURL} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+
+  if (!tenant) {
+    return notFound();
+  }
+
+  const {client} = tenant;
+
   const session = await getSession();
   const user = session?.user!;
 
   const workspace = await findWorkspace({
     url: workspaceURL,
     user,
-    tenantId,
+    client,
   });
 
   if (!workspace?.config?.canInviteMembers) {
@@ -30,7 +39,7 @@ export default async function Page(props: {
 
   const availableApps = await findAvailableSubapps({
     url: workspaceURL,
-    tenantId,
+    client,
   });
 
   return (

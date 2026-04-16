@@ -2,6 +2,7 @@
 
 import {getSession} from '@/auth';
 import {t} from '@/locale/server';
+import {manager} from '@/tenant';
 import {updatePreferences} from '@/orm/notification';
 import {revalidatePath} from 'next/cache';
 
@@ -17,7 +18,7 @@ export async function updatePreference({
   workspaceURI,
   code,
   data,
-  tenant,
+  tenant: tenantId,
 }: {
   code: string;
   data?: {
@@ -31,7 +32,7 @@ export async function updatePreference({
   workspaceURI: string;
   tenant: string;
 }) {
-  if (!(code && data && workspaceURL && tenant)) {
+  if (!(code && data && workspaceURL && tenantId)) {
     return error(await t('Code, url, tenant and payload is required'));
   }
   const session = await getSession();
@@ -41,12 +42,18 @@ export async function updatePreference({
     return error(await t('Unauthorized'));
   }
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    return error(await t('Tenant not found'));
+  }
+  const {client} = tenant;
+
   try {
     const result = await updatePreferences({
       url: workspaceURL,
       code,
       user,
-      tenantId: tenant,
+      client,
       ...data,
     });
 

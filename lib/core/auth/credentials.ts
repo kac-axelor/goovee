@@ -5,6 +5,7 @@ import {z} from 'zod';
 
 import {compare} from '@/auth/utils';
 import {findGooveeUserByEmail} from '@/orm/partner';
+import {manager} from '@/tenant';
 
 const ERROR_CODES = defineErrorCodes({
   INVALID_CREDENTIALS: 'Invalid credentials',
@@ -33,7 +34,15 @@ const credentials = {
       async ctx => {
         const {email, password, tenantId, rememberMe} = ctx.body;
 
-        const user = await findGooveeUserByEmail(email, tenantId);
+        const tenant = await manager.getTenant(tenantId);
+        if (!tenant) {
+          throw new APIError('UNAUTHORIZED', {
+            message: ERROR_CODES.INVALID_CREDENTIALS,
+          });
+        }
+        const {client} = tenant;
+
+        const user = await findGooveeUserByEmail(email, client);
         if (!user) {
           throw new APIError('UNAUTHORIZED', {
             message: ERROR_CODES.INVALID_CREDENTIALS,

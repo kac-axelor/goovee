@@ -3,6 +3,7 @@ import {HUBPISP_DEFAULT_EXPIRE_IN} from './constants';
 import {findAllPendingHubPispContexts} from './orm';
 import {pollPaymentRequestStatus} from './poll';
 import {pollPaymentLinkStatus} from './pollLink';
+import {manager} from '@/tenant';
 
 function getRemainingExpireIn(createdOn: Date): number | null {
   const elapsedSeconds = (Date.now() - createdOn.getTime()) / 1000;
@@ -25,9 +26,16 @@ export async function resumeHubPispPolling({
 }: {
   tenantId: string;
 }): Promise<void> {
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) {
+    console.error('[HUBPISP][STARTUP] Tenant not found', {tenantId});
+    return;
+  }
+  const {client} = tenant;
+
   let pendingContexts;
   try {
-    pendingContexts = await findAllPendingHubPispContexts({tenantId});
+    pendingContexts = await findAllPendingHubPispContexts({client, tenantId});
   } catch (err) {
     console.error('[HUBPISP][STARTUP] Failed to query pending contexts', {
       tenantId,

@@ -1,4 +1,5 @@
 import type {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {PaymentOption} from '@/types';
 import {
   createPaymentContext,
@@ -20,6 +21,7 @@ import {pollPaymentLinkStatus} from './pollLink';
 export async function createHubPispPaymentLink({
   amount,
   tenantId,
+  client,
   email,
   context,
   currency,
@@ -32,6 +34,7 @@ export async function createHubPispPaymentLink({
 }: {
   amount: number;
   tenantId: Tenant['id'];
+  client: Client;
   email: string;
   context: HubPispContextData;
   currency: string;
@@ -42,8 +45,8 @@ export async function createHubPispPaymentLink({
   pageConsentInfo?: PageConsentInfo;
   psuInfo?: PsuInfo;
 }): Promise<{resourceId: string; consentHref: string; contextId: string}> {
-  if (!tenantId || !currency || !email) {
-    throw new Error('tenantId, currency and email are required');
+  if (!currency || !email) {
+    throw new Error('currency and email are required');
   }
   if (!amount || amount <= 0) {
     throw new Error('amount must be a positive number');
@@ -53,12 +56,12 @@ export async function createHubPispPaymentLink({
     context,
     mode: PaymentOption.hubpisp,
     payer: email,
-    tenantId,
+    client,
   });
 
   const endToEnd = `${contextId}-${tenantId}`;
   if (endToEnd.length > 35) {
-    await markPaymentAsFailed({contextId, version, tenantId});
+    await markPaymentAsFailed({contextId, version, client});
     throw new Error(
       `endToEnd value exceeds 35 characters: "${endToEnd}" (${endToEnd.length} chars)`,
     );
@@ -80,14 +83,14 @@ export async function createHubPispPaymentLink({
       localInstrument,
     }));
   } catch (err) {
-    await markPaymentAsFailed({contextId, version, tenantId});
+    await markPaymentAsFailed({contextId, version, client});
     throw err;
   }
 
   await updatePaymentContextData({
     id: contextId,
     version,
-    tenantId,
+    client,
     context: {...context, resourceId},
   });
 
@@ -105,15 +108,15 @@ export async function createHubPispPaymentLink({
 export async function findHubPispOrder({
   contextId,
   resourceId,
-  tenantId,
+  client,
 }: {
   contextId: string;
   resourceId: string;
-  tenantId: Tenant['id'];
+  client: Client;
 }): Promise<PaymentOrder> {
   const context = await findPaymentContext({
     id: contextId,
-    tenantId,
+    client,
     mode: PaymentOption.hubpisp,
     ignoreExpiration: true,
   });
@@ -121,7 +124,6 @@ export async function findHubPispOrder({
   if (!context) {
     console.error('[HUBPISP][FIND_ORDER] Payment context not found', {
       contextId,
-      tenantId,
     });
     throw new Error('Payment context not found');
   }
@@ -133,7 +135,7 @@ export async function findHubPispOrder({
     await markPaymentAsExpired({
       contextId: context.id,
       version: context.version,
-      tenantId,
+      client,
     });
     throw new Error(`Payment link expired (resourceId: ${resourceId})`);
   }

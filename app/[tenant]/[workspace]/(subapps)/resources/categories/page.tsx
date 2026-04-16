@@ -13,6 +13,8 @@ import {t} from '@/locale/server';
 import {getSession} from '@/auth';
 import {findWorkspace} from '@/orm/workspace';
 import type {PortalWorkspace, User} from '@/types';
+import {manager} from '@/lib/core/tenant';
+import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -31,17 +33,17 @@ import {ACTION} from '../common/constants';
 
 async function Categories({
   workspace,
-  tenant,
+  client,
   user,
 }: {
   workspace: PortalWorkspace;
-  tenant: string;
+  client: Client;
   user?: User;
 }) {
   const categories = await fetchExplorerCategories({
     workspace,
     user,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   return <CategoryExplorer categories={categories} />;
@@ -49,12 +51,12 @@ async function Categories({
 
 async function Resources({
   workspace,
-  tenant,
+  client,
   user,
   category,
 }: {
   workspace: PortalWorkspace;
-  tenant: string;
+  client: Client;
   user?: User;
   category?: string;
 }) {
@@ -65,13 +67,13 @@ async function Resources({
       id: category,
       workspace,
       user,
-      tenantId: tenant,
+      client,
     }).then(clone);
   } else {
     files = await fetchLatestFiles({
       workspace,
       user,
-      tenantId: tenant,
+      client,
     }).then(clone);
   }
 
@@ -84,7 +86,7 @@ export default async function Page(props: {
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
-  const {tenant} = params;
+  const {tenant: tenantId} = params;
   const {id} = searchParams;
 
   const session = await getSession();
@@ -93,10 +95,14 @@ export default async function Page(props: {
 
   const {workspaceURL, workspaceURI} = workspacePathname(params);
 
+  const tenant = await manager.getTenant(tenantId);
+  if (!tenant) return notFound();
+  const {client} = tenant;
+
   const workspace = await findWorkspace({
     user,
     url: workspaceURL,
-    tenantId: tenant,
+    client,
   }).then(clone);
 
   if (!workspace) {
@@ -110,7 +116,7 @@ export default async function Page(props: {
       id,
       workspace,
       user,
-      tenantId: tenant,
+      client,
     });
   }
   const permissionSelect = file?.permissionSelect;
@@ -151,7 +157,7 @@ export default async function Page(props: {
       <div className="grid sm:grid-cols-4 gap-5">
         <div className="bg-white rounded-lg py-6 px-2">
           <Suspense fallback={<ExplorerSkeleton />}>
-            <Categories workspace={workspace} tenant={tenant} user={user} />
+            <Categories workspace={workspace} client={client} user={user} />
           </Suspense>
         </div>
         <div className="sm:hidden">{/* <SortBy /> */}</div>
@@ -159,7 +165,7 @@ export default async function Page(props: {
           <Suspense fallback={<ResourceListSkeleton />}>
             <Resources
               workspace={workspace}
-              tenant={tenant}
+              client={client}
               user={user}
               category={id}
             />

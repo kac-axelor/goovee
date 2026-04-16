@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import {manager, type Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {
   DEFAULT_CURRENCY_SCALE,
   DEFAULT_CURRENCY_SYMBOL,
@@ -23,7 +23,7 @@ import type {Order} from '@/subapps/orders/common/types/orders';
 export const findOrders = async ({
   isCompleted = false,
   params = {},
-  tenantId,
+  client,
   workspaceURL,
 }: {
   isCompleted?: boolean;
@@ -36,15 +36,13 @@ export const findOrders = async ({
     limit?: string | number;
     page?: string | number;
   };
-  tenantId: Tenant['id'];
+  client: Client;
   workspaceURL: PortalWorkspace['url'];
 }) => {
   const {page = DEFAULT_PAGE, limit, where = {}} = params;
   const {id: clientPartnerId} = where.clientPartner || {};
 
-  if (!(clientPartnerId && tenantId && workspaceURL)) return null;
-
-  const client = await manager.getClient(tenantId);
+  if (!(clientPartnerId && client && workspaceURL)) return null;
 
   const whereClause = and<any>([
     where,
@@ -131,25 +129,20 @@ export const findOrders = async ({
 
 export async function findOrder({
   id,
-  tenantId,
+  client,
   workspaceURL,
   params = {},
   isCompleted = false,
   invoicesParams = {},
 }: {
   id: Order['id'];
-  tenantId: Tenant['id'];
+  client: Client;
   workspaceURL: PortalWorkspace['url'];
   params?: any;
   isCompleted?: boolean;
   invoicesParams?: any;
 }) {
-  if (!tenantId && !workspaceURL) return null;
-
-  const client = await manager.getClient(tenantId);
-  if (!client) {
-    return null;
-  }
+  if (!client && !workspaceURL) return null;
 
   const baseWhereClause = and([
     params.where,
@@ -240,12 +233,12 @@ export async function findOrder({
   const [invoices, customerDeliveries] = await Promise.all([
     findInvoices({
       workspaceURL,
-      tenantId,
+      client,
       whereClause: invoicesWhere,
     }),
     findCustomerDeliveries({
       workspaceURL,
-      tenantId,
+      client,
       whereClause: {
         saleOrderSet: {id: order.id},
       },
@@ -312,19 +305,14 @@ export async function findOrder({
 
 export async function findInvoices({
   workspaceURL,
-  tenantId,
+  client,
   whereClause = null,
 }: {
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
   whereClause?: any;
 }) {
-  if (!tenantId && !workspaceURL) return null;
-
-  const client = await manager.getClient(tenantId);
-  if (!client) {
-    return null;
-  }
+  if (!client && !workspaceURL) return null;
 
   const finalWhereClause = {
     ...whereClause,
@@ -356,20 +344,15 @@ export async function findInvoices({
 
 export async function findCustomerDeliveries({
   workspaceURL,
-  tenantId,
+  client,
   whereClause = null,
 }: {
   ids?: ID[];
   workspaceURL: string;
-  tenantId: Tenant['id'];
+  client: Client;
   whereClause?: any;
 }) {
-  if (!tenantId && !workspaceURL) return null;
-
-  const client = await manager.getClient(tenantId);
-  if (!client) {
-    return null;
-  }
+  if (!client && !workspaceURL) return null;
 
   const result: any = await client.aOSStockMove
     .find({

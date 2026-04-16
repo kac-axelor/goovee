@@ -1,5 +1,6 @@
 import {DEFAULT_CURRENCY_CODE} from '@/constants';
 import type {Tenant} from '@/tenant';
+import type {Client} from '@/goovee/.generated/client';
 import {PaymentOption} from '@/types';
 import {getPaymentURL} from '.';
 import {createPaymentContext} from '../common/orm';
@@ -12,6 +13,7 @@ export async function createUp2payOrder({
   reference,
   context,
   url,
+  client,
   tenantId,
   billingInfo,
 }: {
@@ -26,6 +28,7 @@ export async function createUp2payOrder({
     failure: string;
     cancel: string;
   };
+  client: Client;
   tenantId: Tenant['id'];
   billingInfo?: {
     firstName?: string;
@@ -44,7 +47,7 @@ export async function createUp2payOrder({
     context,
     mode: PaymentOption.up2pay,
     payer: email,
-    tenantId,
+    client,
   });
 
   const paymentUrl = getPaymentURL({

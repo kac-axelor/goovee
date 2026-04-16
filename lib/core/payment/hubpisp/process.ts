@@ -1,3 +1,5 @@
+import type {Client} from '@/goovee/.generated/client';
+import type {TenantConfig} from '@/tenant';
 import {
   markPaymentAsCancelled,
   markPaymentAsFailed,
@@ -23,12 +25,16 @@ export async function applyTransactionStatus({
   paymentContext,
   transactionStatus,
   statusReasonInformation,
+  client,
   tenantId,
+  config,
 }: {
   paymentContext: PaymentContext;
   transactionStatus: string;
   statusReasonInformation?: string;
+  client: Client;
   tenantId: string;
+  config: TenantConfig;
 }): Promise<boolean> {
   switch (transactionStatus) {
     case HUBPISP_TRANSACTION_STATUS.CANC:
@@ -39,7 +45,7 @@ export async function applyTransactionStatus({
       await markPaymentAsCancelled({
         contextId: paymentContext.id,
         version: paymentContext.version,
-        tenantId,
+        client,
       });
       notifyPaymentUpdate(
         paymentContext.data.source,
@@ -57,7 +63,7 @@ export async function applyTransactionStatus({
       await markPaymentAsFailed({
         contextId: paymentContext.id,
         version: paymentContext.version,
-        tenantId,
+        client,
       });
       notifyPaymentUpdate(
         paymentContext.data.source,
@@ -68,7 +74,7 @@ export async function applyTransactionStatus({
       return true;
 
     case HUBPISP_TRANSACTION_STATUS.ACSC:
-      await processAcscPayment({paymentContext, tenantId});
+      await processAcscPayment({paymentContext, client, tenantId, config});
       return true;
 
     default:
@@ -78,10 +84,14 @@ export async function applyTransactionStatus({
 
 export async function processAcscPayment({
   paymentContext,
+  client,
   tenantId,
+  config,
 }: {
   paymentContext: PaymentContext;
+  client: Client;
   tenantId: string;
+  config: TenantConfig;
 }): Promise<void> {
   const source = paymentContext.data?.source;
   const entityId = paymentContext.data?.id;
@@ -90,7 +100,7 @@ export async function processAcscPayment({
   switch (source) {
     case PAYMENT_SOURCE.INVOICES: {
       const result = await updateInvoice({
-        tenantId,
+        config,
         amount: paidAmount,
         invoiceId: entityId,
         paymentModeId: paymentContext.data?.paymentModeId,
@@ -104,7 +114,7 @@ export async function processAcscPayment({
         await markPaymentAsFailed({
           contextId: paymentContext.id,
           version: paymentContext.version,
-          tenantId,
+          client,
         });
         return;
       }
@@ -114,6 +124,7 @@ export async function processAcscPayment({
           invoiceId: entityId,
           payer: paymentContext.payer,
           tenantId,
+          client,
         });
       }
       break;
@@ -129,7 +140,7 @@ export async function processAcscPayment({
       await markPaymentAsFailed({
         contextId: paymentContext.id,
         version: paymentContext.version,
-        tenantId,
+        client,
       });
       return;
   }
@@ -137,7 +148,7 @@ export async function processAcscPayment({
   await markPaymentAsProcessed({
     contextId: paymentContext.id,
     version: paymentContext.version,
-    tenantId,
+    client,
   });
 
   notifyPaymentUpdate(source, entityId, paymentContext.id);
