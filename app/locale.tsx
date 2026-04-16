@@ -27,8 +27,9 @@ export default function Locale({children}: {children: React.ReactNode}) {
   }, []);
 
   useEffect(() => {
+    if (isPending) return;
     init(locale, tenant as string);
-  }, [init, locale, tenant]);
+  }, [init, isPending, locale, tenant]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
