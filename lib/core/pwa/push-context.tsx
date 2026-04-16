@@ -38,6 +38,7 @@ export function PushProvider({
   const env = useEnvironment();
   const {data: session, isPending} = authClient.useSession();
   const user = session?.user;
+  const userId = user?.id;
 
   const [permission, setPermission] =
     useState<NotificationPermission>('default');
@@ -52,7 +53,7 @@ export function PushProvider({
   const broadcastChannel = React.useRef<BroadcastChannel | null>(null);
 
   const fetchNotifications = useCallback(async () => {
-    if (!tenant || !user) return;
+    if (!tenant || !userId) return;
     try {
       const response = await fetch(`/api/tenant/${tenant}/push/notifications`);
       if (response.ok) {
@@ -62,7 +63,7 @@ export function PushProvider({
     } catch (error) {
       console.error('Failed to fetch unread notifications:', error);
     }
-  }, [tenant, user]);
+  }, [tenant, userId]);
 
   const markAsRead = useCallback(
     async (id: string) => {
@@ -133,7 +134,7 @@ export function PushProvider({
       let sub = await registration.pushManager.getSubscription();
 
       // AUTO-HEAL: If permission is granted but subscription is missing, create it
-      if (currentPermission === 'granted' && !sub && tenant && user) {
+      if (currentPermission === 'granted' && !sub && tenant && userId) {
         try {
           sub = await registration.pushManager.subscribe({
             userVisibleOnly: true,
@@ -150,16 +151,16 @@ export function PushProvider({
       if (
         sub &&
         currentPermission === 'granted' &&
-        user &&
-        lastSyncedUserId.current !== user.id
+        userId &&
+        lastSyncedUserId.current !== userId
       ) {
         syncSubscription(sub);
-        lastSyncedUserId.current = user.id;
+        lastSyncedUserId.current = userId;
       }
     }
 
     // Fetch unread notifications
-    if (tenant && user) {
+    if (tenant && userId) {
       fetchNotifications();
     }
   }, [
@@ -167,7 +168,7 @@ export function PushProvider({
     syncSubscription,
     tenant,
     fetchNotifications,
-    user,
+    userId,
   ]);
 
   const subscribe = useCallback(async () => {
@@ -203,8 +204,9 @@ export function PushProvider({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(subscription),
+        }).then(() => {
+          setSubscription(null);
         });
-        setSubscription(null);
       } catch (error) {
         console.error('Failed to unsubscribe from push notifications:', error);
       }
@@ -255,10 +257,10 @@ export function PushProvider({
 
   // Safety cleanup: If we have a subscription but no user, unsubscribe
   useEffect(() => {
-    if (!user && subscription && !isPending) {
+    if (!userId && subscription && !isPending) {
       unsubscribe();
     }
-  }, [user, subscription, unsubscribe, isPending]);
+  }, [userId, subscription, unsubscribe, isPending]);
 
   const value = useMemo(
     () => ({

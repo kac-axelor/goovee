@@ -6,6 +6,12 @@ import {
 } from 'better-auth/client/plugins';
 import type {Auth} from './auth';
 
+/*
+ * NOTE: better-auth refetches the session on window focus by default (refetchOnWindowFocus: true).
+ * This causes `session.user` to get a new object reference on every tab refocus, even when the
+ * underlying data hasn't changed. Avoid using the `user` object directly in useEffect/useCallback
+ * dependency arrays — use a stable primitive like `user?.id` instead to prevent unintended re-runs.
+ */
 export const authClient = createAuthClient({
   plugins: [
     {

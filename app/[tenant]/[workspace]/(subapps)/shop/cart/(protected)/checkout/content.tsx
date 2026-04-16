@@ -234,6 +234,7 @@ export default function Content({
 }) {
   const {data: session} = authClient.useSession();
   const user = session?.user;
+  const userId = user?.id;
 
   const [shippingType, setShippingType] = useState<string>(
     SHIPPING_TYPE.REGULAR,
@@ -283,7 +284,7 @@ export default function Content({
       }
     };
     init();
-  }, [cart, computedProducts, workspace, user, tenant]);
+  }, [cart, computedProducts, workspace, userId, tenant]);
 
   const $cart = useMemo(
     () => ({

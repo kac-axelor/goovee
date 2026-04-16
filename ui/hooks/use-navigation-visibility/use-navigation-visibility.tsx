@@ -29,7 +29,7 @@ const CODE_REGEX = (code: string) =>
 type VisibilityHandler = (
   pathname: string,
   workspaceURL: string,
-  user: any,
+  userId: string | number | undefined,
 ) => Promise<boolean>;
 
 type Handler = {
@@ -49,7 +49,7 @@ const HANDLERS: Array<Handler> = [
 async function navigationVisibilityForEvents(
   pathname: string,
   workspaceURL: string,
-  user: any,
+  userId: string | number | undefined,
 ): Promise<boolean> {
   const handler = HANDLERS.find(h => h.code === SUBAPP_CODES.events)!;
   const {regex} = handler;
@@ -65,7 +65,7 @@ async function navigationVisibilityForEvents(
         data: {isHidden},
       } = response;
 
-      return user ? true : !isHidden;
+      return userId ? true : !isHidden;
     }
 
     return false;
@@ -83,6 +83,7 @@ export function useNavigationVisibility() {
   const {workspaceURL} = useWorkspace();
   const {data: session} = authClient.useSession();
   const user = session?.user;
+  const userId = user?.id;
 
   useEffect(() => {
     let mounted = true;
@@ -106,7 +107,7 @@ export function useNavigationVisibility() {
           const visible = await matchedHandler.visibility(
             pathname,
             workspaceURL,
-            user,
+            userId,
           );
           if (mounted) setVisible(visible);
         } else {
@@ -124,7 +125,7 @@ export function useNavigationVisibility() {
     return () => {
       mounted = false;
     };
-  }, [pathname, user, workspaceURL]);
+  }, [pathname, userId, workspaceURL]);
 
   return useMemo(() => ({visible, loading}), [visible, loading]);
 }

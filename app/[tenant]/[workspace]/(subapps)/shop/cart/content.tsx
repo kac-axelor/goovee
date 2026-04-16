@@ -304,6 +304,7 @@ export default function Content({
 }) {
   const {data: session} = authClient.useSession();
   const user = session?.user;
+  const userId = user?.id;
 
   const {cart, removeItem} = useCart();
   const {workspaceURI} = useWorkspace();
@@ -394,7 +395,7 @@ export default function Content({
       }
     };
     init();
-  }, [cart, computedProducts, workspace, user, tenant, removeItem]);
+  }, [cart, computedProducts, workspace, userId, tenant, removeItem]);
 
   const $cart = useMemo(
     () => ({

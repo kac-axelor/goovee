@@ -44,6 +44,7 @@ const formSchema = z.object({
 export default function Page() {
   const {data: session} = authClient.useSession();
   const user = session?.user;
+  const userId = user?.id;
 
   const {toast} = useToast();
   const {tenant, workspaceURL} = useWorkspace();
@@ -142,7 +143,7 @@ export default function Page() {
     init().finally(() => {
       setLoading(false);
     });
-  }, [user, tenant, workspaceURL, setFormValue]);
+  }, [userId, tenant, workspaceURL, setFormValue]);
 
   if (loading) {
     return <Loader />;
