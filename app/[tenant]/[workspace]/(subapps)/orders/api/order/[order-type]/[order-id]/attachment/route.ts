@@ -11,7 +11,6 @@ import {PartnerKey} from '@/types';
 
 // ---- LOCAL IMPORTS ---- //
 import {findOrder} from '@/subapps/orders/common/orm/orders';
-import {OrderType} from '@/subapps/orders/common/types/orders';
 import {ORDER} from '@/subapps/orders/common/constants/orders';
 
 export async function GET(
@@ -20,7 +19,7 @@ export async function GET(
     params: Promise<{
       tenant: string;
       workspace: string;
-      'order-type': OrderType;
+      'order-type': string;
       'order-id': string;
     }>;
   },

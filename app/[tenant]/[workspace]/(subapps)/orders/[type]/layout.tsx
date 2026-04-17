@@ -2,11 +2,10 @@ import {notFound} from 'next/navigation';
 
 // ---- LOCAL IMPORTS ---- //
 import {ORDER_TAB_ITEMS} from '@/subapps/orders/common/constants/orders';
-import {OrderType} from '@/subapps/orders/common/types/orders';
 
 export default async function Layout(props: {
   params: Promise<{
-    type: OrderType;
+    type: string;
     tenant: string;
     workspace: string;
   }>;

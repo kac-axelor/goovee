@@ -22,7 +22,7 @@ export async function GET(
     params: Promise<{
       tenant: string;
       workspace: string;
-      mountType: MountType;
+      mountType: string;
       websiteSlug: string;
       websitePageSlug: string;
       'content-id': string;
@@ -42,7 +42,7 @@ export async function GET(
     mountType,
   } = params;
 
-  if (!mountTypes.includes(mountType)) {
+  if (!mountTypes.includes(mountType as MountType)) {
     return new NextResponse('Invalid mount type', {status: 400});
   }
   if (mountType === MOUNT_TYPE.MENU) {

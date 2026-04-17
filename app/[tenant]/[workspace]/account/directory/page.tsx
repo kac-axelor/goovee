@@ -25,10 +25,7 @@ export default async function Page(props: {
   });
 
   if (!workspace) {
-    return {
-      error: true,
-      message: await t('Invalid workspace'),
-    };
+    return notFound();
   }
 
   const partner = await findGooveeUserByEmail(user.email, tenant);
