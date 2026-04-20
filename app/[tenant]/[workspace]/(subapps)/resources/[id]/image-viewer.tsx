@@ -1,5 +1,6 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
+
+import Image from 'next/image';
 
 // ---- CORE IMPORTS ---- //
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
@@ -10,10 +11,14 @@ export default function ImageViewer({record}: any) {
 
   return (
     <div className="container">
-      <img
-        className="object-cover max-w-100"
+      <Image
+        className="object-cover max-w-100 w-full h-auto"
         src={`${workspaceURI}/${SUBAPP_CODES.resources}/api/file/${record?.id}`}
-        alt="Viewer"></img>
+        alt="Viewer"
+        width={0}
+        height={0}
+        sizes="100vw"
+      />
     </div>
   );
 }

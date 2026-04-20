@@ -1,6 +1,7 @@
 import {ArrowRight} from 'lucide-react';
 import Link from 'next/link';
 import {Suspense} from 'react';
+import Image from 'next/image';
 
 import {
   DEFAULT_LOGO_URL,
@@ -485,9 +486,11 @@ async function HyperlinkCard({
           target="_blank"
           rel="noopener noreferrer"
           className="block p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-          <img
+          <Image
             src={`${workspaceURI}/api/hyperlink/${item.id}/logo`}
-            alt=""
+            alt={`Related Link ${item.id}`}
+            width={200}
+            height={100}
             className="w-full h-auto object-contain"
           />
         </a>
