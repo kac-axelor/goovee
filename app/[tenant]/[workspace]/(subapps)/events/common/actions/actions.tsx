@@ -143,14 +143,6 @@ export async function register({
   if (!tenant) return error(await t('Tenant not found'));
   const {client, config} = tenant;
 
-  const $event = await findEvent({
-    id: eventId,
-    workspace: {url: workspaceURL},
-    client,
-    config,
-  });
-  if (!$event) return error(await t('Event not found!'));
-
   let paidAmount, values, context;
   if (payment) {
     const paymentInfo = await getPaymentInfo({
@@ -182,6 +174,15 @@ export async function register({
 
   const {workspace, participants, user, subapp} = validationResult.data;
 
+  const $event = await findEvent({
+    id: eventId,
+    workspace: {url: workspaceURL},
+    user,
+    client,
+    config,
+  });
+
+  if (!$event) return error(await t('Event not found!'));
   const {priceScale} = $event;
   const {total: expectedAmount} = getCalculatedTotalPrice(values, $event);
   const expected = Number(scale(expectedAmount, priceScale));
