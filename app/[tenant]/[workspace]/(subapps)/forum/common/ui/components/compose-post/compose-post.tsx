@@ -102,7 +102,7 @@ export function ComposePost({
 export function ComposePostSkeleton() {
   return (
     <div className="bg-white px-4 py-4 rounded-t-lg flex items-center gap-[0.625rem]">
-      <Skeleton className="rounded-full h-8 w-8" />;
+      <Skeleton className="rounded-full h-8 w-8" />
       <Skeleton className="w-full h-8" />
     </div>
   );
