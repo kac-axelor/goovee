@@ -22,7 +22,7 @@ import {
 } from '@/orm/partner';
 import {findWorkspaceByURL} from '@/orm/workspace';
 import {revalidatePath} from 'next/cache';
-import {getTranslation, t} from '../locale/server';
+import {getTranslation} from '../locale/server';
 import {UserType} from './types';
 import {type Tenant, type TenantConfig} from '../tenant';
 import type {Partner, PortalWorkspace} from '@/types';
@@ -63,22 +63,28 @@ export async function registerByInvite({
   config,
 }: RegisterInviteDTO) {
   if (!(name && firstName && tenantId && inviteId)) {
-    return error(await t('Bad request'));
+    return error(await getTranslation({tenant: tenantId}, 'Bad request'));
   }
 
   const invite = await findInviteById({id: inviteId, client});
 
   if (!invite) {
-    return error(await t('Invalid invite'));
+    return error(await getTranslation({tenant: tenantId}, 'Invalid invite'));
   }
 
   if (!invite?.partner?.id) {
-    return error(await t('No partner available for the workspace'));
+    return error(
+      await getTranslation(
+        {tenant: tenantId},
+        'No partner available for the workspace',
+      ),
+    );
   }
 
   if (email !== invite.emailAddress?.address) {
     return error(
-      await t(
+      await getTranslation(
+        {tenant: tenantId},
         'This invitation is valid only for the email address it was sent to.',
       ),
     );
@@ -87,14 +93,17 @@ export async function registerByInvite({
   const {workspace} = invite;
 
   if (!workspace) {
-    return error(await t('Invalid workspace'));
+    return error(await getTranslation({tenant: tenantId}, 'Invalid workspace'));
   }
 
   const gooveeUser = await findGooveeUserByEmail(email, client);
 
   if (gooveeUser) {
     return error(
-      await t('Already registered, try login and subscribing invite'),
+      await getTranslation(
+        {tenant: tenantId},
+        'Already registered, try login and subscribing invite',
+      ),
     );
   }
 
@@ -105,7 +114,12 @@ export async function registerByInvite({
     existingRecord.mainPartner &&
     existingRecord.mainPartner.id !== invite.partner.id
   ) {
-    return error(await t('Contact already exists with another partner.'));
+    return error(
+      await getTranslation(
+        {tenant: tenantId},
+        'Contact already exists with another partner.',
+      ),
+    );
   }
 
   const contactConfig = invite?.contactAppPermissionList?.[0];
@@ -128,7 +142,10 @@ export async function registerByInvite({
       });
     } catch (err: any) {
       return {
-        message: await t('Error registering contact. Try again.'),
+        message: await getTranslation(
+          {tenant: tenantId},
+          'Error registering contact. Try again.',
+        ),
         success: false,
       };
     }
@@ -166,7 +183,12 @@ export async function registerByInvite({
       },
     };
   } catch (err) {
-    return error(await t('Error registering contact. Try again.'));
+    return error(
+      await getTranslation(
+        {tenant: tenantId},
+        'Error registering contact. Try again.',
+      ),
+    );
   }
 }
 

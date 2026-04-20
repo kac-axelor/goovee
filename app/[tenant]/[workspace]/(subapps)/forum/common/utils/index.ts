@@ -1,4 +1,4 @@
-import {getTranslation} from '@/locale/server';
+import {t} from '@/locale/server';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import type {Client} from '@/goovee/.generated/client';
 import {PortalWorkspace, User} from '@/types';
@@ -92,7 +92,7 @@ export async function getPopularQuery({
   if (!workspaceID) {
     return {
       error: true,
-      message: await getTranslation({}, 'Invalid workspace'),
+      message: await t('Invalid workspace'),
     };
   }
 

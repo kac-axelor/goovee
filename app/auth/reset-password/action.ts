@@ -1,7 +1,7 @@
 'use server';
 
 import {hash} from '@/auth/utils';
-import {getTranslation} from '@/locale/server';
+import {t} from '@/locale/server';
 import {create as createOTP, findOne, isValid} from '@/otp/orm';
 import {Scope} from '@/otp/constants';
 import {findGooveeUserByEmail} from '@/orm/partner';
@@ -110,16 +110,16 @@ export async function requestResetPassword({
   searchQuery: string;
 }) {
   if (!tenantId) {
-    return error(await getTranslation({}, 'TenantId is required'));
+    return error(await t('TenantId is required'));
   }
 
   if (!email) {
-    return error(await getTranslation({tenant: tenantId}, 'Email is required'));
+    return error(await t('Email is required'));
   }
 
   const tenant = await manager.getTenant(tenantId);
   if (!tenant) {
-    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
+    return error(await t('Invalid tenant'));
   }
   const {client} = tenant;
 
@@ -164,44 +164,27 @@ export async function resetPassword({
   tenantId: Tenant['id'];
 }) {
   if (!tenantId) {
-    return error(await getTranslation({}, 'TenantId is required'));
+    return error(await t('TenantId is required'));
   }
 
   if (!(email && password && otp)) {
-    return error(
-      await getTranslation(
-        {tenant: tenantId},
-        'Email, password and otp is required',
-      ),
-    );
+    return error(await t('Email, password and otp is required'));
   }
 
   if (password.length < 8) {
-    return error(
-      await getTranslation(
-        {tenant: tenantId},
-        'Password must be at least 8 characters',
-      ),
-    );
+    return error(await t('Password must be at least 8 characters'));
   }
 
   const tenant = await manager.getTenant(tenantId);
   if (!tenant) {
-    return error(
-      await getTranslation(
-        {tenant: tenantId},
-        'Error resetting password. Try again.',
-      ),
-    );
+    return error(await t('Error resetting password. Try again.'));
   }
   const {client, config} = tenant;
 
   const user = await findGooveeUserByEmail(email, client);
 
   if (!user) {
-    return error(
-      await getTranslation({tenant: tenantId}, 'You are not registered'),
-    );
+    return error(await t('You are not registered'));
   }
 
   try {
@@ -212,13 +195,13 @@ export async function resetPassword({
     });
 
     if (!result) {
-      return error(await getTranslation({tenant: tenantId}, 'Bad request'));
+      return error(await t('Bad request'));
     }
 
     const isValidOTP = await isValid({id: result.id, value: otp, client});
 
     if (!isValidOTP) {
-      return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
+      return error(await t('Invalid OTP'));
     }
 
     const hashedPassword = await hash(password);
@@ -234,10 +217,7 @@ export async function resetPassword({
       });
     } catch (err: any) {
       return {
-        message: await getTranslation(
-          {tenant: tenantId},
-          'Error resetting password. Try again.',
-        ),
+        message: await t('Error resetting password. Try again.'),
         success: false,
       };
     }
@@ -264,7 +244,7 @@ export async function resetPassword({
 
     return {
       success: true,
-      message: await getTranslation({}, 'Password reset successfully.'),
+      message: await t('Password reset successfully.'),
     };
   } catch (err: any) {
     console.error('[RESET_PASSWORD] ERROR caught:', {
@@ -273,11 +253,6 @@ export async function resetPassword({
       name: err?.name,
       cause: err?.cause,
     });
-    return error(
-      await getTranslation(
-        {tenant: tenantId},
-        'Error resetting password. Try again.',
-      ),
-    );
+    return error(await t('Error resetting password. Try again.'));
   }
 }

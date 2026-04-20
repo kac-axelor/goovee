@@ -5,7 +5,7 @@ import {revalidatePath} from 'next/cache';
 import {deleteInviteById} from '@/app/[tenant]/[workspace]/account/common/orm/invites';
 import {getSession} from '@/auth';
 import {registerByInvite, type RegisterInviteDTO} from '@/lib/core/auth/orm';
-import {getTranslation, t} from '@/locale/server';
+import {t} from '@/locale/server';
 import {findPartnerByEmail, updatePartner} from '@/orm/partner';
 import {Scope} from '@/otp/constants';
 import {findOne, isValid, markUsed} from '@/otp/orm';
@@ -31,20 +31,15 @@ export async function registerByEmail(
   }
 
   if (!(email && password)) {
-    return error(await getTranslation({tenant: tenantId}, 'Bad request'));
+    return error(await t('Bad request'));
   }
 
   if (password.length < 8) {
-    return error(
-      await getTranslation(
-        {tenant: tenantId},
-        'Password must be at least 8 characters',
-      ),
-    );
+    return error(await t('Password must be at least 8 characters'));
   }
 
   if (!otp) {
-    return error(await getTranslation({tenant: tenantId}, 'OTP is required.'));
+    return error(await t('OTP is required.'));
   }
 
   const tenant = await manager.getTenant(tenantId);
@@ -58,11 +53,11 @@ export async function registerByEmail(
   });
 
   if (!otpResult) {
-    return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
+    return error(await t('Invalid OTP'));
   }
 
   if (!(await isValid({id: otpResult.id, value: otp, client}))) {
-    return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
+    return error(await t('Invalid OTP'));
   }
 
   await markUsed({id: otpResult.id, client});
