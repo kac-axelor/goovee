@@ -40,7 +40,8 @@ const GroupAction = () => {
       {key: 'group', value: searchKey},
       {key: 'sortBy', value: sortBy},
     ]);
-  }, [sortBy, searchKey, update]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, searchKey]);
 
   return (
     <>
