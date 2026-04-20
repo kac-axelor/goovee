@@ -376,22 +376,34 @@ export async function sendInvites({
 
       isEmailsWithMemberAlready &&
         errors.push(
-          `${await t('Members already exists')} - ${getEmails(emailsWithMemberAlready)}`,
+          await t(
+            'Members already exists - {0}',
+            getEmails(emailsWithMemberAlready),
+          ),
         );
 
       isEmailsWithExistingInvite &&
         errors.push(
-          `${await t('Invites already exists')} - ${getEmails(emailsWithExistingInvite)}`,
+          await t(
+            'Invites already exists - {0}',
+            getEmails(emailsWithExistingInvite),
+          ),
         );
 
       isEmailsWithoutSamePartner &&
         errors.push(
-          `${await t(`Registered under different owner already`)} - ${getEmails(emailsWithOutSamePartner)}`,
+          await t(
+            'Registered under different owner already - {0}',
+            getEmails(emailsWithOutSamePartner),
+          ),
         );
 
       isEmailsAlreadyRegistered &&
         errors.push(
-          `${await t('An account with this email exists already')} - ${getEmails(emailsAlreadyRegistered)}`,
+          await t(
+            'An account with this email exists already - {0}',
+            getEmails(emailsAlreadyRegistered),
+          ),
         );
 
       message += errors.join('; ');

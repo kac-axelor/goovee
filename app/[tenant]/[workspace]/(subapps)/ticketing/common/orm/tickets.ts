@@ -1215,7 +1215,11 @@ export async function createRelatedTicketLink({
     if (!hasTypeAccess) {
       //NOTE: this message is copied from backend
       throw new Error(
-        `${await t('Please configure the project')} "${currentTicket.project?.name}" ${await t('with project task link type')} "${type.name}" ${await t('if you want to create this link')}.`,
+        await t(
+          'Please configure the project "{0}" with project task link type "{1}" if you want to create this link.',
+          currentTicket.project?.name || '',
+          type.name || '',
+        ),
       );
     }
   }
@@ -1227,7 +1231,11 @@ export async function createRelatedTicketLink({
     );
     if (!hasTypeAccess) {
       throw new Error(
-        `${await t('Please configure the project')} "${linkTicket.project?.name}" ${await t('with project task link type')} "${oppositeType.name}" ${await t('if you want to create this link')}.`,
+        await t(
+          'Please configure the project "{0}" with project task link type "{1}" if you want to create this link.',
+          linkTicket.project?.name || '',
+          oppositeType.name || '',
+        ),
       );
     }
   }

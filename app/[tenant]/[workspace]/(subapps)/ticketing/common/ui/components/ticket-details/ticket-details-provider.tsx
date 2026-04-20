@@ -191,9 +191,10 @@ export function TicketDetailsProvider(props: Props) {
             router.refresh();
             toast({
               variant: 'success',
-              title: isWithProvider(ticket.assignment)
-                ? i18n.t('Ticket assigned to') + ' ' + client
-                : i18n.t('Ticket assigned to') + ' ' + company,
+              title: i18n.t(
+                'Ticket assigned to {0}',
+                isWithProvider(ticket.assignment) ? client : company,
+              ),
             });
           },
           onDiscard: () => router.refresh(),

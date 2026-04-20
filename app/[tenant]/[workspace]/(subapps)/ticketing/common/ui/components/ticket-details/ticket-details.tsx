@@ -407,9 +407,10 @@ function AssignToButton({className}: {className?: string}) {
       variant="success"
       disabled={loading}
       onClick={handleAssignment}>
-      {isWithProvider(ticket.assignment)
-        ? i18n.t('Assign to') + ' ' + client
-        : i18n.t('Assign to') + ' ' + company}
+      {i18n.t(
+        'Assign to {0}',
+        isWithProvider(ticket.assignment) ? client : company,
+      )}
     </Button>
   );
 }
