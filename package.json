@@ -20,9 +20,10 @@
     "website:seed:website": "npm run website:run $npm_package_scripts_website_common_dir/scripts/seed-website.ts",
     "changelogs:validate": "node ./changelogs/validate",
     "changelogs:generate": "node ./changelogs/generate",
-    "prepare:bump": "node ./prepare-bump.js",
-    "prepare:release": "node ./prepare-release.js",
-    "analyze": "next experimental-analyze"
+    "prepare:bump": "node ./scripts/prepare-bump.js",
+    "prepare:release": "node ./scripts/prepare-release.js",
+    "analyze": "next experimental-analyze",
+    "missing-tr": "node scripts/missing-translation.mjs"
   },
   "dependencies": {
     "@cyntler/react-doc-viewer": "^1.17.1",
@@ -147,6 +148,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@ast-grep/napi": "^0.42.1",
     "@next/bundle-analyzer": "16.1.3",
     "@prettier/plugin-xml": "^3.4.2",
     "@serwist/cli": "^9.5.4",

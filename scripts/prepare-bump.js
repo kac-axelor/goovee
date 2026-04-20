@@ -7,7 +7,7 @@ function run(cmd) {
   execSync(cmd, {stdio: 'inherit'});
 }
 
-const pkgPath = path.join(__dirname, 'package.json');
+const pkgPath = path.join(__dirname, '..', 'package.json');
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
 const bump = process.argv[2];
