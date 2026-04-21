@@ -1,6 +1,7 @@
 'use client';
 
 import React, {Fragment, useState} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter, usePathname, useSearchParams} from 'next/navigation';
 import {BiSearch} from 'react-icons/bi';
 import {MdOutlineFilterAlt} from 'react-icons/md';
@@ -19,12 +20,8 @@ import {useCart} from '@/app/[tenant]/[workspace]/cart-context';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {i18n} from '@/locale';
 import {useToast} from '@/ui/hooks';
-import type {
-  ComputedProduct,
-  Product,
-  PortalWorkspace,
-  Category,
-} from '@/types';
+import type {ComputedProduct, Product, Category} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {MobileSortBy, SortBy, ProductCard, ProductListItem} from '..';
@@ -58,7 +55,7 @@ export function ProductList({
   categories?: any;
   category?: any;
   pageInfo?: any;
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
   productPath?: string;
   defaultSort?: string;
   hidePriceAndPurchase: boolean;

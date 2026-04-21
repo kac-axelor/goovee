@@ -1,9 +1,10 @@
 // ---- LOCAL IMPORTS ---- //
-import {EventPayments} from '@/subapps/events/common/types';
+import {Cloned} from '@/types/util';
+import {FullEvent} from '../orm/event';
 
 export const getCalculatedTotalPrice = (
   data: Record<string, any>,
-  event: EventPayments,
+  event: Pick<FullEvent | Cloned<FullEvent>, 'displayAti' | 'facilityList'>,
 ): {
   total: number;
   subscriptionPrices: {facility: string; price: number}[];

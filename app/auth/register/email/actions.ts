@@ -41,15 +41,22 @@ export async function generateOTP({
     });
   }
 
+  const template =
+    defaultPartnerWorkspaceConfig?.portalAppConfig?.otpTemplateList?.[0]
+      ?.template;
+
   return coreGenerateOTP({
     email,
     scope: Scope.Registration,
     tenantId,
     client,
-    mailConfig: {
-      template:
-        defaultPartnerWorkspaceConfig?.portalAppConfig?.otpTemplateList?.[0]
-          ?.template,
-    },
+    mailConfig: template?.content
+      ? {
+          template: {
+            subject: template.subject ?? undefined,
+            content: template.content,
+          },
+        }
+      : undefined,
   });
 }

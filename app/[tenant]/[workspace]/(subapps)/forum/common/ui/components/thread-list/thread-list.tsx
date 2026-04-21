@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ---- //
 import {DropdownToggle, Separator} from '@/ui/components';
@@ -15,7 +16,7 @@ import {
   ThreadSkeleton,
 } from '@/subapps/forum/common/ui/components';
 import {Post} from '@/subapps/forum/common/types/forum';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 export const ThreadList = ({
   posts,
@@ -28,7 +29,7 @@ export const ThreadList = ({
   pageInfo: any;
   memberGroupIDs: string[];
   selectedGroupId: string | null;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) => {
   const {update, searchParams} = useSearchParams();
   const sort = searchParams.get('sort') ?? 'new';

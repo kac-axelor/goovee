@@ -1,10 +1,11 @@
 'use client';
 
 import {useCallback} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {Payments} from '@/ui/components/payment';
 import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
 import {useToast} from '@/ui/hooks';
@@ -22,7 +23,7 @@ import {
 import {ORDER_SUCCESS_PARAM} from '@/subapps/shop/common/constants';
 
 interface ShopPaymentsProps {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   orderSubapp?: any;
 }
 

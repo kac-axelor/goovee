@@ -2,7 +2,8 @@
 
 // ---- LOCAL IMPORTS ---- //
 import {RegistrationForm} from '@/subapps/events/common/ui/components';
-import {PortalWorkspace} from '@/types';
+import type {Cloned} from '@/types/util';
+import {PortalWorkspace} from '@/orm/workspace';
 
 const Content = ({
   eventDetails,
@@ -12,7 +13,7 @@ const Content = ({
 }: {
   eventDetails: any;
   metaFields: any;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user: any;
 }) => {
   return (

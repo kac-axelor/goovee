@@ -14,7 +14,7 @@ export const FormGridComponent = ({
   readonly = false,
   config,
 }: {
-  form: UseFormReturn<Record<string, any>, any, undefined>;
+  form: UseFormReturn<Record<string, any>>;
   item: FieldType;
   identifier: string;
   readonly?: boolean;

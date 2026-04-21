@@ -63,7 +63,7 @@ export default async function Page(props: {
     return notFound();
   }
 
-  let Viewer = viewer[file?.metaFile?.fileType || file?.contentType];
+  let Viewer = viewer[file?.metaFile?.fileType || file?.contentType || ''];
 
   if (!Viewer) {
     // eslint-disable-next-line react/display-name

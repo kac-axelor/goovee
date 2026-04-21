@@ -14,7 +14,7 @@ export async function findProductsFromWS({
   eventId,
 }: {
   workspaceURL: string;
-  eventId: string | number;
+  eventId: string;
   client: Client;
   config: TenantConfig;
 }) {

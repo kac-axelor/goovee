@@ -2,7 +2,7 @@
 
 import {i18n} from '@/locale';
 import {formatDate} from '@/locale/formatters';
-import type {PortalAppConfig} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 import type {Maybe} from '@/types/util';
 import {
   Button,
@@ -47,9 +47,9 @@ type Props = {
   priorities: TPriority[];
   contacts: ContactPartner[];
   formFields: PortalAppConfig['ticketingFormFieldSet'];
-  showCancel?: boolean;
-  showClose?: boolean;
-  showAssignment?: boolean;
+  showCancel?: boolean | null;
+  showClose?: boolean | null;
+  showAssignment?: boolean | null;
 };
 
 export function TicketDetails(props: Props) {
@@ -376,7 +376,7 @@ export function TicketDetails(props: Props) {
                   <hr />
                 </>
               )}
-            <RichTextViewer content={ticket.description} />
+            <RichTextViewer content={ticket.description ?? undefined} />
           </div>
         </div>
       </form>

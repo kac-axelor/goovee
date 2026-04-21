@@ -1,4 +1,4 @@
-import {FC, ReactElement} from 'react';
+import {FC, SVGProps, ComponentType} from 'react';
 import IconProps from '@/subapps/website/common/types/icons';
 import NextLink from '../links/NextLink';
 
@@ -10,7 +10,7 @@ type ServiceCard1Props = {
   description?: string;
   cardClassName?: string;
   iconClassName?: string;
-  Icon: (props: IconProps) => ReactElement<any>;
+  Icon?: ComponentType<SVGProps<SVGSVGElement>> | ComponentType<IconProps>;
 };
 // ===============================================================
 const ServiceCard1: FC<ServiceCard1Props> = props => {
@@ -28,7 +28,7 @@ const ServiceCard1: FC<ServiceCard1Props> = props => {
     <div className="col-md-6 col-xl-3">
       <div className={`card shadow-lg ${cardClassName}`}>
         <div className="card-body">
-          <Icon className={iconClassName} />
+          {Icon && <Icon className={iconClassName} />}
           <h4 className="mt-6">{title}</h4>
           <p className="mb-2">{description}</p>
           <NextLink

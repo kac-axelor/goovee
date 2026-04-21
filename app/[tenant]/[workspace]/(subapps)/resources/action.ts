@@ -1,11 +1,12 @@
 'use server';
 
 import {headers} from 'next/headers';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ---- //
 import {manager} from '@/tenant';
 import {clone} from '@/utils';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {TENANT_HEADER} from '@/proxy';
 import {getSession} from '@/auth';
 import {filterPrivate} from '@/orm/filter';
@@ -15,7 +16,7 @@ export async function findDmsFiles({
   workspace,
 }: {
   search: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   if (!workspace) return [];
 

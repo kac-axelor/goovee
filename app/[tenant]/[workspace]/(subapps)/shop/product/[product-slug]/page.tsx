@@ -23,6 +23,7 @@ import {
   BASE_PRODUCT_MODEL,
   PRODUCT_ATTRS,
 } from '@/subapps/shop/common/constants';
+import {Metadata} from 'next';
 
 export async function generateMetadata(props: {
   params: Promise<{
@@ -30,7 +31,7 @@ export async function generateMetadata(props: {
     workspace: string;
     'product-slug': string;
   }>;
-}) {
+}): Promise<Metadata | null> {
   const params = await props.params;
   const {workspaceURL, tenant: tenantId} = workspacePathname(params);
   const productSlug = params['product-slug'];

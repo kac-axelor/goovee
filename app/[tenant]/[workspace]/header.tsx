@@ -1,6 +1,7 @@
 'use client';
 
 import {Fragment} from 'react';
+import type {Cloned} from '@/types/util';
 import Link from 'next/link';
 import Image from 'next/image';
 import {useRouter} from 'next/navigation';
@@ -20,7 +21,7 @@ import {i18n} from '@/locale';
 import {DEFAULT_LOGO_URL, SUBAPP_PAGE} from '@/constants';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {Icon} from '@/ui/components';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {useNavigationVisibility} from '@/ui/hooks';
 import {useResponsive} from '@/ui/hooks';
 import Cart from '@/app/[tenant]/[workspace]/cart';
@@ -29,7 +30,11 @@ import {SUBAPP_CODES, CHAT_TYPE} from '@/constants';
 import {useEnvironment} from '@/lib/core/environment';
 import {Notification} from './notification';
 
-function Logo({workspace}: {workspace: PortalWorkspace}) {
+function Logo({
+  workspace,
+}: {
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
+}) {
   const {workspaceURI} = useWorkspace();
   const logoId = workspace.logo?.id || workspace.config?.company?.logo?.id;
   const logoURL = logoId
@@ -63,9 +68,9 @@ export default function Header({
 }: {
   subapps: any;
   isTopNavigation?: boolean;
-  workspaces: PortalWorkspace[];
-  workspace: PortalWorkspace;
-  showCart?: boolean;
+  workspaces: {id: string; name: string | null; url: string | null}[];
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
+  showCart?: boolean | null;
 }) {
   const router = useRouter();
   const {data: session} = authClient.useSession();
@@ -156,7 +161,8 @@ export default function Header({
                     <SelectItem
                       key={workspace.url}
                       value={
-                        workspace.url.replace(env.GOOVEE_PUBLIC_HOST, '') || '/'
+                        workspace.url?.replace(env.GOOVEE_PUBLIC_HOST, '') ||
+                        '/'
                       }>
                       {workspace.name || workspace.url}
                     </SelectItem>

@@ -94,8 +94,8 @@ export function htmlToNormalString(htmlString: string) {
   return plainText;
 }
 
-export function getPartnerId(user: User): number {
-  return Number(user.isContact ? user.mainPartnerId : user.id);
+export function getPartnerId(user: User): string {
+  return String(user.isContact ? user.mainPartnerId : user.id);
 }
 
 export function uniqueById<T extends {id: unknown}>(

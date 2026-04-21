@@ -6,7 +6,10 @@ import {
   INVOICE_STATUS,
 } from '@/subapps/invoices/common/constants/invoices';
 
-export function extractAmount(amount: string | number): number {
+export function extractAmount(
+  amount: string | number | null | undefined,
+): number {
+  if (amount === null || amount === undefined) return 0;
   const amountStr = String(amount);
   const numericValue = parseFloat(amountStr.replace(/[^0-9.-]+/g, ''));
 

@@ -1,10 +1,12 @@
 'use client';
 
-import React, {useCallback} from 'react';
+import {useCallback} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
-import {PaymentOption, PortalWorkspace} from '@/types';
+import {PaymentOption} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {useToast} from '@/ui/hooks';
 import {i18n} from '@/locale';
 import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
@@ -21,9 +23,8 @@ import {
 } from '@/app/[tenant]/[workspace]/(subapps)/events/common/actions/payments';
 import {mapParticipants} from '@/subapps/events/common/utils';
 import {getCalculatedTotalPrice} from '@/subapps/events/common/utils/payments';
-import type {EventPayments} from '@/subapps/events/common/types';
+import type {FullEvent} from '../../../orm/event';
 import {URL_PARAMS} from '@/subapps/events/common/constants';
-
 export function EventPayments({
   workspace,
   event,
@@ -32,8 +33,11 @@ export function EventPayments({
   metaFieldsFacilities,
   additionalFieldSet,
 }: {
-  workspace: PortalWorkspace;
-  event: EventPayments;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
+  event: Pick<
+    Cloned<FullEvent>,
+    'id' | 'displayAti' | 'facilityList' | 'priceScale'
+  >;
   form: any;
   metaFields: any;
   metaFieldsFacilities: any;

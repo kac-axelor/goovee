@@ -14,7 +14,7 @@ type FileURLProps = {
   websitePageSlug?: string;
   path: string;
   workspaceURI: string;
-  contentId?: string | number;
+  contentId?: string;
   mountType: MountType;
 };
 
@@ -57,9 +57,9 @@ export function getImage(
             image: {
               id: string;
               version: number;
-              fileName?: string;
-              filePath?: string;
-              fileType?: string;
+              fileName?: string | null;
+              filePath?: string | null;
+              fileType?: string | null;
             };
           };
         }

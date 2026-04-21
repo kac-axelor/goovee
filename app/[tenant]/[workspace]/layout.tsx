@@ -33,7 +33,7 @@ export async function generateMetadata(props: {
     workspace: string;
     websiteSlug: string;
   }>;
-}): Promise<Metadata> {
+}): Promise<Metadata | null> {
   const params = await props.params;
   const {workspaceURL, tenant: tenantId} = workspacePathname(params);
 
@@ -109,7 +109,9 @@ export default async function Layout(props: {
     url: process.env.GOOVEE_PUBLIC_HOST,
     user,
     client,
-  }).then(clone);
+  })
+    .then(clone)
+    .then(list => list.filter((w): w is NonNullable<typeof w> => w != null));
 
   let theme: any;
   try {

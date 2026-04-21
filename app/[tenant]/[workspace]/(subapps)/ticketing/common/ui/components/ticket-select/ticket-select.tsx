@@ -14,7 +14,7 @@ import {
   PopoverTrigger,
 } from '@/ui/components';
 import {useResponsive, useToast} from '@/ui/hooks';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import {Drawer, DrawerContent, DrawerTrigger} from '@/ui/components/drawer';
 import {debounce} from 'lodash';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';

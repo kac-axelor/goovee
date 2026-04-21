@@ -59,7 +59,7 @@ export default function About9(props: TemplateProps<About9Data>) {
                       Icon={
                         Icon ? (
                           <Icon className="solid icon-svg-sm text-aqua me-4" />
-                        ) : null
+                        ) : undefined
                       }
                     />
                   </div>

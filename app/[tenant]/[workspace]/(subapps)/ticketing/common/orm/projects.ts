@@ -2,7 +2,7 @@
 import {ORDER_BY, SUBAPP_CODES} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
 import type {AOSProject} from '@/goovee/.generated/models';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 
 import type {QueryProps} from './helpers';
 import type {AuthProps} from '../utils/auth-helper';
@@ -105,7 +105,7 @@ export async function findTicketStatuses(
         where: {OR: [{archived: false}, {archived: null}]},
         orderBy: {sequence: ORDER_BY.ASC},
         select: {id: true, name: true, sequence: true, isCompleted: true},
-      } as {select: {id: true; name: true; sequence: true; isCompleted: true}},
+      },
     },
   });
 
@@ -115,7 +115,7 @@ export async function findTicketStatuses(
 export async function findCompany(
   projectId: ID,
   client: Client,
-): Promise<Company | undefined> {
+): Promise<Company | null | undefined> {
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {company: {id: true, name: true}},
@@ -127,7 +127,7 @@ export async function findCompany(
 export async function findClientPartner(
   projectId: ID,
   client: Client,
-): Promise<ClientPartner | undefined> {
+): Promise<ClientPartner | null | undefined> {
   const project = await client.aOSProject.findOne({
     where: {id: projectId},
     select: {
@@ -185,7 +185,7 @@ export async function findMainPartnerContacts(
             },
           },
           select: {simpleFullName: true},
-        } as {select: {simpleFullName: true}}, // as typecast is to prevent orm by giving wrong type
+        },
       },
     },
   });

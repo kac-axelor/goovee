@@ -1,4 +1,4 @@
-import {z, ZodSchema} from 'zod';
+import {z} from 'zod';
 
 // ---- CORE IMPORTS ---- //
 import {InputType, WidgetType, type Field} from './types';
@@ -84,7 +84,7 @@ const getFieldSchema = (field: Field) => {
   return getRequiredCondition(schema, field);
 };
 
-export function createFormSchema(fields: Field[]): ZodSchema {
+export function createFormSchema(fields: Field[]): z.ZodObject<any> {
   const schemaConfig: any = {};
 
   fields

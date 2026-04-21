@@ -251,11 +251,11 @@ export type Field = ContentField | ModelField;
 export type Type = Field extends {type: infer T} ? T : never;
 
 export type CustomField = Field & {
-  contextField?: string;
-  contextFieldValue?: string;
-  contextFieldTarget?: string;
-  contextFieldTargetName?: string;
-  contextFieldTitle?: string;
+  contextField?: string | null;
+  contextFieldValue?: string | null;
+  contextFieldTarget?: string | null;
+  contextFieldTargetName?: string | null;
+  contextFieldTitle?: string | null;
 };
 
 export type Model = {

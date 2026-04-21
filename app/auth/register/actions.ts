@@ -9,11 +9,12 @@ import {t} from '@/locale/server';
 import {
   findDefaultPartnerWorkspaceConfig,
   findWorkspaces,
+  WorkspaceForRegistration,
 } from '@/orm/workspace';
 import {Scope} from '@/otp/constants';
 import {findOne, isValid, markUsed} from '@/otp/orm';
 import {manager, type Tenant} from '@/tenant';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 function error(message: string) {
   return {
@@ -26,7 +27,7 @@ export async function subscribe({
   workspace,
   tenantId,
 }: {
-  workspace: PortalWorkspace;
+  workspace: WorkspaceForRegistration;
   tenantId?: Tenant['id'] | null;
 }) {
   const session = await getSession();
@@ -41,6 +42,7 @@ export async function subscribe({
   }
 
   const url = workspace?.url;
+  if (!url) return error(await t('Bad request'));
 
   const tenant = await manager.getTenant(tenantId);
   if (!tenant) return error(await t('Invalid tenant'));
@@ -48,7 +50,7 @@ export async function subscribe({
 
   const userWorkspaces = await findWorkspaces({url, user, client});
 
-  const existing = userWorkspaces?.find((w: any) => w.id === workspace?.id);
+  const existing = userWorkspaces?.find(w => w.id === workspace?.id);
 
   if (existing) {
     return error(await t('Already subscribed'));
@@ -115,7 +117,7 @@ export async function subscribe({
     const partnerWorkspaces = await findWorkspaces({
       url,
       user: {
-        id: $user.mainPartner.id!,
+        id: mainPartner.id!,
         isContact: false,
       } as any,
       client,

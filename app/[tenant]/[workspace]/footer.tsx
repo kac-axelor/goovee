@@ -1,10 +1,15 @@
 import Link from 'next/link';
+import type {Cloned} from '@/types/util';
 import Image from 'next/image';
 
 import {i18n} from '@/locale';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
-export default function Footer({workspace}: {workspace: PortalWorkspace}) {
+export default function Footer({
+  workspace,
+}: {
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
+}) {
   const displayContact = workspace?.config?.isDisplayContact;
   const contactEmail = workspace?.config?.contactEmailAddress?.address;
 

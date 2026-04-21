@@ -1,4 +1,12 @@
-export function workspacePathname(params: {tenant: string; workspace: string}) {
+export function workspacePathname(params: {
+  tenant: string;
+  workspace: string;
+}): {
+  tenant: string;
+  workspace: string;
+  workspaceURI: string;
+  workspaceURL: string;
+} {
   const {tenant, workspace} = params;
 
   const workspaceURI = `/${tenant}/${workspace}`;

@@ -1,10 +1,12 @@
 //---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
+import type {Cloned} from '@/types/util';
 import {getSession} from '@/auth';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {SUBAPP_CODES} from '@/constants';
 import {getWhereClauseForEntity} from '@/utils/filters';
-import {PartnerKey, PortalWorkspace, User} from '@/types';
+import {PartnerKey, User} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import type {ActionResponse} from '@/types/action';
 import type {Client} from '@/goovee/.generated/client';
 
@@ -24,15 +26,13 @@ export async function validatePaymentData({
   token,
 }: {
   workspaceURL: string;
-  invoice: {
-    id: string | number;
-  };
+  invoice: {id: string};
   amount: string;
   client: Client;
   token?: string;
 }): Promise<
   ActionResponse<{
-    workspace: PortalWorkspace;
+    workspace: PortalWorkspace | Cloned<PortalWorkspace>;
     user: User | undefined;
     $amount: string | number;
     $invoice?: any;

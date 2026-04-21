@@ -49,6 +49,7 @@ import {
   formatComponentCode,
   formatCustomFieldName,
   processBatch,
+  processBatchSettled,
 } from './helper';
 
 const CUSTOM_MODEL_PREFIX = 'GooveeTemplate';
@@ -215,7 +216,7 @@ function getSelections(schemas: TemplateSchema[]): Map<string, MetaSelection> {
 
 function getContentFields(
   schemas: TemplateSchema[],
-  components: {id: string; code?: string; title?: string}[],
+  components: {id: string; code?: string | null; title?: string | null}[],
 ): CustomField[] {
   const fields = [];
   for (const schema of schemas) {
@@ -379,7 +380,7 @@ export async function seedContents(client: GooveeClient) {
   }
   return await client.$transaction(async client => {
     const fileCache = new Cache<Promise<{id: string}>>();
-    return await processBatch(metas, async ({schema, demos}) => {
+    return await processBatchSettled(metas, async ({schema, demos}) => {
       return await createCMSContent({
         client,
         schema: formatSchema(schema),

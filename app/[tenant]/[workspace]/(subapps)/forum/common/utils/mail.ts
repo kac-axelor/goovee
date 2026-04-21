@@ -72,7 +72,7 @@ export const sendEmailNotifications = async ({
           group,
           contentSnippet: content?.slice(0, 100) + '...' || '',
           link,
-          user: subscriber.member?.simpleFullName,
+          user: subscriber.member?.simpleFullName || '',
         });
 
         mailService.notify({

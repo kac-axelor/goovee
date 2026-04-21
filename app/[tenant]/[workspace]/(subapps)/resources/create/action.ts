@@ -26,7 +26,7 @@ const pump = promisify(pipeline);
 function extractFileValues(formData: FormData) {
   const values: any = [];
 
-  for (const pair of formData.entries()) {
+  for (const pair of (formData as any).entries()) {
     const key = pair[0];
     const value = pair[1];
 

@@ -7,5 +7,5 @@ export type MapContentProps = {
   zoom: number;
   items: Cloned<Entry>[] | Cloned<ListEntry>[];
   small: boolean;
-  apiKey?: string;
+  apiKey?: string | null;
 };

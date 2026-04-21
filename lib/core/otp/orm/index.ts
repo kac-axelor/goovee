@@ -68,7 +68,8 @@ export async function create({
       await removeOTP(existing);
       return createOTP();
     } else {
-      return existing;
+      //BUG: email won't be sent if otp is undefined figure out how to convert value to otp
+      return {...existing, otp: undefined};
     }
   }
 

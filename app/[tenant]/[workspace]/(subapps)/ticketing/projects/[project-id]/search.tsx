@@ -14,7 +14,7 @@ import {
 } from '@/ui/components/command';
 import {useToast} from '@/ui/hooks';
 import {cn} from '@/utils/css';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import {debounce} from 'lodash';
 import {useRouter} from 'next/navigation';
 import type {ChangeEvent} from 'react';

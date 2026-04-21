@@ -1,6 +1,7 @@
 'use client';
 
 import {endOfDay, isPast, isToday} from 'date-fns';
+import type {Cloned} from '@/types/util';
 import Link from 'next/link';
 import {useEffect, useMemo, useState} from 'react';
 import {
@@ -12,7 +13,7 @@ import {
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {RESPONSIVE_SIZES, SUBAPP_CODES, URL_PARAMS} from '@/constants';
 import {i18n} from '@/locale';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {Checkbox, Pagination} from '@/ui/components';
 import {useResponsive, useSearchParams} from '@/ui/hooks';
 import {convertDateToISO8601} from '@/utils/date';
@@ -47,7 +48,7 @@ export const EventCalendar = ({
   tabs,
 }: {
   dateOfEvent: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   onlyRegisteredEvent?: boolean;
   tabs: {id: string; title: string; label: string}[];
 }) => {

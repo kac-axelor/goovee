@@ -1,11 +1,12 @@
 import {notFound} from 'next/navigation';
+import type {Cloned} from '@/types/util';
 import {Suspense} from 'react';
 
 // ---- CORE IMPORTS ----//
 import {getSession} from '@/auth';
 import {SUBAPP_CODES} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {t} from '@/locale/server';
 
 // ---- LOCAL IMPORTS ---- //
@@ -38,7 +39,7 @@ async function CategoryGrid({
 }: {
   segments: string[];
   page: number;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug?: string;
 }) {
@@ -113,7 +114,7 @@ export async function CategoryNews({
   page,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   segments?: string[];
   page?: number;

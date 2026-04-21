@@ -44,16 +44,14 @@ export async function isExistingUser({
   const session = await getSession();
   const user = userProp || session?.user;
 
-  let userWorkspaces = [];
   if (user) {
-    userWorkspaces = await findWorkspaces({
+    const userWorkspaces = await findWorkspaces({
       url: workspaceURL,
       user,
       client,
     }).then(clone);
+    const existing = userWorkspaces.some(w => w.url === workspaceURL);
+
+    return existing;
   }
-
-  const existing = userWorkspaces.some((w: any) => w.url === workspaceURL);
-
-  return existing;
 }

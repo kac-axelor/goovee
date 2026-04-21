@@ -1,10 +1,11 @@
 import {Suspense} from 'react';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ----//
 import {clone} from '@/utils';
 import {SUBAPP_CODES} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {t} from '@/locale/server';
 import {getSession} from '@/auth';
 
@@ -62,7 +63,6 @@ import {
   findRecommendedNews,
 } from '@/subapps/news/common/actions/action';
 import PaginationContent from '@/subapps/news/[[...segments]]/pagination-content';
-import {NewsResponse} from '../common/types';
 
 interface CategorySegment {
   slug: string;
@@ -73,7 +73,7 @@ export async function CategorySliderWrapper({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user: any;
   client: Client;
 }) {
@@ -100,7 +100,7 @@ export async function NavMenuWrapper({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user: any;
 }) {
@@ -119,7 +119,7 @@ export async function HomePageHeaderNewsWrapper({
   client,
   navigatingPathFrom,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   navigatingPathFrom: string;
 }) {
@@ -150,7 +150,7 @@ export async function FeaturedHomePageNewsWrapper({
   workspace,
   client,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
 }) {
   const session = await getSession();
@@ -179,7 +179,7 @@ export async function HomePageAsideNewsWrapper({
   workspace,
   client,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
 }) {
   const session = await getSession();
@@ -205,7 +205,7 @@ export async function HomePageFooterNewsWrapper({
   workspace,
   client,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
 }) {
   const session = await getSession();
@@ -234,7 +234,7 @@ export async function SubCategorySliderWrapper({
   slug,
   title,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user: any;
   client: Client;
   slug: string;
@@ -270,7 +270,7 @@ export async function CategoryPageHeaderNewsWrapper({
   slug,
   page,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   navigatingPathFrom: string;
   slug: string;
@@ -309,7 +309,7 @@ export async function CategoryNewsGridLayoutWrapper({
   navigatingPathFrom,
   page,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
   navigatingPathFrom: string;
@@ -370,7 +370,7 @@ export async function CategoryFeaturedNewsWrapper({
   slug,
   navigatingPathFrom,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
   navigatingPathFrom: string;
@@ -405,7 +405,7 @@ export async function CategoryAsideNewsWrapper({
   navigatingPathFrom,
   page,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
   navigatingPathFrom: string;
@@ -447,7 +447,7 @@ export async function CategoryFooterNewsWrapper({
   navigatingPathFrom,
   page,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
   navigatingPathFrom: string;
@@ -489,7 +489,7 @@ export async function CategoryBottomFeedNewsWrapper({
   navigatingPathFrom,
   page,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
   navigatingPathFrom: string;
@@ -530,7 +530,7 @@ export async function PaginationWrapper({
   slug,
   page,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
   page: any;
@@ -538,7 +538,7 @@ export async function PaginationWrapper({
   const session = await getSession();
   const user = session?.user;
 
-  const response: NewsResponse = await findNewsByCategory({
+  const response = await findNewsByCategory({
     workspace,
     client,
     user,
@@ -563,7 +563,7 @@ export async function BreadcrumbsWrapper({
   newsTitle,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   segments: string[];
   newsTitle: string;
@@ -603,7 +603,7 @@ export async function NewsInfoWrapper({
   workspace,
 }: {
   news: any;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const {
     title,
@@ -634,7 +634,7 @@ export async function NewsInfoWrapper({
 export async function SocialMediaWrapper({
   workspace,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const enableSocialMediaSharing = workspace.config?.enableSocialMediaSharing;
   const availableSocials = workspace.config?.socialMediaSelect;
@@ -657,7 +657,7 @@ export async function AttachmentListWrapper({
   client,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
 }) {
@@ -693,7 +693,7 @@ export async function RelatedNewsWrapper({
   slug,
   navigatingPathFrom,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   slug: string;
   navigatingPathFrom: string;
@@ -767,7 +767,7 @@ export async function CommentsWrapper({
   news,
   workspaceURI,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user: any;
   news: any;
   workspaceURI: string;

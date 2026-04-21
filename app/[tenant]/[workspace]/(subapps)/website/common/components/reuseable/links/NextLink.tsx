@@ -10,7 +10,7 @@ type NextLinkProps = {
 // ==============================================================
 
 const NextLink: FC<NextLinkProps> = props => {
-  const {href, className, title} = props;
+  const {href = '#', className, title} = props;
 
   return (
     <Link href={href} className={className}>

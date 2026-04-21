@@ -8,8 +8,9 @@ import {
 } from '@/constants';
 import {clone, getPageInfo, getSkipInfo} from '@/utils';
 import {formatNumber} from '@/locale/server/formatters';
-import type {Partner, PortalWorkspace} from '@/types';
-import {ID} from '@goovee/orm';
+import type {Partner} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
+import type {ID} from '@/types';
 import {and} from '@/utils/orm';
 
 // ---- LOCAL IMPORTS ---- //
@@ -95,17 +96,18 @@ export const findOrders = async ({
 
   for (const order of $orders) {
     const {inTaxTotal, exTaxTotal, currency} = order;
+    if (!currency) continue;
     const currencySymbol = currency.symbol || DEFAULT_CURRENCY_SYMBOL;
     const unit = currency.numberOfDecimals || DEFAULT_CURRENCY_SCALE;
 
     const $order = {
       ...order,
-      exTaxTotal: await formatNumber(exTaxTotal, {
+      exTaxTotal: await formatNumber(String(exTaxTotal ?? 0), {
         scale: unit,
         currency: currencySymbol,
         type: 'DECIMAL',
       }),
-      inTaxTotal: await formatNumber(inTaxTotal, {
+      inTaxTotal: await formatNumber(String(inTaxTotal ?? 0), {
         scale: unit,
         currency: currencySymbol,
         type: 'DECIMAL',
@@ -249,13 +251,14 @@ export async function findOrder({
     currency,
     exTaxTotal = '0',
     inTaxTotal = '0',
-    saleOrderLineList = [],
+    saleOrderLineList,
   } = order;
 
   const currencySymbol = currency?.symbol || DEFAULT_CURRENCY_SYMBOL;
   const scale = currency?.numberOfDecimals ?? DEFAULT_CURRENCY_SCALE;
+  const $saleOrderLineList = saleOrderLineList ?? [];
 
-  const totalDiscountAmount = saleOrderLineList.reduce(
+  const totalDiscountAmount = $saleOrderLineList.reduce(
     (total: number, {exTaxTotal, discountAmount}: any) => {
       const exTax = parseFloat(exTaxTotal);
       const discountPercent = parseFloat(discountAmount);
@@ -265,7 +268,7 @@ export async function findOrder({
     0,
   );
 
-  const totalExTax = saleOrderLineList.reduce(
+  const totalExTax = $saleOrderLineList.reduce(
     (total: number, {exTaxTotal}: any) => {
       return total + parseFloat(exTaxTotal);
     },
@@ -277,26 +280,26 @@ export async function findOrder({
       ? 0
       : ((totalDiscountAmount / totalExTax) * 100).toFixed(scale);
 
-  const [$saleOrderLineList, $invoices, $customerDeliveries] =
+  const [$processedSaleOrderLineList, $invoices, $customerDeliveries] =
     await Promise.all([
-      processSaleOrderLineList(saleOrderLineList, scale, currencySymbol),
+      processSaleOrderLineList($saleOrderLineList, scale, currencySymbol),
       processInvoices(invoices),
       processCustomerDeliveries(customerDeliveries),
     ]);
 
   return {
     ...order,
-    exTaxTotal: await formatNumber(exTaxTotal, {
+    exTaxTotal: await formatNumber(String(exTaxTotal ?? 0), {
       scale,
       currency: currencySymbol,
       type: 'DECIMAL',
     }),
-    inTaxTotal: await formatNumber(inTaxTotal, {
+    inTaxTotal: await formatNumber(String(inTaxTotal ?? 0), {
       scale,
       currency: currencySymbol,
       type: 'DECIMAL',
     }),
-    saleOrderLineList: $saleOrderLineList,
+    saleOrderLineList: $processedSaleOrderLineList,
     invoices: $invoices,
     customerDeliveries: $customerDeliveries,
     totalDiscount: totalDiscountPercent,

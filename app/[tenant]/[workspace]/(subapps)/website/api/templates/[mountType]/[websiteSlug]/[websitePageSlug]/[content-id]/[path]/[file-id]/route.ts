@@ -10,7 +10,10 @@ import {
 } from '@/subapps/website/common/orm/website';
 import {get} from 'lodash';
 import {findFile, streamFile} from '@/utils/download';
-import {MountType} from '@/app/[tenant]/[workspace]/(subapps)/website/common/types';
+import {
+  MountType,
+  LayoutMountType,
+} from '@/app/[tenant]/[workspace]/(subapps)/website/common/types';
 import {
   MOUNT_TYPE,
   mountTypes,
@@ -112,7 +115,7 @@ export async function GET(
       workspaceURI,
       user,
       client,
-      mountTypes: [mountType],
+      mountTypes: [mountType as LayoutMountType],
       path: stringToPath(path),
     });
     if (!website) {

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
@@ -13,7 +14,8 @@ import {
   SUBAPP_PAGE,
 } from '@/constants';
 import {HeroSearch, Search} from '@/ui/components';
-import {PortalWorkspace} from '@/types';
+import type {OverlayColor} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 
 // ---- LOCAL IMPORTS ---- //
@@ -26,7 +28,11 @@ async function findNews({workspaceURL}: {workspaceURL: string}) {
     .catch(() => []);
 }
 
-export function Hero({workspace}: {workspace: PortalWorkspace}) {
+export function Hero({
+  workspace,
+}: {
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
+}) {
   const router = useRouter();
 
   const {workspaceURL, workspaceURI} = useWorkspace();
@@ -56,7 +62,10 @@ export function Hero({workspace}: {workspace: PortalWorkspace}) {
         workspace?.config?.newsHeroDescription || i18n.t(BANNER_DESCRIPTION)
       }
       image={imageURL}
-      background={workspace?.config?.newsHeroOverlayColorSelect || 'default'}
+      background={
+        (workspace?.config?.newsHeroOverlayColorSelect as OverlayColor) ||
+        'default'
+      }
       blendMode={
         workspace?.config?.newsHeroOverlayColorSelect ? 'overlay' : 'normal'
       }

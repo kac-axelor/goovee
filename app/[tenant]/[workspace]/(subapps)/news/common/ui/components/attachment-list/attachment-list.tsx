@@ -13,7 +13,7 @@ interface Attachment {
   id: string;
   title?: string;
   metaFile?: {
-    id: string | number;
+    id: string;
     fileName?: string;
   };
 }

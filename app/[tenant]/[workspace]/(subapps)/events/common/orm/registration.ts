@@ -103,7 +103,9 @@ export async function registerParticipants({
 
 type EventContact = {
   id: string;
-  emailAddress?: {address?: string};
+  version: number;
+  emailAddress: {id: string; version: number; address: string | null} | null;
+  isActivatedOnPortal?: boolean | null;
 };
 
 export async function getEventContacts({

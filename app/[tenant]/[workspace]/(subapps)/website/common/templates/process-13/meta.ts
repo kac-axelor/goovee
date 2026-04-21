@@ -4,6 +4,7 @@ import {
   type Demo,
   type TemplateSchema,
 } from '../../types/templates';
+import {metaFileModel} from '../meta-models';
 import {solidIconsSelection} from '../meta-selections';
 
 export const process13Code = 'process13';
@@ -77,6 +78,7 @@ export const process13Schema = {
     },
   ],
   selections: [solidIconsSelection],
+  metaModels: [metaFileModel],
 } as const satisfies TemplateSchema;
 
 export type Process13Data = Data<typeof process13Schema>;

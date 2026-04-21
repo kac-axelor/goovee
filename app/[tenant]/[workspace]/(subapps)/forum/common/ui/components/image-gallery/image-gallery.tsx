@@ -1,6 +1,7 @@
 'use client';
 
 import {useState} from 'react';
+import type {Cloned} from '@/types/util';
 import Image from 'next/image';
 
 // ---- CORE IMPORTS ---- //
@@ -13,7 +14,7 @@ import {NO_IMAGE_URL, SUBAPP_CODES} from '@/constants';
 import {MAX_IMAGES_BEFORE_OVERLAY} from '@/subapps/forum/common/constants';
 import type {Post} from '@/subapps/forum/common/types/forum';
 import {ThreadPopup} from '@/subapps/forum/common/ui/components';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 export const ImageGallery = ({
   images,
@@ -22,7 +23,7 @@ export const ImageGallery = ({
 }: {
   images: any;
   post?: Post;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) => {
   const showOverlay = images.length > MAX_IMAGES_BEFORE_OVERLAY;
 

@@ -45,7 +45,10 @@ export default function Hero3(props: TemplateProps<Hero3Data>) {
                   options={{
                     loop: true,
                     autoStart: true,
-                    strings: typewriter?.map(item => item.attrs.text) ?? [],
+                    strings:
+                      typewriter
+                        ?.map(item => item.attrs.text)
+                        .filter(x => x != null) ?? [],
                   }}
                 />
               </span>

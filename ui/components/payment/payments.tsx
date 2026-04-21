@@ -1,7 +1,9 @@
 'use client';
 
 // ---- CORE IMPPRTS ---- //
-import {ID, PaymentOption, PortalWorkspace} from '@/types';
+import {ID, PaymentOption} from '@/types';
+import type {Cloned} from '@/types/util';
+import {PortalWorkspace} from '@/orm/workspace';
 import {ErrorResponse, SuccessResponse} from '@/types/action';
 import {Paybox, Paypal, Stripe, Up2pay, HubPISP} from '@/ui/components/payment';
 import {isPaymentOptionAvailable} from '@/utils/payment';
@@ -27,7 +29,7 @@ export function Payments({
   onCreateBankTransferIntent,
   sse,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   disabled?: boolean;
   onValidate: (paymentOption?: PaymentOption) => Promise<boolean>;
   onPaypalCreatedOrder: (data: any, actions: any) => Promise<any>;

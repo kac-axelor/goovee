@@ -25,11 +25,11 @@ export type PaymentSource =
   (typeof PAYMENT_SOURCE)[keyof typeof PAYMENT_SOURCE];
 
 export type PaymentContextData = {
-  id: string | number;
+  id: string;
   paymentType?: PaymentType;
   paymentIntent?: string;
   source?: PaymentSource;
-  paymentModeId?: number;
+  paymentModeId?: string;
 };
 
 export type PaymentContext = {

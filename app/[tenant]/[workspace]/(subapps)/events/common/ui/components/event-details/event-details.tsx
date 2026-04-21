@@ -1,7 +1,8 @@
 'use client';
 
 // ---- CORE IMPORTS ---- //
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
+import type {Cloned} from '@/types/util';
 import {isCommentEnabled} from '@/comments';
 import {SUBAPP_CODES} from '@/constants';
 
@@ -10,14 +11,14 @@ import {
   EventPageCard,
   CommentsSection,
 } from '@/subapps/events/common/ui/components';
-import type {Event} from '@/subapps/events/common/ui/components';
+import type {FullEvent} from '@/subapps/events/common/orm/event';
 
 export function EventDetails({
   eventDetails,
   workspace,
 }: {
-  eventDetails: Event;
-  workspace: PortalWorkspace;
+  eventDetails: Cloned<FullEvent>;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const eventId = eventDetails.id;
 

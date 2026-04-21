@@ -1,5 +1,6 @@
 // ---- CORE IMPORTS ---- //
 import {IMAGE_URL, SUBAPP_CODES} from '@/constants';
+import type {OverlayColor} from '@/types';
 import {t} from '@/locale/server';
 import {HeroSearch} from '@/ui/components';
 import {
@@ -77,7 +78,10 @@ export default async function Page(props: {
             'Mi eget leo viverra cras pharetra enim viverra. Ac at non pretium etiam viverra. Ac at non pretium etiam',
           ))
         }
-        background={workspace.config.ticketHeroOverlayColorSelect || 'default'}
+        background={
+          (workspace.config.ticketHeroOverlayColorSelect as OverlayColor) ||
+          'default'
+        }
         blendMode={
           workspace.config.ticketHeroOverlayColorSelect ? 'overlay' : 'normal'
         }

@@ -5,6 +5,7 @@ import {Suspense} from 'react';
 
 // ---- CORE IMPORTS ---- //
 import {IMAGE_URL, SUBAPP_CODES} from '@/constants';
+import type {OverlayColor} from '@/types';
 import {t} from '@/lib/core/locale/server';
 import {
   Pagination,
@@ -66,7 +67,10 @@ export default async function Page(props: {
       <Hero
         title={workspace.config?.directoryHeroTitle}
         description={workspace.config?.directoryHeroDescription}
-        background={workspace.config?.directoryHeroOverlayColorSelect}
+        background={
+          workspace.config
+            ?.directoryHeroOverlayColorSelect as OverlayColor | null
+        }
         image={imageURL}
       />
       <div className="container mb-5">

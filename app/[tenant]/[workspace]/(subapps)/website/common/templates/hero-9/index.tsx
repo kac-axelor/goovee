@@ -44,7 +44,10 @@ export default function Hero9(props: TemplateProps<Hero9Data>) {
                   options={{
                     loop: true,
                     autoStart: true,
-                    strings: typewriter?.map(item => item.attrs.text) ?? [],
+                    strings:
+                      typewriter
+                        ?.map(item => item.attrs.text ?? '')
+                        .filter((s: string) => s.length > 0) ?? [],
                   }}
                 />
               </span>

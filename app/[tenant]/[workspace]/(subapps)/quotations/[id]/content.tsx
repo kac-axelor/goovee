@@ -1,6 +1,7 @@
 'use client';
 
 import {Suspense} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
@@ -14,7 +15,7 @@ import {
   Comments,
   CommentsSkeleton,
 } from '@/comments';
-import {type PortalWorkspace} from '@/types';
+import {type PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {
@@ -35,7 +36,7 @@ const Content = ({
   workspace,
 }: {
   quotation: Quotation;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   orderSubapp?: boolean;
 }) => {
   const {

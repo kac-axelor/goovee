@@ -1,11 +1,12 @@
 import {notFound} from 'next/navigation';
+import type {Cloned} from '@/types/util';
 import {Suspense} from 'react';
 
 // ---- CORE IMPORTS ----//
 import {clone} from '@/utils';
 import {SUBAPP_CODES} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {CommentsSkeleton} from '@/lib/core/comments';
 
 // ---- LOCAL IMPORTS ---- //
@@ -37,7 +38,7 @@ export async function ArticleNews({
   user,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   segments: string[];
   client: Client;
   tenantId: string;

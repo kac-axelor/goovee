@@ -1,6 +1,7 @@
 'use client';
 
 import {useRouter} from 'next/navigation';
+import type {Cloned} from '@/types/util';
 import {useState} from 'react';
 
 // ---- CORE IMPORTS ---- //
@@ -17,14 +18,18 @@ import {
   Button,
   Separator,
 } from '@/ui/components';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {useToast} from '@/ui/hooks';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 
 // ---- LOCAL IMPORTS ---- //
 import {removeWorkpace} from '@/app/[tenant]/[workspace]/account/settings/action';
 
-export default function Content({workspace}: {workspace: PortalWorkspace}) {
+export default function Content({
+  workspace,
+}: {
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
+}) {
   const [isAlertOpen, setIsAlertOpen] = useState<boolean>(false);
 
   const {workspaceURI, workspaceURL} = useWorkspace();

@@ -10,7 +10,7 @@ import {findPartnerByEmail, updatePartner} from '@/orm/partner';
 import {Scope} from '@/otp/constants';
 import {findOne, isValid, markUsed} from '@/otp/orm';
 import {manager, Tenant} from '@/tenant';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 import {findInviteById} from '../../../common/orm/register';
 

@@ -1,6 +1,8 @@
 // ---- CORE IMPORTS ---- //
 import type {Client} from '@/goovee/.generated/client';
-import type {User, PortalWorkspace} from '@/types';
+import type {Cloned} from '@/types/util';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {getPartnerId} from '@/utils';
 
 export async function shouldHidePricesAndPurchase({
@@ -9,7 +11,7 @@ export async function shouldHidePricesAndPurchase({
   client,
 }: {
   user: User | undefined;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
 }) {
   const {hidePriceForEmptyPricelist} = workspace.config || {};

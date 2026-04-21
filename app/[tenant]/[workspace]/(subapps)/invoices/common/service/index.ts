@@ -3,7 +3,7 @@ import axios from 'axios';
 // ---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
 import type {TenantConfig} from '@/tenant';
-import {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 
 export async function updateInvoice({
   config,

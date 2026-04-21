@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import type {Cloned} from '@/types/util';
 import Image from 'next/image';
 
 // ---- CORE IMPORTS ---- //
@@ -12,7 +13,7 @@ import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {formatDate} from '@/locale/formatters';
 import {NO_IMAGE_URL, SUBAPP_CODES} from '@/constants';
 import {BadgeList, Skeleton, InnerHTML} from '@/ui/components';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {cn} from '@/utils/css';
 
 // ---- LOCAL IMPORTS ---- //
@@ -39,13 +40,13 @@ export const NewsInfo = ({
   publicationDateTime: string;
   content: string;
   author: {
-    id: string | number;
+    id: string;
     simpleFullName: string;
     picture: {
       id: string;
     };
   };
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) => {
   const {tenant, workspaceURI} = useWorkspace();
   const {
@@ -109,7 +110,7 @@ export const NewsInfo = ({
                     {formatDate(publicationDateTime, {
                       dateFormat: getFormatString({
                         dateString: publicationDateTime,
-                        includeTime: isShowPublicationTime,
+                        includeTime: isShowPublicationTime ?? undefined,
                       }),
                     })}
                   </div>

@@ -1,17 +1,14 @@
 // ---- CORE IMPORTS ---- //
 import {scale} from '@/utils';
+import type {Cloned} from '@/types/util';
 import {
   DEFAULT_CURRENCY_CODE,
   DEFAULT_CURRENCY_SCALE,
   DEFAULT_CURRENCY_SYMBOL,
   MAIN_PRICE,
 } from '@/constants';
-import type {
-  Cart,
-  ComputedProduct,
-  PortalAppConfig,
-  PortalWorkspace,
-} from '@/types';
+import type {Cart, ComputedProduct} from '@/types';
+import type {PortalAppConfig, PortalWorkspace} from '@/orm/workspace';
 import {formatNumber} from '@/locale/formatters';
 
 export function computeTotal({
@@ -20,7 +17,7 @@ export function computeTotal({
   formatNumber: formatNumberProp = formatNumber,
 }: {
   cart: Cart;
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
   formatNumber?: any;
 }) {
   let mainPrice: PortalAppConfig['mainPrice'] = MAIN_PRICE.ATI;

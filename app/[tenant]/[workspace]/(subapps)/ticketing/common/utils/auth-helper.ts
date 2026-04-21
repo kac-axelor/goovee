@@ -3,7 +3,8 @@ import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {manager, type Tenant} from '@/tenant';
-import type {PortalWorkspace, Subapp, User} from '@/types';
+import type {User} from '@/types';
+import type {PortalWorkspace, Subapp} from '@/orm/workspace';
 import {Maybe} from '@/types/util';
 import {cache} from 'react';
 

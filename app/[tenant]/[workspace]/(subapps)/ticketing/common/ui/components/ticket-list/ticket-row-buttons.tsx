@@ -1,7 +1,7 @@
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {i18n} from '@/locale';
 import {useToast} from '@/ui/hooks';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import {useRouter} from 'next/navigation';
 import {useState} from 'react';
 import {

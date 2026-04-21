@@ -1,7 +1,8 @@
 import {t} from '@/locale/server';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import type {Client} from '@/goovee/.generated/client';
-import {PortalWorkspace, User} from '@/types';
+import {User} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {getPageInfo, getSkipInfo} from '@/utils';
 
 // ---- LOCAL IMPORTS ---- //

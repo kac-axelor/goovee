@@ -12,7 +12,7 @@ export async function notifyInvoicePaymentSuccess({
   client,
   tenantId,
 }: {
-  invoiceId: string | number;
+  invoiceId: string;
   payer: string;
   client: Client;
   tenantId: string;

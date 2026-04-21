@@ -4,14 +4,8 @@ import axios from 'axios';
 import {filterPrivate} from '@/orm/filter';
 import type {TenantConfig} from '@/tenant';
 import type {Client} from '@/goovee/.generated/client';
-import type {
-  ID,
-  MainWebsite,
-  PortalWorkspace,
-  User,
-  Website,
-  WebsitePage,
-} from '@/types';
+import type {ID, MainWebsite, User, Website, WebsitePage} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';
 import {findModelFields} from '@/orm/model-fields';
 import {SUBAPP_CODES} from '@/constants';
@@ -23,10 +17,18 @@ import {
   CONTENT_MODEL_ATTRS,
   MOUNT_TYPE,
 } from '../constants';
-import {LayoutMountType, MenuItem} from '../types';
+import {LayoutMountType} from '../types';
 import {Cache, chunkArray} from '../utils/helper';
 import {metaModels} from '../templates/meta-models';
 import {Maybe} from '@/types/util';
+import {JsonObject} from '@goovee/orm';
+
+type MainWebsiteResult = {
+  id: string;
+  version: number;
+  slug: string | null;
+  name?: string | null;
+};
 
 export async function findAllMainWebsites({
   workspaceURL,
@@ -37,8 +39,8 @@ export async function findAllMainWebsites({
   workspaceURL: PortalWorkspace['url'];
   user?: User;
   client: Client;
-  locale?: string;
-}) {
+  locale?: string | null;
+}): Promise<MainWebsiteResult[]> {
   if (!(workspaceURL && client)) {
     return [];
   }
@@ -83,17 +85,17 @@ export async function findAllMainWebsites({
   });
 
   return mainWebsites
-    .map((mainWebsite: any) => {
+    .map((mainWebsite): MainWebsiteResult | undefined => {
       const $website =
         mainWebsite?.languageList?.[0]?.website || mainWebsite?.defaultWebsite;
 
       if ($website) {
-        $website.name = mainWebsite.name;
+        ($website as MainWebsiteResult).name = mainWebsite.name;
       }
 
-      return $website;
+      return $website as MainWebsiteResult | undefined;
     })
-    .filter(Boolean);
+    .filter(x => !!x);
 }
 
 export async function findAllWebsites({
@@ -129,26 +131,36 @@ export async function findAllWebsites({
   return websites;
 }
 
+type MenuLineRecord = {
+  id: string;
+  parentMenu: {id: string; title: string | null} | null;
+  page: {slug: string | null; url?: string; [key: string]: any} | null;
+  subMenuList?: MenuLineRecord[];
+  [key: string]: any;
+};
+
 async function buildMenuHierarchy(
-  menulinesPromise: Promise<any>,
-): Promise<MenuItem[]> {
+  menulinesPromise: Promise<MenuLineRecord[]>,
+): Promise<MenuLineRecord[]> {
   const menulines = await menulinesPromise;
   const map = new Map();
 
-  menulines.forEach((item: any) => {
+  menulines.forEach((item: MenuLineRecord) => {
     item.subMenuList = [];
     map.set(item.id, item);
   });
 
   // Link submenus to their parent
-  menulines.forEach((item: any) => {
+  menulines.forEach((item: MenuLineRecord) => {
     if (item.parentMenu && map.has(item.parentMenu.id)) {
-      map.get(item.parentMenu.id).subMenuList.push(item);
+      map.get(item.parentMenu.id).subMenuList!.push(item);
     }
   });
 
   // Filter top-level menu items (no parent)
-  return menulines.filter((item: any) => !item.parentMenu);
+  return menulines.filter(
+    (item: MenuLineRecord): item is MenuLineRecord => !item.parentMenu,
+  );
 }
 
 export async function findWebsiteSeoBySlug({
@@ -453,15 +465,6 @@ export async function findWebsitePageBySlug({
           },
         },
         orderBy: {sequence: 'ASC'},
-      } as {
-        select: {
-          sequence: true;
-          content: {
-            title: true;
-            component: {title: true; code: true};
-            attrs: true;
-          };
-        };
       },
     },
   });
@@ -520,7 +523,12 @@ async function getRelationalFieldTypeData({
   value,
   modelRecordCache,
   client,
-}: any) {
+}: {
+  field: {targetModel?: string};
+  value: any;
+  modelRecordCache: Cache;
+  client: Client;
+}) {
   const targetModel = field?.targetModel;
 
   if (!targetModel) {
@@ -582,14 +590,22 @@ async function getRelationalFieldTypeData({
 async function getCustomRelationalFieldTypeData({
   field,
   value,
-  fields,
   modelFieldCache,
   modelRecordCache,
   jsonModelCache,
   jsonModelRecordCache,
   client,
   path,
-}: any) {
+}: {
+  field: {targetJsonModel?: {name?: string}};
+  value: any;
+  modelFieldCache: Cache;
+  modelRecordCache: Cache;
+  jsonModelCache: Cache;
+  jsonModelRecordCache: Cache;
+  client: Client;
+  path?: string[];
+}) {
   const pathFieldName = path?.[0];
   const targetJsonModelName = field?.targetJsonModel?.name;
 
@@ -625,7 +641,7 @@ async function getCustomRelationalFieldTypeData({
       : isToManyRelation
         ? value
             .map(({id}) => id)
-            .filter((id, i) =>
+            .filter((_id, i) =>
               pathFieldName ? i === Number(pathFieldName) : true,
             ) // for toMany relation, pathFieldName is index of the array, so we skip getting value for other indices
         : [];
@@ -708,37 +724,37 @@ async function getCustomRelationalFieldTypeData({
 export type ContentLine = {
   id: string;
   version: number;
-  sequence?: number;
-  content?: {
+  sequence: number | null;
+  content: {
     id: string;
     version: number;
-    title?: string;
-    attrs?: Promise<Record<string, any>>;
-    component?: {
+    title: string | null;
+    attrs: any | null;
+    component: {
       id: string;
       version: number;
-      title?: string;
-      code?: string;
-    };
-  };
+      title: string | null;
+      code: string | null;
+    } | null;
+  } | null;
 };
 
 export type ReplacedContentLine = {
   id: string;
   version: number;
-  sequence?: number;
-  content?: {
-    attrs?: Record<string, any>;
+  sequence: number | null;
+  content: {
+    attrs: Record<string, any> | null;
     id: string;
     version: number;
-    title?: string;
-    component?: {
+    title: string | null;
+    component: {
       id: string;
       version: number;
-      title?: string;
-      code?: string;
-    };
-  };
+      title: string | null;
+      code: string | null;
+    } | null;
+  } | null;
 };
 
 const getModelFields = async ({
@@ -785,7 +801,7 @@ const populateAttributes = async ({
   jsonModelRecordCache,
   path,
 }: {
-  attributes: Record<string, any> | undefined;
+  attributes: JsonObject | null;
   modelName?: string;
   jsonModelName?: string;
   modelField: string;
@@ -848,7 +864,6 @@ const populateAttributes = async ({
     const $value = await handler({
       field,
       value,
-      fields,
       modelFieldCache,
       modelRecordCache,
       jsonModelCache,

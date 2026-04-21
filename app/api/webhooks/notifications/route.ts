@@ -7,7 +7,7 @@ import type {Client} from '@/goovee/.generated/client';
 import {findPreferences} from '@/orm/notification';
 import NotificationManager, {NotificationType} from '@/notification';
 import {getTranslation} from '@/locale/server';
-import type {PortalApp} from '@/types';
+import type {App as PortalApp} from '@/orm/workspace';
 import {notifyUser} from '@/pwa/utils';
 import {NotificationTag} from '@/pwa/tags';
 
@@ -156,7 +156,7 @@ async function sendMail({
       (await getTranslation(
         {locale: user.locale, tenant: tenantId},
         '{0} - Notifications from Goovee',
-        app.name,
+        app.name || '',
       )),
     html: sanitizeHtml(html),
   });
@@ -194,10 +194,12 @@ async function sendSystemNotification({
         (await getTranslation(
           {locale: user.locale, tenant: tenantId},
           '{0} - Notifications from Goovee',
-          app.name,
+          app.name || '',
         )),
       url: entity.route,
-      tag: NotificationTag.system(app.name, workspace.id),
+      tag: app.name
+        ? NotificationTag.system(app.name, workspace.id)
+        : undefined,
     },
   });
 }

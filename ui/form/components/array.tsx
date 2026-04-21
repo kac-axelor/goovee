@@ -21,7 +21,7 @@ export const ArrayComponent = ({
   subItemTitle,
 }: {
   style?: any;
-  form: UseFormReturn<Record<string, any>, any, undefined>;
+  form: UseFormReturn<Record<string, any>>;
   field: FieldType;
   readonly?: boolean;
   renderItem: (item: any, name: string) => React.JSX.Element;

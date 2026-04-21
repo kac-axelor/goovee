@@ -2,7 +2,7 @@
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
 import type {Client} from '@/goovee/.generated/client';
-import type {PortalAppConfig} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -27,7 +27,7 @@ import {cn} from '@/utils/css';
 import {getPaginationButtons} from '@/utils/pagination';
 import {decodeFilter, getLoginURL} from '@/utils/url';
 import {workspacePathname} from '@/utils/workspace';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
 import Link from 'next/link';
 import {notFound, redirect} from 'next/navigation';

@@ -8,7 +8,8 @@ import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
 import {TENANT_HEADER} from '@/proxy';
 import {findSubappAccess} from '@/orm/workspace';
-import type {ID, PortalWorkspace, Website, WebsitePage} from '@/types';
+import type {ID, Website, WebsitePage} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {manager} from '@/tenant';
 import type {ActionResponse} from '@/types/action';
 

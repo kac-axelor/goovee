@@ -8,7 +8,7 @@ import {PaymentUpdateStatus} from '@/lib/core/payment/sse/constants';
 
 export type PaymentSSEProps = {
   source: PaymentSource;
-  entityId: string | number;
+  entityId: string;
   onPaymentUpdate: (status: PaymentUpdateStatus) => void;
 };
 

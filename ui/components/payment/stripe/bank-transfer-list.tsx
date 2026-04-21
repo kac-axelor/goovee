@@ -21,17 +21,20 @@ import {
   DropdownMenuTrigger,
 } from '@/ui/components';
 import {formatDate} from '@/lib/core/locale/formatters';
+import type {Cloned} from '@/types/util';
 import {BankTransferDetails} from './bank-transfer-details';
-import {BankTransferDetailsType} from '../types';
+import type {BankTransferDetailsType} from '../types';
 
 type BankTransferItemProps = {
-  transfer: BankTransferDetailsType;
-  onCancel: (transfer: BankTransferDetailsType) => Promise<void>;
+  transfer: Cloned<BankTransferDetailsType>;
+  onCancel: (transfer: Cloned<BankTransferDetailsType>) => Promise<void>;
 };
 
 type BankTransferListProps = {
-  bankTransfers: BankTransferDetailsType[];
-  onCancelTransfer: (transfer: BankTransferDetailsType) => Promise<void>;
+  bankTransfers: Cloned<BankTransferDetailsType>[];
+  onCancelTransfer: (
+    transfer: Cloned<BankTransferDetailsType>,
+  ) => Promise<void>;
 };
 
 export function BankTransferList({
@@ -62,7 +65,7 @@ function BankTransferItem({transfer, onCancel}: BankTransferItemProps) {
   const [isCanceling, setIsCanceling] = useState<boolean>(false);
   const [openCancelDialog, setOpenCancelDialog] = useState<boolean>(false);
   const [bankTransferDetails, setBankTransferDetails] =
-    useState<BankTransferDetailsType | null>(null);
+    useState<Cloned<BankTransferDetailsType> | null>(null);
 
   const hasRemaining = transfer.amount < transfer.totalAmount;
 
@@ -86,7 +89,9 @@ function BankTransferItem({transfer, onCancel}: BankTransferItemProps) {
     }
   };
 
-  const handleBankTransferDetails = (transfer: BankTransferDetailsType) => {
+  const handleBankTransferDetails = (
+    transfer: Cloned<BankTransferDetailsType>,
+  ) => {
     setBankTransferDetails(transfer);
   };
 

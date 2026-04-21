@@ -3,7 +3,7 @@ import {Maybe} from '@/types/util';
 import {ASSIGNMENT} from '../constants';
 
 export const getPages = (
-  records: {_count?: string}[],
+  records: {_count?: string | null}[],
   limit: string | number,
 ): number => {
   const take = +limit;

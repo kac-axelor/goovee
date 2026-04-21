@@ -1,9 +1,11 @@
 import axios from 'axios';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
 import type {TenantConfig} from '@/tenant';
-import {ID, PortalWorkspace} from '@/types';
+import {ID} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {error} from '@/subapps/events/common/utils';
@@ -16,11 +18,11 @@ export async function createInvoice({
   currencyCode,
   paymentModeId,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   config: TenantConfig;
   registrationId: ID;
   currencyCode: string;
-  paymentModeId?: number;
+  paymentModeId?: string;
 }): ActionResponse<any> {
   const aos = config?.aos;
 

@@ -13,7 +13,7 @@ interface BasicItem {
 export interface customComponentOptions {
   style?: any;
   field: Field;
-  form: UseFormReturn<Record<string, any>, any, undefined>;
+  form: UseFormReturn<Record<string, any>>;
   formKey: string;
   readonly?: boolean;
   renderItem?: (item: any, name: string) => React.JSX.Element;

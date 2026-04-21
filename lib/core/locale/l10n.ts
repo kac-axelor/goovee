@@ -16,7 +16,7 @@ export const l10n = (() => {
   let locale = '';
   let dateFormat = DEFAULT_DATE_FORMAT;
 
-  async function init(l?: string) {
+  async function init(l?: string | null) {
     locale = l || inverseTransformLocale(navigator.language) || DEFAULT_LOCALE;
     const dayjsLocale = await initDayjs(locale);
     dateFormat = findDateFormat(locale, dateFormat, dayjsLocale);

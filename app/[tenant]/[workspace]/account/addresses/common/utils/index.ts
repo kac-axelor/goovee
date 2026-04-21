@@ -1,6 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {PartnerKey, User} from '@/types';
+import type {Subapp} from '@/orm/workspace';
 import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORT ---- //
@@ -17,10 +18,7 @@ export async function getQuotationRecord({
   user: User;
   client: Client;
   workspaceURL: string;
-  subapp: {
-    role: string;
-    isContactAdmin: boolean;
-  };
+  subapp: Subapp;
 }) {
   const {role, isContactAdmin} = subapp;
   const quotationWhereClause = getWhereClauseForEntity({

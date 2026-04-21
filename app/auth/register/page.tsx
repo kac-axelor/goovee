@@ -2,7 +2,6 @@ import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
 import {findWorkspaceForRegistration} from '@/orm/workspace';
-import type {PortalWorkspace} from '@/types';
 import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
@@ -46,10 +45,5 @@ export default async function Page(props: {
 
   const showGoogleOauth = process.env.SHOW_GOOGLE_OAUTH === 'true';
 
-  return (
-    <Navigation
-      workspace={workspace as PortalWorkspace}
-      showGoogleOauth={showGoogleOauth}
-    />
-  );
+  return <Navigation showGoogleOauth={showGoogleOauth} />;
 }

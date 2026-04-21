@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect, useCallback} from 'react';
+import type {Cloned} from '@/types/util';
 import {
   ThreadBody,
   ThreadFooter,
@@ -8,7 +9,7 @@ import {
 } from '@/subapps/forum/common/ui/components';
 import type {Post} from '@/subapps/forum/common/types/forum';
 import {Skeleton} from '@/ui/components';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 interface ThreadProps {
   post?: Post;
@@ -16,7 +17,7 @@ interface ThreadProps {
   showCommentsByDefault?: boolean;
   hideCloseComments?: boolean;
   usePopUpStyles?: boolean;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }
 
 export const Thread = ({

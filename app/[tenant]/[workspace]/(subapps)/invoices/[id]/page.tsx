@@ -47,9 +47,9 @@ async function Invoice({
   let user: User | undefined;
 
   if (!token) {
-    user = session?.user as User;
-    if (!user) return notFound();
+    user = session?.user;
   }
+  if (!token && !user) return notFound();
 
   const workspace = await findWorkspace({
     url: workspaceURL,
@@ -61,10 +61,10 @@ async function Invoice({
 
   let invoicesWhereClause = {};
 
-  if (!token) {
+  if (user) {
     const app = await findSubappAccess({
       code: SUBAPP_CODES.invoices,
-      user: user!,
+      user: user,
       url: workspaceURL,
       client,
     });
@@ -76,7 +76,7 @@ async function Invoice({
     const {role, isContactAdmin} = app;
 
     invoicesWhereClause = getWhereClauseForEntity({
-      user: user!,
+      user,
       role,
       isContactAdmin,
       partnerKey: PartnerKey.PARTNER,

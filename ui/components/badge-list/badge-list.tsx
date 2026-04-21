@@ -11,7 +11,7 @@ export const BadgeList = ({
   labelClassName,
   onSelect,
 }: {
-  items: any[];
+  items: any[] | undefined;
   rootClassName?: string;
   labelClassName?: string;
   onSelect?: (item: any) => void;

@@ -23,7 +23,7 @@ export const SORT_BY_OPTIONS = [
     value: 'byMostExpensive',
     label: 'Price: High-Low',
   },
-];
+] as const;
 
 export const SHIPPING_TYPE = {
   REGULAR: 'regular',

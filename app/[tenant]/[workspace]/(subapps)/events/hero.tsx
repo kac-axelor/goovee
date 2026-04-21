@@ -1,5 +1,6 @@
 'use client';
 import {authClient} from '@/lib/auth-client';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
@@ -11,15 +12,20 @@ import {
   SUBAPP_CODES,
 } from '@/constants';
 import {i18n} from '@/lib/core/locale';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {HeroSearch, Search} from '@/ui/components';
+import type {OverlayColor} from '@/types';
 import {useToast} from '@/ui/hooks';
 
 // ---- LOCAL IMPORTS ---- //
 import {getAllEvents} from '@/subapps/events/common/actions/actions';
 import {SearchItem} from '@/subapps/events/common/ui/components';
 
-export const Hero = ({workspace}: {workspace: PortalWorkspace}) => {
+export const Hero = ({
+  workspace,
+}: {
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
+}) => {
   const {data: session} = authClient.useSession();
   const {user} = session || {};
   const {workspaceURI} = useWorkspace();
@@ -74,7 +80,10 @@ export const Hero = ({workspace}: {workspace: PortalWorkspace}) => {
         workspace?.config?.eventHeroDescription || i18n.t(BANNER_DESCRIPTION)
       }
       image={imageURL}
-      background={workspace?.config?.eventHeroOverlayColorSelect || 'default'}
+      background={
+        (workspace?.config?.eventHeroOverlayColorSelect as OverlayColor) ||
+        'default'
+      }
       blendMode={
         workspace?.config?.eventHeroOverlayColorSelect ? 'overlay' : 'normal'
       }

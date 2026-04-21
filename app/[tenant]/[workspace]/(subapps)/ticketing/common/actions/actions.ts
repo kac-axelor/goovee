@@ -9,7 +9,7 @@ import {TENANT_HEADER} from '@/proxy';
 import {t, getTranslation} from '@/locale/server';
 import {DEFAULT_LOCALE} from '@/locale/contants';
 import {clone, uniqueById} from '@/utils';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import type {Cloned} from '@/types/util';
 import type {ActionResponse} from '@/types/action';
 import {addComment, findComments} from '@/comments/orm';
@@ -83,7 +83,9 @@ export async function mutate(
   const allowedFields = new Set(
     workspace.config.ticketingFormFieldSet
       ?.map(f => f.name)
-      .filter(name => UPDATABLE_FIELDS.includes(name)),
+      .filter(
+        (name): name is string => !!name && UPDATABLE_FIELDS.includes(name),
+      ),
   );
 
   try {
@@ -612,7 +614,7 @@ type DeleteRelatedLinkProps = {
 
 export async function deleteRelatedLink(
   props: DeleteRelatedLinkProps,
-): ActionResponse<ID> {
+): ActionResponse<number> {
   const {workspaceURL, data} = props;
 
   const tenantId = (await headers()).get(TENANT_HEADER);
@@ -750,7 +752,7 @@ export const createComment: CreateComment = async formData => {
       .trim();
 
     const ticketUrl = `${workspaceURI}/${SUBAPP_CODES.ticketing}/projects/${ticket.project?.id}/tickets/${ticket.id}`;
-    const userName = user.simpleFullName || user.name;
+    const userName = user.simpleFullName || user.name || '';
 
     const contacts = uniqueById(
       parentComment?.partner

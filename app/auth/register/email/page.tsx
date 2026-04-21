@@ -8,7 +8,6 @@ import {manager} from '@/tenant';
 import Form from './form';
 import {extractSearchParams, isExistingUser} from '../common/utils';
 import {UserExists} from '../common/ui/components';
-import {PortalWorkspace} from '@/types';
 
 export default async function Page(props: {
   searchParams: Promise<{
@@ -44,5 +43,5 @@ export default async function Page(props: {
     return notFound();
   }
 
-  return <Form workspace={workspace as PortalWorkspace} />;
+  return <Form workspace={workspace} />;
 }

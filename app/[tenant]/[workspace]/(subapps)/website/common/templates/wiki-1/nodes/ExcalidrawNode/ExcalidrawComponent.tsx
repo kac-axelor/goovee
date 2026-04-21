@@ -1,7 +1,4 @@
-import type {
-  AppState,
-  BinaryFiles,
-} from '@excalidraw/excalidraw/dist/types/excalidraw/types';
+import type {AppState, BinaryFiles} from '@excalidraw/excalidraw/types';
 import type {ExcalidrawInitialElements} from '../../ui/ExcalidrawModal';
 import type {NodeKey} from 'lexical';
 import type {JSX} from 'react';
@@ -40,7 +37,7 @@ export default function ExcalidrawComponent({
   const [isModalOpen, setModalOpen] = useState<boolean>(
     data === '[]' && editor.isEditable(),
   );
-  const imageContainerRef = useRef<HTMLDivElement | null>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null!);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const captionButtonRef = useRef<HTMLButtonElement | null>(null);
   const [isSelected, setSelected, clearSelection] =

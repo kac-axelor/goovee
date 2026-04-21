@@ -41,7 +41,7 @@ export async function GET(
       portalImageList: {
         where: {picture: {id}},
         select: {picture: {id: true}},
-      } as {select: {picture: {id: true}}},
+      },
     },
   });
 

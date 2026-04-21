@@ -4,7 +4,8 @@ import {getSession} from '@/lib/core/auth';
 import {isAdminContact, isPartner} from '@/orm/partner';
 import {findSubapps, findWorkspaceMembers} from '@/orm/workspace';
 import type {Client} from '@/goovee/.generated/client';
-import type {Partner, PortalWorkspace} from '@/types';
+import type {Partner} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';
 
 export async function findAvailableSubapps({

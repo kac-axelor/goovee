@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ---- //
 import {clone, scale} from '@/utils';
@@ -11,13 +12,8 @@ import {
   MAIN_PRICE,
   OUT_OF_STOCK_TYPE,
 } from '@/constants';
-import type {
-  Product,
-  Currency,
-  ComputedProduct,
-  PortalWorkspace,
-  User,
-} from '@/types';
+import type {Product, Currency, ComputedProduct, User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import type {TenantConfig} from '@/tenant';
 import type {Client} from '@/goovee/.generated/client';
 import {filterPrivate} from '@/orm/filter';
@@ -49,7 +45,7 @@ const getProductFields = ({
   workspace,
   shouldHidePrices,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   shouldHidePrices: boolean;
 }) =>
   ({
@@ -134,7 +130,7 @@ const getWhereClause = async ({
   categoryids?: (string | number)[];
   associateWorkspace?: boolean;
   client: Client;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   archived?: boolean;
 }) => {
@@ -224,7 +220,7 @@ export async function findProducts({
   categoryids?: (string | number)[];
   page?: string | number;
   limit?: string | number;
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   client: Client;
   config?: TenantConfig;
@@ -618,7 +614,7 @@ export async function findProduct({
   categoryids,
 }: {
   id: Product['id'];
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   client: Client;
   config?: TenantConfig;
@@ -651,7 +647,7 @@ export async function findProductBySlug({
   categoryids,
 }: {
   slug: Product['slug'];
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   client: Client;
   config?: TenantConfig;
@@ -703,7 +699,7 @@ export async function findProductsFromWS({
   productList,
   config,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   productList: Array<{productId: Product['id']}>;
   config?: TenantConfig;
@@ -759,7 +755,7 @@ export async function findProductsFromStockLocation({
   client: Client;
   categoryids?: (string | number)[];
   associateWorkspace?: boolean;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   outOfStockQty: any;
 }): Promise<string[]> {

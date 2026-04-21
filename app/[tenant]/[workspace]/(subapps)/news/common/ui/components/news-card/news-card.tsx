@@ -16,7 +16,7 @@ export const NewsCard = ({
   navigatingPathFrom,
 }: {
   news: any;
-  id: string | number;
+  id: string;
   navigatingPathFrom: string;
 }) => {
   const {publicationDateTime, title, image, categorySet, slug} = news;

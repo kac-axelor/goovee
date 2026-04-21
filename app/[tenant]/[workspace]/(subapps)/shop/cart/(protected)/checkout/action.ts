@@ -1,6 +1,7 @@
 'use server';
 
 import axios from 'axios';
+import type {Cloned} from '@/types/util';
 import {headers} from 'next/headers';
 
 // ---- CORE IMPORTS ---- //
@@ -14,7 +15,8 @@ import {createPaypalOrder, findPaypalOrder} from '@/payment/paypal/actions';
 import {createStripeOrder, findStripeOrder} from '@/payment/stripe/actions';
 import {manager, type Tenant} from '@/tenant';
 import type {Client} from '@/goovee/.generated/client';
-import {PaymentOption, PortalWorkspace} from '@/types';
+import {PaymentOption} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {computeTotal} from '@/utils/cart';
 import {calculateAdvanceAmount, getPaymentModeId} from '@/utils/payment';
 
@@ -31,7 +33,7 @@ function computeExpectedAmount({
   workspace,
 }: {
   total: number | string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }): string {
   const payInAdvance = workspace.config?.payInAdvance;
   const advancePaymentPercentage = workspace.config?.advancePaymentPercentage;
@@ -63,7 +65,7 @@ async function createOrder({
   workspaceURL: string;
   client: Client;
   config: Tenant['config'];
-  paymentModeId?: number;
+  paymentModeId?: string;
   tenantId?: Tenant['id'];
 }) {
   if (!cart?.items?.length) {

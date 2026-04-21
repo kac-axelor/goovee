@@ -204,7 +204,7 @@ export const RegistrationForm = ({
     () => [
       ...basicPerson,
       ...formatStudioFields(metaFields),
-      ...getEventCustomFields(additionalFieldSet),
+      ...getEventCustomFields(additionalFieldSet ?? []),
       ...facilitiesCustomFields,
     ],
     [basicPerson, facilitiesCustomFields, metaFields, additionalFieldSet],
@@ -414,7 +414,7 @@ export const RegistrationForm = ({
           endDate={eventEndDateTime}
           eventAllDay={eventAllDay}
         />
-        <BadgeList items={eventCategorySet} />
+        <BadgeList items={eventCategorySet ?? []} />
         {defaultPrice ? (
           <div className="my-6 border p-4 rounded-lg text-sm text-slate-500 dark:text-slate-400">
             <div className="flex flex-col gap-2 font-semibold">
@@ -517,7 +517,7 @@ const getEmailFieldComponent = ({
   workspaceURL,
 }: {
   isDisabled?: boolean;
-  eventId: string | number;
+  eventId: string;
   workspaceURL: string;
 }) => {
   const EmailComponent = (props: any) => (

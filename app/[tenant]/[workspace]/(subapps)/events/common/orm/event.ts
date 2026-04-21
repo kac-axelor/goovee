@@ -1,4 +1,5 @@
 // ---- CORE IMPORTS ---- //
+import type {Cloned, ExpandRecursively} from '@/types/util';
 import {
   DATE_FORMATS,
   DAY,
@@ -20,7 +21,8 @@ import {formatNumber} from '@/locale/server/formatters';
 import {filterPrivate} from '@/orm/filter';
 import type {Client} from '@/goovee/.generated/client';
 import type {TenantConfig} from '@/tenant';
-import type {ID, PortalWorkspace, User} from '@/types';
+import type {ID, PageInfo, User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {getPageInfo} from '@/utils';
 import {formatDateToISOString, formatToTwoDigits} from '@/utils/date';
 import {and} from '@/utils/orm';
@@ -146,6 +148,10 @@ const buildEventTypeFilters = ({
       return;
   }
 };
+
+export type FullEvent = ExpandRecursively<
+  NonNullable<Awaited<ReturnType<typeof findEvent>>>
+>;
 
 export async function findEvent({
   id,
@@ -334,6 +340,55 @@ export async function findEvent({
   };
 }
 
+export type ListEvent = {
+  isRegistered: boolean;
+  id: string;
+  version: number;
+  eventEndDateTime: Date | null;
+  eventStartDateTime: Date | null;
+  eventAllDay: boolean | null;
+  eventTitle: string | null;
+  eventCategorySet:
+    | {
+        id: string;
+        version: number;
+        name: string | null;
+        color: string | null;
+        image: {
+          id: string;
+          version: number;
+        } | null;
+        thumbnailImage: {
+          id: string;
+          version: number;
+        } | null;
+      }[]
+    | null;
+  registrationDeadlineDateTime: Date | null;
+  eventImage: {
+    id: string;
+    version: number;
+  } | null;
+  eventDescription: string | null;
+  registrationList:
+    | {
+        id: string;
+        version: number;
+        participantList:
+          | {
+              id: string;
+              version: number;
+              emailAddress: string | null;
+            }[]
+          | null;
+      }[]
+    | null;
+  slug: string | null;
+  _count?: string | undefined;
+  _cursor?: string | undefined;
+  _hasNext?: boolean | undefined;
+  _hasPrev?: boolean | undefined;
+};
 export async function findEvents({
   ids,
   search,
@@ -360,19 +415,33 @@ export async function findEvents({
   month?: string | number;
   year?: string | number;
   selectedDates?: any[];
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   onlyRegisteredEvent?: boolean;
   eventType?: string;
-  orderBy: any;
-}) {
+  orderBy?: any;
+}): Promise<{events: ListEvent[]; pageInfo: PageInfo}> {
+  const emptyPageInfo: PageInfo = {
+    count: 0,
+    limit: 0,
+    page: 1,
+    pages: 1,
+    hasNext: false,
+    hasPrev: false,
+  };
   if (!workspace) {
-    return {events: [], pageInfo: {}};
+    return {
+      events: [],
+      pageInfo: emptyPageInfo,
+    };
   }
 
   if (onlyRegisteredEvent && !user) {
-    return {events: [], pageInfo: {}};
+    return {
+      events: [],
+      pageInfo: emptyPageInfo,
+    };
   }
 
   let date, predicate: any;
@@ -473,7 +542,7 @@ export async function findEvents({
               participantList: {
                 where: {emailAddress: user.email},
                 select: {emailAddress: true},
-              } as {select: {emailAddress: true}},
+              },
             },
           },
         }),
@@ -505,39 +574,66 @@ export async function findEvents({
 export type EventConfig = {
   id: string;
   version: number;
-  isPrivate?: boolean;
-  registrationList?: {
-    id: string;
-    version: number;
-    participantList?: {id: string; version: number; emailAddress?: string}[];
-  }[];
-  isPublic?: boolean;
-  isLoginNotNeeded?: boolean;
-  isHidden?: boolean;
-  partnerCategorySet?: {partners?: EventConfigPartner[]}[];
-  partnerSet?: EventConfigPartner[];
-  eventAllowRegistration?: boolean;
-  eventAllowMultipleRegistrations?: boolean;
-  eventEndDateTime?: string | Date;
-  eventStartDateTime?: string | Date;
-  eventAllDay?: boolean;
-  maxParticipantPerEvent?: number;
-  maxParticipantPerRegistration?: number;
-  registrationDeadlineDateTime?: string | Date;
+  eventEndDateTime: Date | null;
+  eventStartDateTime: Date | null;
+  eventAllDay: boolean | null;
+  registrationDeadlineDateTime: Date | null;
+  eventAllowRegistration: boolean | null;
+  eventAllowMultipleRegistrations: boolean | null;
+  isPrivate: boolean | null;
+  isPublic: boolean | null;
+  isLoginNotNeeded: boolean | null;
+  isHidden: boolean | null;
+  maxParticipantPerEvent: number | null;
+  maxParticipantPerRegistration: number | null;
+  partnerCategorySet:
+    | {
+        id: string;
+        version: number;
+        partners: EventConfigPartner[] | null;
+      }[]
+    | null;
+  partnerSet: EventConfigPartner[] | null;
+  registrationList:
+    | {
+        id: string;
+        version: number;
+        participantList:
+          | {
+              id: string;
+              version: number;
+              emailAddress: string | null;
+            }[]
+          | null;
+      }[]
+    | null;
 };
 
 export type EventConfigPartner = {
-  isProspect?: boolean;
-  isContact?: boolean;
-  isCustomer?: boolean;
-  contactPartnerSet?: {
-    emailAddress?: {address?: string};
-
-    isActivatedOnPortal?: boolean;
-  }[];
-  emailAddress?: {id: string; version: number; address?: string};
-  isActivatedOnPortal?: boolean;
-  canSubscribeNoPublicEvent?: boolean;
+  id: string;
+  version: number;
+  isContact: boolean | null;
+  isProspect: boolean | null;
+  isCustomer: boolean | null;
+  emailAddress: {
+    id: string;
+    version: number;
+    address: string | null;
+  } | null;
+  contactPartnerSet:
+    | {
+        id: string;
+        version: number;
+        emailAddress: {
+          id: string;
+          version: number;
+          address: string | null;
+        } | null;
+        isActivatedOnPortal: boolean | null;
+      }[]
+    | null;
+  isActivatedOnPortal: boolean | null;
+  canSubscribeNoPublicEvent: boolean | null;
 };
 
 export async function findEventConfig({
@@ -601,9 +697,9 @@ export async function findEventConfig({
 export type PartnerForEvent = {
   id: string;
   version: number;
-  emailAddress?: {id: string; version: number; address?: string};
-  isActivatedOnPortal?: boolean;
-  canSubscribeNoPublicEvent?: boolean;
+  emailAddress: {id: string; version: number; address: string | null} | null;
+  isActivatedOnPortal: boolean | null;
+  canSubscribeNoPublicEvent: boolean | null;
 };
 
 export async function findPartnerByEmailForEvent(

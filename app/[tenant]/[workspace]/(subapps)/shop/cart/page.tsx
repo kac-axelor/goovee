@@ -34,6 +34,8 @@ async function CartView({
     client,
   }).then(clone);
 
+  if (!workspace) return notFound();
+
   const hidePriceAndPurchase = await shouldHidePricesAndPurchase({
     user: session?.user,
     workspace,

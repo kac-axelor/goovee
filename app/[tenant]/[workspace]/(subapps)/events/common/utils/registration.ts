@@ -95,14 +95,16 @@ export function getPortalUserEmails(partner: EventConfigPartner): string[] {
     emails.push(
       ...(partner.contactPartnerSet
         ?.filter(isPortalUser)
-        .map(contactPartner => contactPartner.emailAddress?.address) ?? []),
+        .map(
+          contactPartner => contactPartner.emailAddress?.address ?? undefined,
+        ) ?? []),
     );
   }
   return emails.filter(Boolean) as string[];
 }
 
 export function isPortalUser(partner: {
-  isActivatedOnPortal?: boolean;
+  isActivatedOnPortal: boolean | null;
 }): boolean {
   return !!partner.isActivatedOnPortal;
 }

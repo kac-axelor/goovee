@@ -1,15 +1,16 @@
+import {PortalAppConfig} from '@/orm/workspace';
 import {PaymentOption} from '@/types';
 
 export const isPaymentOptionAvailable = (
-  paymentOptions: any[] = [],
+  paymentOptions: PortalAppConfig['paymentOptionSet'] = [],
   type: PaymentOption,
-) => paymentOptions.some((option: any) => option?.typeSelect === type);
+) => (paymentOptions || []).some(option => option.typeSelect === type);
 
 export const getPaymentModeId = (
-  paymentOptions: any[] = [],
+  paymentOptions: PortalAppConfig['paymentOptionSet'] = [],
   type: PaymentOption,
-): number | undefined =>
-  paymentOptions?.find((option: any) => option?.typeSelect === type)
+) =>
+  (paymentOptions || [])?.find(option => option.typeSelect === type)
     ?.paymentMode?.id;
 
 export function calculateAdvanceAmount({

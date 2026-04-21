@@ -1,6 +1,7 @@
 'use client';
 
 import React, {useMemo} from 'react';
+import type {Cloned} from '@/types/util';
 import {MdOutlineMoreHoriz} from 'react-icons/md';
 
 // ---- CORE IMPORTS ---- //
@@ -27,7 +28,7 @@ import {
   ImageGallery,
 } from '@/subapps/forum/common/ui/components';
 import {useTruncatedElement} from '@/subapps/forum/common/ui/hooks/use-truncatedElement';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 export const ThreadBody = ({
   post,
@@ -36,7 +37,7 @@ export const ThreadBody = ({
 }: {
   post?: Post;
   usePopUpStyles?: boolean;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) => {
   const {title, content, attachmentList, author, postDateT}: any = post || {};
 

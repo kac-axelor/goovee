@@ -21,7 +21,7 @@ export default function Facts5(props: TemplateProps<Facts5Data>) {
                 const Icon = getIcon(item.icon);
                 return (
                   <div className="col-md-3" key={id}>
-                    <Icon className="icon-svg-lg text-primary mb-3" />
+                    {Icon && <Icon className="icon-svg-lg text-primary mb-3" />}
                     <h3 className="counter">
                       <CountUp end={item.value || 0} separator="" />
                     </h3>

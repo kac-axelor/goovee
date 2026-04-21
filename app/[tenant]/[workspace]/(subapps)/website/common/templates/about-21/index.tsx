@@ -59,7 +59,7 @@ export default function About21(props: TemplateProps<About21Data>) {
                       Icon={
                         Icon ? (
                           <Icon className="icon-svg-xs solid-duo text-purple-pink me-4" />
-                        ) : null
+                        ) : undefined
                       }
                     />
                   </div>

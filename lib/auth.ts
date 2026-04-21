@@ -11,7 +11,13 @@ import {customSession} from 'better-auth/plugins';
 import google from './core/auth/(ee)/google';
 import keycloak from './core/auth/(ee)/keycloak';
 import credentials from './core/auth/credentials';
-import {register, registerByInvite, registerByKeycloak} from './core/auth/orm';
+import {
+  register,
+  registerByInvite,
+  registerByKeycloak,
+  isRegisterInviteDTO,
+  type RegisterDTO,
+} from './core/auth/orm';
 
 const showKeycloakOauth = process.env.SHOW_KEYCLOAK_OAUTH === 'true';
 
@@ -51,15 +57,21 @@ const options = {
             let partner = await findGooveeUserByEmail(user.email, client);
             if (!partner) {
               if (ctx.params?.id === 'google' && data.requestSignUp) {
-                const signUp = data.inviteId ? registerByInvite : register;
                 let res;
                 try {
-                  res = await signUp({
+                  const registrationData = {
                     ...data,
                     email: user.email,
                     client,
                     config,
-                  });
+                  };
+                  if (isRegisterInviteDTO(registrationData)) {
+                    res = await registerByInvite(registrationData);
+                  } else {
+                    res = await register(
+                      registrationData as unknown as RegisterDTO,
+                    );
+                  }
                 } catch (err) {
                   throw new APIError('UNPROCESSABLE_ENTITY', {
                     message: ERROR_CODES.REGISTRATION_FAILED,
@@ -178,8 +190,8 @@ export const auth = betterAuth({
         const cookies = ctx.context.authCookies;
         ctx.setCookie(cookies.sessionToken.name, '', {maxAge: 0});
         ctx.setCookie(cookies.sessionData.name, '', {maxAge: 0});
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return null as any;
+        // Cast to `never` so this branch is excluded from the function’s inferred return type.
+        return null as never;
       }
 
       const {

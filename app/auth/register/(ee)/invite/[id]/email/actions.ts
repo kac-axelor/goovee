@@ -52,6 +52,10 @@ export async function generateOTP({
 
   const email = invite?.emailAddress?.address;
 
+  if (!email) {
+    return error(await t('Email is required'));
+  }
+
   if (!workspace.config.otpTemplateList?.length) {
     return coreGenerateOTP({
       email,
@@ -76,9 +80,14 @@ export async function generateOTP({
       scope: Scope.Registration,
       tenantId,
       client,
-      mailConfig: {
-        template: template?.template,
-      },
+      mailConfig: template?.template?.content
+        ? {
+            template: {
+              subject: template.template.subject ?? undefined,
+              content: template.template.content,
+            },
+          }
+        : undefined,
     });
   }
 }

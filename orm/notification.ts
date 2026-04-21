@@ -1,11 +1,12 @@
 import type {Client} from '@/goovee/.generated/client';
 import {SUBAPP_CODES} from '@/constants';
-import type {PortalApp, PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {App as PortalApp, PortalWorkspace} from '@/orm/workspace';
 import {findSubappAccess} from './workspace';
 import {filterPrivate} from './filter';
 
 type Params = {
-  code: PortalApp['code'];
+  code: string;
   user: User;
   url: PortalWorkspace['url'];
   client: Client;
@@ -405,7 +406,7 @@ async function findTickets(params: Params) {
       result?.map(({id, fullName, name, project}) => ({
         id,
         name: fullName || name,
-        route: routes[SUBAPP_CODES.ticketing]({url, id, pid: project?.id}),
+        route: routes[SUBAPP_CODES.ticketing]({url, id, pid: project?.id!}),
       })),
     )
     .catch(() => []);

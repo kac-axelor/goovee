@@ -4,11 +4,8 @@ import {exportToSvg} from '@excalidraw/excalidraw';
 import type {
   ExcalidrawElement,
   NonDeleted,
-} from '@excalidraw/excalidraw/dist/types/excalidraw/element/types';
-import type {
-  AppState,
-  BinaryFiles,
-} from '@excalidraw/excalidraw/dist/types/excalidraw/types';
+} from '@excalidraw/excalidraw/element/types';
+import type {AppState, BinaryFiles} from '@excalidraw/excalidraw/types';
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 
@@ -40,7 +37,7 @@ type Props = {
   /**
    * The ref object to be used to render the image
    */
-  imageContainerRef: React.MutableRefObject<HTMLDivElement | null>;
+  imageContainerRef: React.RefObject<HTMLDivElement>;
   /**
    * The type of image to be rendered
    */

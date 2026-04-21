@@ -97,7 +97,7 @@ export enum ContentType {
 export interface Subscriber {
   notificationSelect: string | null;
   member: {
-    id: string | number;
+    id: ID;
     emailAddress: {
       address: string | null;
     } | null;
@@ -110,11 +110,11 @@ export interface NotificationParams {
   type: ContentType;
   title: string;
   content: string;
-  author: {id: string | number; simpleFullName: string};
+  author: {id: ID; simpleFullName: string};
   group: {name: string};
   subscribers: Subscriber[];
   link: string;
-  postAuthor?: {id: string | number};
+  postAuthor?: {id: ID};
 }
 
 export interface MailTemplateParams {

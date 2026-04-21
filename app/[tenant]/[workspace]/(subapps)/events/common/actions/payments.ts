@@ -27,7 +27,7 @@ export async function createStripeCheckoutSession({
   values,
 }: {
   event: {
-    id: string | number;
+    id: string;
   };
   workspaceURL: string;
   values: any;
@@ -136,7 +136,7 @@ export async function paypalCreateOrder({
   values: any;
   workspaceURL: string;
   event: {
-    id: string | number;
+    id: string;
   };
 }) {
   const tenantId = (await headers()).get(TENANT_HEADER);
@@ -228,7 +228,7 @@ export async function payboxCreateOrder({
   uri,
 }: {
   event: {
-    id: string | number;
+    id: string;
   };
   workspaceURL: string;
   values: any;

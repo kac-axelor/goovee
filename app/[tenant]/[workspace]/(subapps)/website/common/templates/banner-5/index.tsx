@@ -27,7 +27,7 @@ export default function Banner5(props: TemplateProps<Banner5Data>) {
               options={{loadSprite: true, clickToPlay: true}}
               source={{
                 type: 'video',
-                sources: [{src: video, provider: 'vimeo'}],
+                sources: [{src: video, provider: 'vimeo'}] as any,
               }}
             />
           </div>

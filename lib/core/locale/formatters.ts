@@ -10,7 +10,7 @@ import {addCurrency} from '@/locale/utils';
 
 type NumberOpts = {
   scale?: string | number;
-  currency?: string;
+  currency?: string | null;
   type?: 'DECIMAL' | 'INTEGER';
 };
 
@@ -27,7 +27,7 @@ export function formatNumber(
       scale = +scale;
     }
 
-    if (typeof scale !== 'number' && scale !== undefined && isNaN(scale)) {
+    if (typeof scale !== 'number' && scale != undefined && isNaN(scale)) {
       scale = DEFAULT_SCALE;
     }
   } else {

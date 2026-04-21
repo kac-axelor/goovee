@@ -1,6 +1,7 @@
 'use client';
 
 import {useState} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {MdOutlineRefresh} from 'react-icons/md';
@@ -13,7 +14,7 @@ import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {i18n} from '@/locale';
 import {useToast} from '@/ui/hooks';
 import {SUBAPP_CODES} from '@/constants';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {requestQuotation} from '@/app/[tenant]/[workspace]/(subapps)/shop/common/actions/cart';
@@ -23,7 +24,7 @@ export default function Content({
   workspace,
   quotationSubapp,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   quotationSubapp?: boolean;
 }) {
   const [requestingQuotation, setRequestingQuotation] = useState(false);

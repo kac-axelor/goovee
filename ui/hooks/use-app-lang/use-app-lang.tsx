@@ -26,7 +26,7 @@ function toLangTag(lang: string) {
 const isRTL = (lang: string) =>
   RTL_LANGS.some(x => lang === x || lang.startsWith(`${x}-`));
 
-export function useAppLang(opts: {locale?: string}) {
+export function useAppLang(opts: {locale?: string | null}) {
   const locale = opts?.locale ?? DEFAULT_LOCALE;
 
   const lang = useMemo(() => toLangTag(locale), [locale]);

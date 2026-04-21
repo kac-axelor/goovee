@@ -13,7 +13,8 @@ import {DEFAULT_LOCALE} from '@/locale/contants';
 import {clone} from '@/utils';
 import {ModelMap, SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
-import {ID, PortalWorkspace} from '@/types';
+import {ID} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {getSession} from '@/auth';
 import {getFileSizeText} from '@/utils/files';
 import {manager} from '@/tenant';
@@ -47,7 +48,7 @@ import {NotificationTag} from '@/pwa/tags';
 interface FileMeta {
   fileName: string;
   filePath: string;
-  id: number;
+  id: string;
 }
 
 interface AttachmentResponse {
@@ -60,7 +61,7 @@ const pump = promisify(pipeline);
 function extractFileValues(formData: FormData) {
   const values: any = [];
 
-  for (const pair of formData.entries()) {
+  for (const pair of (formData as any).entries()) {
     const key = pair[0];
     const value = pair[1];
 
@@ -505,11 +506,9 @@ export async function addPost({
     return {error: true, message: await t('Invalid workspace')};
   }
 
-  let attachmentListArray: {id: number; fileName: string; title: string}[] = [];
+  let attachmentListArray: {id: string; fileName: string; title: string}[] = [];
 
   if (formData) {
-    const storage = getStoragePath();
-
     const attachmentResponse = await uploadAttachment(formData);
 
     if (attachmentResponse.some((item: any) => item.error)) {
@@ -552,6 +551,7 @@ export async function addPost({
         postDateT: true,
         content: true,
         author: {
+          id: true,
           simpleFullName: true,
           fullName: true,
         },
@@ -560,12 +560,7 @@ export async function addPost({
       data: {
         postDateT: timeStamp,
         createdOn: timeStamp,
-        forumGroup: {
-          where: {
-            ...(await filterPrivate({user, client})),
-          },
-          select: {id: group.id},
-        },
+        forumGroup: {select: {id: group.id}},
         title,
         content,
         author: {select: {id: user.id}},
@@ -577,17 +572,17 @@ export async function addPost({
                   metaFile: {select: {id: item.id}},
                 })),
               }
-            : [],
+            : null,
       },
     });
 
     const subscribers: any = await getSubscribersByGroup({
-      groupID: post.forumGroup.id,
+      groupID: group.id,
       workspaceURL,
     });
 
     if (!subscribers.error) {
-      const postLink = `${workspaceURL}/${SUBAPP_CODES.forum}/${SUBAPP_PAGE.group}/${post.forumGroup.id}?searchid=${post.id}#post-${post.id}`;
+      const postLink = `${workspaceURL}/${SUBAPP_CODES.forum}/${SUBAPP_PAGE.group}/${group.id}?searchid=${post.id}#post-${post.id}`;
 
       for (const reciever of subscribers as any[]) {
         if (
@@ -616,15 +611,20 @@ export async function addPost({
         }
       }
 
-      sendEmailNotifications({
-        type: ContentType.POST,
-        title: post?.title ?? '',
-        content: post?.content ?? '',
-        author: post.author,
-        group: post.forumGroup,
-        subscribers,
-        link: postLink,
-      });
+      if (post?.author && post?.forumGroup) {
+        sendEmailNotifications({
+          type: ContentType.POST,
+          title: post?.title ?? '',
+          content: post?.content ?? '',
+          author: {
+            id: post.author.id,
+            simpleFullName: post.author.simpleFullName ?? '',
+          },
+          group: {name: post.forumGroup.name ?? ''},
+          subscribers,
+          link: postLink,
+        });
+      }
     }
     revalidatePath(`${workspaceURI}/${SUBAPP_CODES.forum}`);
     return {success: true, data: clone(post)};
@@ -812,6 +812,7 @@ async function uploadAttachment(formData: FormData): Promise<any> {
           sizeText: getFileSizeText(file.size),
         },
         select: {
+          id: true,
           fileName: true,
           filePath: true,
         },
@@ -820,9 +821,9 @@ async function uploadAttachment(formData: FormData): Promise<any> {
       return {
         title,
         metaFile: {
-          fileName: metaFile.fileName,
-          filePath: metaFile.filePath,
-          id: Number(metaFile.id),
+          fileName: metaFile.fileName ?? '',
+          filePath: metaFile.filePath ?? '',
+          id: metaFile.id,
         },
       };
     } catch (error) {
@@ -1178,7 +1179,7 @@ export const getSubscribersByGroup = async ({
   groupID,
   workspaceURL,
 }: {
-  groupID: string | number;
+  groupID: string;
   workspaceURL: string;
 }) => {
   if (!groupID) {

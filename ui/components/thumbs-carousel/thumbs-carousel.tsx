@@ -12,7 +12,7 @@ import {Button} from '@/ui/components';
 export const ThumbsCarousel = ({
   images = [],
 }: {
-  images?: Array<{url: string; id: string | number}>;
+  images?: Array<{url: string; id: string}>;
 }) => {
   const [thumbsSwiper, setThumbsSwiper] = useState<Swiper>();
   const [prevEl, setPrevEl] = useState<HTMLElement | null>(null);

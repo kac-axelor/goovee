@@ -1,12 +1,13 @@
 'use client';
 
 import {useCallback} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
 import {Separator, Container, Chip} from '@/ui/components';
 import {i18n} from '@/locale';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {SUBAPP_CODES} from '@/constants';
 import {formatDate} from '@/lib/core/locale/formatters';
 import {useToast} from '@/ui/hooks';
@@ -21,8 +22,8 @@ import {INVOICE_TYPE} from '@/subapps/invoices/common/constants/invoices';
 import type {Invoice as InvoiceType} from '@/subapps/invoices/common/types/invoices';
 
 interface ContentProps {
-  invoice: InvoiceType;
-  workspace: PortalWorkspace;
+  invoice: Cloned<InvoiceType>;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   workspaceURI: string;
   token?: string;
 }
@@ -89,7 +90,7 @@ export default function Content({
               {isUnpaid ? `${i18n.t('Due date:')}` : `${i18n.t('Paid on:')}`}
             </h5>
             <p className="text-sm">
-              {formatDate(isUnpaid ? dueDate : invoiceDate)}
+              {formatDate(isUnpaid ? dueDate || '' : invoiceDate || '')}
             </p>
           </div>
         </div>

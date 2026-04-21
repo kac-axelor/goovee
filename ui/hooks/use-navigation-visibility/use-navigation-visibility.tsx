@@ -29,7 +29,7 @@ const CODE_REGEX = (code: string) =>
 type VisibilityHandler = (
   pathname: string,
   workspaceURL: string,
-  userId: string | number | undefined,
+  userId: string | undefined,
 ) => Promise<boolean>;
 
 type Handler = {
@@ -49,7 +49,7 @@ const HANDLERS: Array<Handler> = [
 async function navigationVisibilityForEvents(
   pathname: string,
   workspaceURL: string,
-  userId: string | number | undefined,
+  userId: string | undefined,
 ): Promise<boolean> {
   const handler = HANDLERS.find(h => h.code === SUBAPP_CODES.events)!;
   const {regex} = handler;

@@ -59,7 +59,9 @@ export default function Process9(props: TemplateProps<Process9Data>) {
                   description={item.description}
                   className={item.className}
                   Icon={
-                    <Icon className="solid icon-svg-sm text-primary me-5" />
+                    Icon ? (
+                      <Icon className="solid icon-svg-sm text-primary me-5" />
+                    ) : undefined
                   }
                 />
               );

@@ -1,5 +1,6 @@
 // ---- CORE IMPORTS ---- //
-import type {ID, PortalWorkspace} from '@/types';
+import type {ID} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 export type Quotations = {
   id: ID;

@@ -7,7 +7,8 @@ import {
   ORDER_BY,
 } from '@/constants';
 import {getPageInfo, getSkipInfo} from '@/utils';
-import type {ID, PortalWorkspace} from '@/types';
+import type {ID} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {formatNumber} from '@/locale/server/formatters';
 import {and} from '@/utils/orm';
 

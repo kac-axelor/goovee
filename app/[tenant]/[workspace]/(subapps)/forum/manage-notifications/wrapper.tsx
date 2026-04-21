@@ -1,6 +1,6 @@
 // ---- CORE IMPORTS ---- //
-import {ID} from '@goovee/orm';
-import {PortalWorkspace} from '@/types';
+import type {ID} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';
 
 // ---- LOCAL IMPORTS ---- //

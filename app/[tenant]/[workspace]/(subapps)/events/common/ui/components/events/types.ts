@@ -4,7 +4,7 @@ export interface Event {
   eventTitle: string;
   eventStartDateTime: string;
   eventImage: {
-    id: string | number;
+    id: string;
   };
   eventEndDateTime: string;
   eventDescription: string;
@@ -52,17 +52,12 @@ export interface perPageProps {
 }
 export interface Category {
   id: string;
-  name?: string;
-  color?: string;
   version: number;
-  thumbnailImage?: {
-    id: string;
-    version: number;
-  } | null;
-  image?: {
-    id: string;
-    version: number;
-  } | null;
+  name: string | null;
+  color: string | null;
+  description: string | null;
+  image: {id: string; version: number} | null;
+  thumbnailImage: {id: string; version: number} | null;
 }
 export interface CategoriesProps {
   eventsCategories: Category[];

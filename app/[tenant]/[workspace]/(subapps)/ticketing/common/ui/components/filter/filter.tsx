@@ -1,7 +1,7 @@
 'use client';
 
 import {i18n} from '@/locale';
-import type {PortalAppConfig} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 import type {Cloned} from '@/types/util';
 import {
   Badge,
@@ -68,8 +68,8 @@ type FilterProps = {
   priorities: Cloned<Priority>[];
   statuses: Cloned<Status>[];
   categories: Cloned<Category>[];
-  company?: Cloned<Company>;
-  clientPartner?: Cloned<ClientPartner>;
+  company?: Cloned<Company> | null;
+  clientPartner?: Cloned<ClientPartner> | null;
   fields: PortalAppConfig['ticketingFieldSet'];
 };
 

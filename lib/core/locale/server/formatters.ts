@@ -17,7 +17,7 @@ type NumberOpts = {
 };
 
 export async function formatNumber(
-  value?: string | number,
+  value?: string | number | null,
   {scale, currency, type, locale}: NumberOpts = {},
 ) {
   if (value === null || value === undefined) {

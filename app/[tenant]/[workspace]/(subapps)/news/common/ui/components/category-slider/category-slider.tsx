@@ -87,7 +87,7 @@ export const CategorySlider = ({
                 name,
                 slug,
               }: {
-                id: string | number;
+                id: string;
                 image: {id: string};
                 name: string;
                 slug: string;

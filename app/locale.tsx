@@ -19,7 +19,7 @@ export default function Locale({children}: {children: React.ReactNode}) {
 
   const {dir, lang} = useAppLang({locale});
 
-  const init = useCallback(async (locale?: string, tenant?: string) => {
+  const init = useCallback(async (locale?: string | null, tenant?: string) => {
     setLoading(l => l + 1);
     await l10n.init(locale);
     await i18n.load(l10n.getLocale(), tenant);

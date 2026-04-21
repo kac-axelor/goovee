@@ -1,9 +1,10 @@
 import {Suspense} from 'react';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ----//
 import type {Client} from '@/goovee/.generated/client';
 import {getSession} from '@/auth';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
 
@@ -36,7 +37,7 @@ async function HomePageNewsFeed({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user: any;
   client: Client;
 }) {
@@ -89,7 +90,7 @@ export async function Homepage({
   workspace,
   client,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
 }) {
   const session = await getSession();

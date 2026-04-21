@@ -24,7 +24,7 @@ export type TemplateProps<T = any, M = any> = {
   workspaceURI: string;
   websiteSlug: string;
   websitePageSlug?: string;
-  code?: string;
+  code?: string | null;
   mountType: MountType;
   canEditWiki?: boolean;
 };

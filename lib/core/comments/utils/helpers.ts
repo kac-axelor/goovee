@@ -1,6 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {SUBAPP_CODES} from '@/constants';
-import {PortalWorkspace} from '@/types';
+import type {Cloned} from '@/types/util';
+import {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import type {TrackObject} from '../types';
@@ -11,11 +12,11 @@ export const isCommentEnabled = ({
   workspace,
 }: {
   subapp: SUBAPP_CODES;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) => {
   const config: Partial<Record<SUBAPP_CODES, boolean>> = {
-    [SUBAPP_CODES.events]: workspace.config?.enableEventComment,
-    [SUBAPP_CODES.news]: workspace.config?.enableNewsComment,
+    [SUBAPP_CODES.events]: workspace.config?.enableEventComment ?? false,
+    [SUBAPP_CODES.news]: workspace.config?.enableNewsComment ?? false,
   };
 
   if (Object.keys(config).includes(subapp)) {

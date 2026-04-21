@@ -1,4 +1,5 @@
 import {getTranslation, t, tattr} from '@/locale/server';
+import type {Cloned} from '@/types/util';
 import {getSession} from '@/auth';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
@@ -12,7 +13,8 @@ import {
   isLoginNeededForRegistration,
 } from '@/subapps/events/common/utils';
 import {SUBAPP_CODES} from '@/constants';
-import {PortalWorkspace, Participant, User, Subapp} from '@/types';
+import {Participant, User} from '@/types';
+import {PortalWorkspace, Subapp} from '@/orm/workspace';
 import {ActionResponse} from '@/types/action';
 import {REQUIRED_FIELDS} from '../constants';
 import {EventConfig, findEventConfig} from '../orm/event';
@@ -115,7 +117,7 @@ export async function validateRegistration({
   workspaceURL: string;
   client: Client;
 }): ActionResponse<{
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   event: EventConfig;
   participants: Participant[];
   user?: User;

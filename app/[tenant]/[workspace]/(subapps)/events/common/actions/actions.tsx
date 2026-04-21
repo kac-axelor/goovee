@@ -18,7 +18,8 @@ import {DEFAULT_LOCALE} from '@/locale/contants';
 import {TENANT_HEADER} from '@/proxy';
 import {manager} from '@/tenant';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
-import {ID, PaymentOption, PortalWorkspace, User} from '@/types';
+import {ID, PaymentOption, User} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {ActionResponse} from '@/types/action';
 import {clone, scale} from '@/utils';
 import {zodParseFormData} from '@/utils/formdata';
@@ -446,7 +447,7 @@ export const createComment: CreateComment = async formData => {
     });
 
     if (parentComment?.partner?.id && parentComment.partner.id !== user.id) {
-      const userName = user.simpleFullName || user.name;
+      const userName = user.simpleFullName || user.name || '';
       const eventUrl = `${workspaceURI}/${SUBAPP_CODES.events}/${event.slug}`;
       const tr = getTranslation.bind(null, {
         locale: parentComment.partner.localization?.code || DEFAULT_LOCALE,

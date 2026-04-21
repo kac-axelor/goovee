@@ -9,7 +9,8 @@
     },
     {
       "type": "String",
-      "name": "url"
+      "name": "url",
+      "required": true
     },
     {
       "type": "String",

@@ -41,10 +41,11 @@ import {Button} from '@/ui/components/button';
 import {Checkbox} from '@/ui/components/checkbox';
 import {Input} from '@/ui/components/input';
 import {SEARCH_PARAMS} from '@/constants';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {subscribe} from '../../actions';
+import {WorkspaceForRegistration} from '@/orm/workspace';
 
 const formSchema = z
   .object({
@@ -88,7 +89,11 @@ const formSchema = z
     },
   );
 
-export default function SignUp({workspace}: {workspace?: PortalWorkspace}) {
+export default function SignUp({
+  workspace,
+}: {
+  workspace?: WorkspaceForRegistration;
+}) {
   const {data: session} = authClient.useSession();
   const user = session?.user;
 

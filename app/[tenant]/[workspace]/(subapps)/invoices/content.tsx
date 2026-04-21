@@ -1,10 +1,11 @@
 'use client';
 
 import React, {useMemo} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
-import {type PortalWorkspace} from '@/types';
+import {type PortalWorkspace} from '@/orm/workspace';
 import {Container, NavView, TableList, AlertToast} from '@/ui/components';
 import {i18n} from '@/locale';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
@@ -28,7 +29,7 @@ export default function Content({
 }: {
   invoices: [];
   pageInfo?: any;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   invoiceType: string;
 }) {
   const router = useRouter();
@@ -56,10 +57,11 @@ export default function Content({
   const canPayInvoice = config?.canPayInvoice;
   const paymentOptionSet = config?.paymentOptionSet;
 
-  const allowInvoicePayment =
+  const allowInvoicePayment = !!(
     allowOnlinePayment &&
     canPayInvoice !== INVOICE_PAYMENT_OPTIONS.NO &&
-    Boolean(paymentOptionSet?.length);
+    paymentOptionSet?.length
+  );
 
   const unpaidColumns = useMemo(
     () => UnpaidColumns(allowInvoicePayment),

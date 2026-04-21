@@ -19,7 +19,7 @@ import {
 import {findWorkspace} from '@/orm/workspace';
 import NotificationManager, {NotificationType} from '@/notification';
 import {SEARCH_PARAMS} from '@/constants';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {getPartnerId} from '@/utils';
 
 // ---- LOCAL IMPORTS ---- //

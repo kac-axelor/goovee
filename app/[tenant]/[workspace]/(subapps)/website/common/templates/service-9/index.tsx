@@ -33,9 +33,11 @@ export default function Service9(props: TemplateProps<Service9Data>) {
                     columnClass={item.columnClass}
                     cardColor={`bg-${item.cardColor}`}
                     Icon={
-                      <Icon
-                        className={`solid icon-svg-md text-${item.iconColor} mb-3`}
-                      />
+                      Icon ? (
+                        <Icon
+                          className={`solid icon-svg-md text-${item.iconColor} mb-3`}
+                        />
+                      ) : undefined
                     }
                   />
                 );

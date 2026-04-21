@@ -1,4 +1,5 @@
 import {ArrowRight} from 'lucide-react';
+import type {Cloned} from '@/types/util';
 import Link from 'next/link';
 import {Suspense} from 'react';
 import Image from 'next/image';
@@ -12,7 +13,8 @@ import {
 } from '@/constants';
 import {parseCommentContent} from '@/lib/core/comments';
 import {t} from '@/lib/core/locale/server';
-import {PortalWorkspace, User} from '@/types';
+import type {User, OverlayColor} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import type {Client} from '@/goovee/.generated/client';
 import {BigNewsCard} from '@/ui/components/big-news-card';
 import {Card, CardContent, CardHeader, CardTitle} from '@/ui/components/card';
@@ -43,7 +45,7 @@ export async function Home({
 }: {
   client: Client;
   user: User | undefined;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   workspaceURI: string;
   apps: any[];
 }) {
@@ -89,7 +91,8 @@ export async function Home({
           ))
         }
         background={
-          workspace.config?.homepageHeroOverlayColorSelect || 'default'
+          (workspace.config?.homepageHeroOverlayColorSelect ||
+            'default') as OverlayColor
         }
         blendMode={
           workspace.config?.homepageHeroOverlayColorSelect
@@ -195,7 +198,7 @@ async function LatestNews({
   user,
   workspaceURI,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user: User | undefined;
   workspaceURI: string;
@@ -251,7 +254,7 @@ async function EventsCard({
   user,
   workspaceURI,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user: User | undefined;
   workspaceURI: string;
@@ -316,7 +319,7 @@ async function ForumCard({
   user,
   workspaceURI,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user: User | undefined;
   workspaceURI: string;
@@ -395,7 +398,7 @@ async function ResourcesCard({
   user,
   workspaceURI,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user: User | undefined;
   workspaceURI: string;
@@ -470,7 +473,7 @@ async function HyperlinkCard({
   workspace,
   workspaceURI,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   workspaceURI: string;
 }) {
   const hyperlinkList = workspace?.config?.hyperlinkList;

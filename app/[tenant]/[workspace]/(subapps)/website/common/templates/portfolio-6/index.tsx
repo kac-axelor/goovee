@@ -21,12 +21,6 @@ export default function Portfolio6(props: TemplateProps<Portfolio6Data>) {
     portfolio6Image1Link,
     portfolio6Image2Link,
     portfolio6Image3Link,
-    portfolio6Image1Width,
-    portfolio6Image1Height,
-    portfolio6Image2Width,
-    portfolio6Image2Height,
-    portfolio6Image3Width,
-    portfolio6Image3Height,
     portfolio6WrapperClassName: wrapperClassName,
     portfolio6ContainerClassName: containerClassName,
   } = data || {};

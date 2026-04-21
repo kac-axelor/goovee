@@ -1,10 +1,11 @@
 // ---- CORE IMPORTS ---- //
 import {ORDER_BY} from '@/constants';
+import type {Cloned} from '@/types/util';
 import {SORT_TYPE} from '@/comments';
 import type {Client} from '@/goovee/.generated/client';
 import {ID, User} from '@/types';
 import {clone, getPageInfo, getSkipInfo} from '@/utils';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {filterPrivate} from '@/orm/filter';
 import {t} from '@/locale/server';
 
@@ -23,7 +24,7 @@ export async function findGroups({
   user,
   archived = false,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   memberGroupIDs?: any;
   client: Client;
   user?: User;

@@ -1,10 +1,13 @@
 // ---- CORE IMPORTS ---- //
 import {ORDER_BY} from '@/constants';
-import type {PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {Cloned} from '@/types/util';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {filterPrivate} from '@/orm/filter';
 import {and} from '@/utils/orm';
 import type {AOSPortalEventCategory} from '@/goovee/.generated/models';
 import type {Client} from '@/goovee/.generated/client';
+import {Category} from '../ui/components/events/types';
 
 export async function findEventCategories({
   workspace,
@@ -12,11 +15,11 @@ export async function findEventCategories({
   user,
   categoryId,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   categoryId?: string;
-}) {
+}): Promise<Category[]> {
   if (!workspace) return [];
 
   const eventCategories = await client.aOSPortalEventCategory.find({
@@ -50,9 +53,9 @@ export async function findEventCategory({
 }: {
   id: string;
   client: Client;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
-}) {
+}): Promise<Category | null> {
   if (!workspace) return null;
 
   const categories = await findEventCategories({

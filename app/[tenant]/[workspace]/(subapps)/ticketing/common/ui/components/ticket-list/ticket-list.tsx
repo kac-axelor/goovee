@@ -23,7 +23,7 @@ import {
   RemoveLinkButton,
   RemoveParentButton,
 } from './ticket-row-buttons';
-import type {PortalAppConfig} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 
 type TicketListProps = {
   tickets: Cloned<TicketListTicket>[];
@@ -107,7 +107,7 @@ export function ParentTicketList(props: {
   }, [fields]);
 
   const handleRowClick = useCallback(
-    (record: Cloned<TicketListTicket>) => {
+    (record: Cloned<ParentTicket>) => {
       record.project?.id &&
         router.push(
           `${workspaceURI}/ticketing/projects/${record.project.id}/tickets/${record.id}`,

@@ -1,26 +1,170 @@
 // ---- CORE IMPORTS ---- //
-import {ID, PortalWorkspace} from '@/types';
-import {BankTransferDetailsType} from '@/ui/components/payment/types';
-import type {PendingHubPispContext} from '@/lib/core/payment/hubpisp/orm';
+import type {Cloned} from '@/types/util';
+import {PortalWorkspace} from '@/orm/workspace';
 import type {PaymentUpdateStatus} from '@/lib/core/payment/sse';
+import {BankAccountType} from '@/lib/core/payment/stripe/types';
+import {HubPispLocalInstrument} from '@/lib/core/payment/hubpisp/constants';
+
+export type PaymentListItem = {
+  id: string;
+  version: number;
+  paymentDate: string | null;
+  amount: string | number | null | undefined;
+};
 
 export type Invoice = {
-  id: ID;
-  invoiceId: string;
-  invoiceDate: string;
-  inTaxTotal: string;
-  exTaxTotal: number | string;
-  taxTotal: string;
-  invoicePaymentList?: any[];
-  amountRemaining: {value: string; symbol: string; formattedValue: string};
-  currency: {
-    id: string | number;
+  id: string;
+  version: number;
+  invoiceId: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  exTaxTotal: string | number | null | undefined;
+  inTaxTotal: string | number | null | undefined;
+  amountRemaining: {
+    value: string | null;
     symbol: string;
+    formattedValue: string | number | null | undefined;
   };
+  taxTotal: string | number | null | undefined;
+  invoicePaymentList: PaymentListItem[];
   isUnpaid: boolean;
-  dueDate: string;
-  pendingStripeBankTransferIntents?: BankTransferDetailsType[];
-  pendingHubPispContexts?: PendingHubPispContext[];
+  pendingStripeBankTransferIntents: {
+    id: string;
+    totalAmount: number;
+    formattedTotalAmount: string;
+    amount: number;
+    currency: string;
+    reference: string;
+    formattedAmount: string;
+    bankDetails: {
+      type: BankAccountType;
+      accountHolderName?: string | undefined;
+      bankName?: string | undefined;
+      country?: string | undefined;
+      iban?: string | undefined;
+      swiftCode?: string | undefined;
+      routingNumber?: string | undefined;
+      accountNumber?: string | undefined;
+      accountType?: string | undefined;
+      bankAddress?:
+        | {
+            line1?: (string | null) | undefined;
+            line2?: (string | null) | undefined;
+            city?: (string | null) | undefined;
+            state?: (string | null) | undefined;
+            postal_code?: (string | null) | undefined;
+            country?: (string | null) | undefined;
+          }
+        | undefined;
+      accountHolderAddress?:
+        | {
+            line1?: (string | null) | undefined;
+            line2?: (string | null) | undefined;
+            city?: (string | null) | undefined;
+            state?: (string | null) | undefined;
+            postal_code?: (string | null) | undefined;
+            country?: (string | null) | undefined;
+          }
+        | undefined;
+    };
+    contextId: string;
+    initiatedDate: Date;
+  }[];
+  pendingHubPispContexts: {
+    contextId: string;
+    amount: string;
+    initiatedDate: Date;
+    localInstrument: HubPispLocalInstrument;
+    resourceId: string;
+  }[];
+  company: {
+    id: string;
+    version: number;
+    partner: {
+      id: string;
+      version: number;
+      fixedPhone: string | null;
+    } | null;
+    address: {
+      id: string;
+      version: number;
+      addressl2: string | null;
+      addressl4: string | null;
+      addressl6: string | null;
+      country: {
+        id: string;
+        version: number;
+        name: string | null;
+        alpha2Code: string | null;
+      } | null;
+      zip: string | null;
+    } | null;
+    name: string | null;
+  } | null;
+  note: string | null;
+  partner: {
+    id: string;
+    version: number;
+    name: string | null;
+    simpleFullName: string | null;
+    emailAddress: {
+      id: string;
+      version: number;
+      address: string | null;
+    } | null;
+    fixedPhone: string | null;
+    mainAddress: {
+      id: string;
+      version: number;
+      addressl2: string | null;
+      addressl4: string | null;
+      addressl6: string | null;
+      country: {
+        id: string;
+        version: number;
+        name: string | null;
+      } | null;
+      zip: string | null;
+    } | null;
+  } | null;
+  paymentCondition: {
+    id: string;
+    version: number;
+    name: string | null;
+  } | null;
+  currency: {
+    id: string;
+    version: number;
+    symbol: string | null;
+    code: string | null;
+    numberOfDecimals: number | null;
+  } | null;
+  portalTokenList:
+    | {
+        id: string;
+        version: number;
+        expiresOn: string | null;
+      }[]
+    | null;
+  address: {
+    id: string;
+    version: number;
+    addressl2: string | null;
+    addressl4: string | null;
+    addressl6: string | null;
+    country: {
+      id: string;
+      version: number;
+      name: string | null;
+      alpha2Code: string | null;
+    } | null;
+    zip: string | null;
+    city: {
+      id: string;
+      version: number;
+      name: string | null;
+    } | null;
+  } | null;
 };
 
 export type InvoiceProps = {
@@ -29,9 +173,9 @@ export type InvoiceProps = {
 };
 
 export type TotalProps = {
-  invoice: Invoice;
+  invoice: Cloned<Invoice>;
   isUnpaid?: boolean;
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
   invoiceType: string;
   workspaceURI: string;
   token?: string;

@@ -21,7 +21,7 @@ export function BigNewsCard({
   navigatingPathFrom: string;
   slug: string;
   image: {
-    id: string | number;
+    id: string;
     fileName?: string;
   } | null;
   workspaceURI: string;

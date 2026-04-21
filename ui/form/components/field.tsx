@@ -27,7 +27,7 @@ export const FieldComponent = ({
   renderItem,
 }: {
   item: FieldType;
-  form: UseFormReturn<Record<string, any>, any, undefined>;
+  form: UseFormReturn<Record<string, any>>;
   identifier: string;
   globalReadonly?: boolean;
   renderItem: (item: any, name: string) => React.JSX.Element;

@@ -11,10 +11,6 @@ import {extractCustomData} from '@/ui/form';
 import {isSameDay} from '@/utils/date';
 
 // ---- LOCAL IMPORTS ---- //
-import {
-  EVENT_TAB_ITEMS,
-  MY_REGISTRATION_TAB_ITEMS,
-} from '@/subapps/events/common/constants';
 import type {ListEvent} from '@/subapps/events/common/ui/components';
 import {endOfDay} from 'date-fns';
 
@@ -22,6 +18,7 @@ export const datesBetweenTwoDates = (data: ListEvent[]): Date[] => {
   const Dates: Date[] = [];
 
   data.forEach(event => {
+    if (!event.eventStartDateTime) return;
     const startDate = new Date(event.eventStartDateTime);
 
     if (event.eventAllDay) {
@@ -35,6 +32,7 @@ export const datesBetweenTwoDates = (data: ListEvent[]): Date[] => {
       return;
     }
 
+    if (!event.eventEndDateTime) return;
     const endDate = new Date(event.eventEndDateTime);
     for (
       let d = new Date(startDate);
@@ -151,38 +149,42 @@ export function getPartnerAddress(user: any): string {
 }
 
 export function getEventEndDate(event: {
-  eventStartDateTime?: Date | string;
-  eventEndDateTime?: Date | string;
-  eventAllDay?: boolean;
-}): string | Date | undefined {
+  eventStartDateTime: Date | string | null;
+  eventEndDateTime: Date | string | null;
+  eventAllDay: boolean | null;
+}): string | Date | null {
   const {eventStartDateTime, eventEndDateTime, eventAllDay} = event;
 
   if (eventAllDay) {
-    if (!eventStartDateTime) return;
-    return endOfDay(eventStartDateTime);
+    if (!eventStartDateTime) return null;
+    const startDate =
+      typeof eventStartDateTime === 'string'
+        ? new Date(eventStartDateTime)
+        : eventStartDateTime;
+    return endOfDay(startDate);
   }
   return eventEndDateTime;
 }
 
 export function isLoginNeededForRegistration(event: {
-  isPrivate?: boolean;
-  isLoginNotNeeded?: boolean;
+  isPrivate: boolean | null;
+  isLoginNotNeeded: boolean | null;
 }): boolean {
   return event.isPrivate || !event.isLoginNotNeeded;
 }
 
 export function isEventPublic(event: {
-  isPrivate?: boolean;
-  isPublic?: boolean;
-  isLoginNotNeeded?: boolean;
+  isPrivate: boolean | null;
+  isPublic: boolean | null;
+  isLoginNotNeeded: boolean | null;
 }): boolean {
   return !!(!event.isPrivate && event.isLoginNotNeeded && event.isPublic);
 }
 
 export function isEventPrivate(event: {
-  isPrivate?: boolean;
-  isPublic?: boolean;
-  isLoginNotNeeded?: boolean;
+  isPrivate: boolean | null;
+  isPublic: boolean | null;
+  isLoginNotNeeded: boolean | null;
 }): boolean {
   return !!event.isPrivate;
 }
@@ -200,7 +202,7 @@ export const getTabItems = (
 };
 
 export function hasRegistrationEnded(event: {
-  registrationDeadlineDateTime?: Date | string | null;
+  registrationDeadlineDateTime: Date | string | null;
 }): boolean {
   if (event.registrationDeadlineDateTime) {
     const endDate = new Date(event.registrationDeadlineDateTime);

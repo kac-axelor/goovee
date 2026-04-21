@@ -14,5 +14,5 @@ export interface Author {
 }
 export interface CommentSectionProps {
   eventId: string;
-  slug: string;
+  slug: string | null;
 }

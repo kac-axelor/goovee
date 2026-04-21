@@ -2,6 +2,8 @@
 
 // ---- CORE IMPORTS ---- //
 import {HeroSearch} from '@/ui/components';
+import type {OverlayColor} from '@/types';
+import type {Cloned} from '@/types/util';
 import {i18n} from '@/locale';
 import {
   BANNER_DESCRIPTION,
@@ -9,7 +11,7 @@ import {
   IMAGE_URL,
   SUBAPP_CODES,
 } from '@/constants';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import Search from './search';
@@ -18,7 +20,7 @@ export const Hero = ({
   workspace,
   workspaceURI,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   workspaceURI: string;
 }) => {
   const renderSearch = () => <Search workspace={workspace} />;
@@ -40,7 +42,8 @@ export const Hero = ({
         }
         image={imageURL}
         background={
-          workspace?.config?.resourcesHeroOverlayColorSelect || 'default'
+          (workspace?.config
+            ?.resourcesHeroOverlayColorSelect as OverlayColor) || 'default'
         }
         blendMode={
           workspace?.config?.resourcesHeroOverlayColorSelect

@@ -1,8 +1,10 @@
 // ---- CORE IMPORTS ---- //
 import type {Client} from '@/goovee/.generated/client';
+import type {Cloned} from '@/types/util';
 import {findEmailAddress, isAdminContact, isPartner} from '@/orm/partner';
 import {clone} from '@/utils';
-import type {Partner, PortalWorkspace} from '@/types';
+import type {Partner} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {InviteAppsConfig, Role} from '../types';
@@ -208,7 +210,7 @@ export async function createInvite({
   apps,
   partnerId,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   role: Role;
   email: string;

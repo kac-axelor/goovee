@@ -1,7 +1,9 @@
 // ---- CORE IMPORTS ---- //
 import type {Client} from '@/goovee/.generated/client';
+import type {Cloned} from '@/types/util';
 import {clone, getPageInfo, getSkipInfo} from '@/utils';
-import type {PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {ORDER_BY} from '@/constants';
 import {filterPrivate} from '@/orm/filter';
 
@@ -35,7 +37,7 @@ export async function findNonArchivedNewsCategories({
   user,
   client,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   client: Client;
 }) {
@@ -245,7 +247,7 @@ export async function findNewsImageBySlug({
   isFullView = false,
 }: {
   slug: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   archived?: boolean;
@@ -277,7 +279,7 @@ export async function findCategoryImageBySlug({
   user,
 }: {
   slug: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }): Promise<string | undefined> {
@@ -307,7 +309,7 @@ export async function isAttachmentOfNews({
 }: {
   slug: string;
   fileId: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }): Promise<boolean> {
@@ -338,7 +340,7 @@ export async function findCategories({
   category?: any;
   showAllCategories?: boolean;
   slug?: string | null;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   archived?: boolean;
@@ -397,7 +399,7 @@ export async function findCategoryTitleBySlugName({
   user,
 }: {
   slug: any;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   archived?: boolean;
   user?: User;
@@ -441,7 +443,7 @@ export async function findNewsByCategory({
   page?: string | number;
   limit?: number;
   slug?: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   params?: any;
@@ -500,7 +502,7 @@ export async function findHomePageHeaderNews({
   user,
   limit = HEADER_NEWS_LIMIT,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   limit?: number;
@@ -525,7 +527,7 @@ export async function findHomePageFeaturedNews({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }) {
@@ -549,7 +551,7 @@ export async function findHomePageAsideNews({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }) {
@@ -569,7 +571,7 @@ export async function findHomePageFooterNews({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }) {
@@ -590,7 +592,7 @@ export async function findCategoryPageHeaderNews({
   user,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug: string;
@@ -613,7 +615,7 @@ export async function findCategoryPageFeaturedNews({
   user,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug: string;
@@ -641,7 +643,7 @@ export async function findCategoryAsideNews({
   slug,
   page = DEFAULT_PAGE,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug: string;
@@ -672,7 +674,7 @@ export async function findCategoryFooterNews({
   slug,
   page = DEFAULT_PAGE,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug: string;
@@ -703,7 +705,7 @@ export async function findCategoryBottomFeedNews({
   slug,
   page = DEFAULT_PAGE,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug: string;
@@ -736,7 +738,7 @@ export async function findNewsCount({
   user,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug?: string;
@@ -754,7 +756,7 @@ export async function findNewsAttachments({
   user,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug?: string;
@@ -794,7 +796,7 @@ export async function findNewsRelatedNews({
   user,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug?: string;
@@ -877,7 +879,7 @@ export async function findNewsByCategoryCount({
   user,
   slug,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   slug?: string;

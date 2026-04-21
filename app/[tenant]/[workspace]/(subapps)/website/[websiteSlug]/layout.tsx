@@ -23,6 +23,7 @@ import {
 import {Template} from './client-wrapper';
 import {LanguageSelection} from './language-selection';
 import {TemplateRoot} from './template-root';
+import {Metadata} from 'next';
 
 export async function generateMetadata(props: {
   params: Promise<{
@@ -30,7 +31,7 @@ export async function generateMetadata(props: {
     workspace: string;
     websiteSlug: string;
   }>;
-}) {
+}): Promise<Metadata | null> {
   const params = await props.params;
   const {workspaceURL} = workspacePathname(params);
   const {tenant: tenantId, websiteSlug} = params;
@@ -112,7 +113,7 @@ export default async function Layout(props: {
     <Template
       menu={clone(website.menu)}
       workspaceURI={workspaceURI}
-      websiteSlug={websiteSlug}
+      websiteSlug={websiteSlug as string}
       code={website.menu.component.code}
       mountType={MOUNT_TYPE.MENU}
     />
@@ -132,7 +133,7 @@ export default async function Layout(props: {
             {website.header?.component && (
               <Template
                 workspaceURI={workspaceURI}
-                websiteSlug={websiteSlug}
+                websiteSlug={websiteSlug as string}
                 data={clone(website.header.attrs)}
                 code={website.header.component.code}
                 contentId={website.header.id}
@@ -146,7 +147,7 @@ export default async function Layout(props: {
         {website.footer?.component && (
           <Template
             workspaceURI={workspaceURI}
-            websiteSlug={websiteSlug}
+            websiteSlug={websiteSlug as string}
             data={clone(website.footer.attrs)}
             code={website.footer.component.code}
             contentId={website.footer.id}

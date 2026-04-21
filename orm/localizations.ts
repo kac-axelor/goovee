@@ -1,20 +1,18 @@
 import {DEFAULT_LOCALE} from '@/locale/contants';
 import {findLocaleLanguage, inverseTransformLocale} from '@/locale/utils';
 import type {Client} from '@/goovee/.generated/client';
-import {clone} from '@/utils';
 
 export async function findLocalizations({client}: {client: Client}) {
-  const localizations = await client.aOSLocalization
-    .find({
-      select: {
-        name: true,
-        code: true,
-      },
-      where: {
-        isAvailableOnPortal: true,
-      },
-    })
-    .then(clone);
+  const localizations = await client.aOSLocalization.find({
+    select: {
+      name: true,
+      code: true,
+      isAvailableOnPortal: true,
+    },
+    where: {
+      isAvailableOnPortal: true,
+    },
+  });
 
   return localizations;
 }

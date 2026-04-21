@@ -1,4 +1,4 @@
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import Link from 'next/link';
 import {notFound, redirect} from 'next/navigation';
 import {Suspense} from 'react';
@@ -24,7 +24,7 @@ import {encodeFilter, getLoginURL} from '@/utils/url';
 import {workspacePathname} from '@/utils/workspace';
 
 // ---- LOCAL IMPORTS ---- //
-import type {PortalAppConfig} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 import {createComment, fetchComments} from '../../../../common/actions';
 import {ALL_TICKETS_TITLE} from '../../../../common/constants';
 import {

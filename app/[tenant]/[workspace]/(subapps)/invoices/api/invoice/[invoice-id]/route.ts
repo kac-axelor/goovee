@@ -8,7 +8,7 @@ import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import {findLatestDMSFileByName, streamFile} from '@/utils/download';
 import {workspacePathname} from '@/utils/workspace';
 import {getWhereClauseForEntity} from '@/utils/filters';
-import {PartnerKey} from '@/types';
+import {PartnerKey, User} from '@/types';
 
 // ---- LOCAL IMPORTS ---- //
 import {findInvoice} from '@/subapps/invoices/common/orm/invoices';
@@ -35,7 +35,7 @@ export async function GET(
   const {client} = tenant;
 
   let invoicesWhereClause = {};
-  let user: any;
+  let user: User | undefined;
 
   if (!token) {
     const session = await getSession();

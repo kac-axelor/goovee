@@ -6,15 +6,12 @@ import {useSearchParams} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
 import {i18n} from '@/locale';
-import type {PortalWorkspace} from '@/types';
 import {Button} from '@/ui/components/button';
 import {Separator} from '@/ui/components/separator';
 
 export default function Navigation({
-  workspace,
   showGoogleOauth,
 }: {
-  workspace?: PortalWorkspace;
   showGoogleOauth?: boolean;
 }) {
   const searchParams = useSearchParams();

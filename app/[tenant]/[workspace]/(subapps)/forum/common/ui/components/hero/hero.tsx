@@ -1,5 +1,7 @@
 'use client';
 import {useCallback, useState} from 'react';
+import type {Cloned} from '@/types/util';
+import type {OverlayColor} from '@/types';
 
 // ---- CORE IMPORTS ---- //
 import {i18n} from '@/locale';
@@ -19,14 +21,14 @@ import {
 import {ForumGroup} from '@/subapps/forum/common/types/forum';
 import {SearchItem} from '@/subapps/forum/common/ui/components';
 import {fetchPosts} from '@/subapps/forum/common/action/action';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 export function Hero({
   selectedGroup,
   workspace,
 }: {
   selectedGroup: ForumGroup | null;
-  workspace: PortalWorkspace | null;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace> | null;
 }) {
   const [forceClose, setForceClose] = useState(false);
   const [_searchValue, setSearchValue] = useState<string>('');
@@ -121,7 +123,10 @@ export function Hero({
         selectedGroup?.image?.id &&
         `${workspaceURI}/${SUBAPP_CODES.forum}/api/group/${selectedGroup?.id}/image`
       }
-      background={workspace?.config?.forumHeroOverlayColorSelect || 'default'}
+      background={
+        (workspace?.config?.forumHeroOverlayColorSelect ||
+          'default') as OverlayColor
+      }
       blendMode={
         workspace?.config?.forumHeroOverlayColorSelect ? 'overlay' : 'normal'
       }

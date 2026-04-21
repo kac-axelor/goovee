@@ -1,4 +1,5 @@
 import {notFound} from 'next/navigation';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ----//
 import {getSession} from '@/auth';
@@ -28,7 +29,8 @@ import {
   EventTabs,
   EventTabsContent,
 } from '@/subapps/events/common/ui/components';
-import {PortalWorkspace, User} from '@/types';
+import {User} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {Card} from '@/ui/components';
 import {Suspense} from 'react';
 
@@ -129,7 +131,7 @@ async function Categories({
 }: {
   user?: User;
   client: Client;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   category: any[];
 }) {
   const categories: any = await findEventCategories({
@@ -157,7 +159,7 @@ async function EventList({
   category: any[];
   page: string | number;
   user?: User;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   type: string;
   query: string;

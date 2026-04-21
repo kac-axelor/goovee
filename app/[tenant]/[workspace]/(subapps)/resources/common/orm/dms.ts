@@ -1,6 +1,8 @@
 // ---- CORE IMPORTS ---- //
 import {clone} from '@/utils';
-import type {PortalWorkspace, User} from '@/types';
+import type {Cloned} from '@/types/util';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {filterPrivate} from '@/orm/filter';
 import type {Client} from '@/goovee/.generated/client';
 
@@ -16,7 +18,7 @@ export async function fetchFolders({
 }: {
   params?: any;
   client: Client;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   archived?: boolean;
 }) {
@@ -59,7 +61,7 @@ export async function fetchLatestFolders({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }) {
@@ -82,7 +84,7 @@ export async function fetchFiles({
   archived,
 }: {
   id: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   client: Client;
   archived?: boolean;
@@ -133,7 +135,7 @@ export async function fetchLatestFiles({
   archived,
   take = 10,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   archived?: boolean;
@@ -191,7 +193,7 @@ export async function fetchFile({
   archived,
 }: {
   id: string;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   client: Client;
   archived?: boolean;
@@ -251,7 +253,7 @@ export async function fetchExplorerCategories({
   client,
   archived,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: User;
   client: Client;
   archived?: boolean;

@@ -1,9 +1,9 @@
 'use client';
 import {i18n} from '@/locale';
-import type {PortalAppConfig} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 import type {Cloned} from '@/types/util';
 import {useToast} from '@/ui/hooks';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import type {
   Category,
   ContactPartner,

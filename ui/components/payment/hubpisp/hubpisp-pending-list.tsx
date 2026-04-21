@@ -3,6 +3,7 @@
 // ---- CORE IMPORTS ---- //
 import {i18n} from '@/lib/core/locale';
 import {formatDate} from '@/lib/core/locale/formatters';
+import type {Cloned} from '@/types/util';
 import {
   HUBPISP_LOCAL_INSTRUMENT,
   type HubPispLocalInstrument,
@@ -20,7 +21,7 @@ const BADGE_LABEL: Record<HubPispLocalInstrument, string> = {
 };
 
 type HubPispPendingListProps = {
-  pendingContexts: PendingHubPispContext[];
+  pendingContexts: Cloned<PendingHubPispContext>[];
 };
 
 export function HubPispPendingList({pendingContexts}: HubPispPendingListProps) {

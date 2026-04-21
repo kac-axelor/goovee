@@ -25,11 +25,22 @@ import {revalidatePath} from 'next/cache';
 import {getTranslation} from '../locale/server';
 import {UserType} from './types';
 import {type Tenant, type TenantConfig} from '../tenant';
-import type {Partner, PortalWorkspace} from '@/types';
+import type {Partner} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {hash} from './utils';
 import {getPublicEnvironment} from '../environment/utils';
 import {withMattermostSync} from '../mattermost/user-api';
 import type {Client} from '@/goovee/.generated/client';
+
+export function isRegisterInviteDTO(
+  value: Record<string, unknown>,
+): value is RegisterInviteDTO {
+  return (
+    'inviteId' in value &&
+    typeof value.inviteId === 'string' &&
+    value.inviteId !== ''
+  );
+}
 
 function error(message: string) {
   return {
@@ -164,7 +175,7 @@ export async function registerByInvite({
       localizationId: localization?.id,
     });
 
-    const uri = `${workspace.url.replace(process.env.GOOVEE_PUBLIC_HOST, '')}`;
+    const uri = `${workspace.url.replace(process.env.GOOVEE_PUBLIC_HOST!, '')}`;
 
     revalidatePath('/', 'layout');
 
@@ -281,7 +292,6 @@ export async function register({
       aosPartner = allowedPartner;
     }
   }
-  const isNewEmail = !aosPartner;
 
   const isAosContact = aosPartner?.isContact;
   const isAosPartner = !isAosContact;
@@ -303,7 +313,7 @@ export async function register({
   );
 
   if (registrationScope === ALLOW_AOS_ONLY_REGISTRATION) {
-    if (isNewEmail) {
+    if (!aosPartner) {
       return registrationError;
     } else if (isAosPartner) {
       if (!isAllowedToRegister) return registrationError;
@@ -349,7 +359,7 @@ export async function register({
     } else {
     }
   } else if (registrationScope === ALLOW_ALL_REGISTRATION) {
-    if (isNewEmail) {
+    if (!aosPartner) {
       /** Register */
     } else if (isAosPartner) {
       const existingAdminContact: any =
@@ -459,7 +469,7 @@ export async function register({
 }
 
 async function transformAosContactAsPartner(
-  id: Partner['id'],
+  id: string,
   client: Client,
   tenantId: Tenant['id'],
   locale?: string,

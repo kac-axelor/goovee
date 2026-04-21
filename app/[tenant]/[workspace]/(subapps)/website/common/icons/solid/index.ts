@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import {ComponentType} from 'react';
+import {ComponentType, SVGProps} from 'react';
 
 export const solidIcons = [
   'AI',
@@ -107,6 +107,14 @@ const iconMap: Record<string, ComponentType> = {
   User: dynamic(() => import('./User')),
 };
 
-export function getIcon(icon: string) {
-  return iconMap[icon];
+export function getIcon(
+  icon: string | undefined,
+): ComponentType<SVGProps<SVGSVGElement>> | undefined {
+  if (!icon) return undefined;
+  return (
+    iconMap as Record<
+      string,
+      ComponentType<SVGProps<SVGSVGElement>> | undefined
+    >
+  )[icon];
 }

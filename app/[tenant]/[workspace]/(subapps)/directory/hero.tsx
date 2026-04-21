@@ -1,5 +1,5 @@
 'use client';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import type {VariantProps} from 'class-variance-authority';
 
 // ---- CORE IMPORTS ---- //
@@ -18,10 +18,10 @@ export const Hero = ({
   background,
 }: {
   projectId?: ID;
-  title?: string;
-  description?: string;
-  image?: string;
-  background?: VariantProps<BannerVariants>['background'];
+  title?: string | null;
+  description?: string | null;
+  image?: string | null;
+  background?: VariantProps<BannerVariants>['background'] | null;
 }) => {
   const renderSearch = () => <Search />;
   return (

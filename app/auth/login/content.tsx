@@ -60,6 +60,13 @@ export default function Content({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!tenantId) {
+      toast({
+        title: i18n.t('TenantId is required'),
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const {email, password, rememberMe} = values;
 
@@ -92,6 +99,13 @@ export default function Content({
   };
 
   const loginWithGoogle = async () => {
+    if (!tenantId) {
+      toast({
+        title: i18n.t('TenantId is required'),
+        variant: 'destructive',
+      });
+      return;
+    }
     await authClient.signIn.social({
       provider: 'google',
       callbackURL: redirection,
@@ -103,6 +117,13 @@ export default function Content({
   };
 
   const loginWithKeycloak = async () => {
+    if (!tenantId) {
+      toast({
+        title: i18n.t('TenantId is required'),
+        variant: 'destructive',
+      });
+      return;
+    }
     await authClient.signIn.oauth2({
       providerId: 'keycloak',
       callbackURL: redirection,

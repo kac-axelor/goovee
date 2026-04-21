@@ -1,8 +1,6 @@
-import type {Tenant} from '@/tenant';
-import type {Theme} from '@/types/theme';
-import {BigDecimal} from '@goovee/orm';
+import type {PortalAppConfig} from '@/orm/workspace';
 
-export type ID = string | number;
+export type ID = string;
 export type Version = number;
 
 export type OverlayColor =
@@ -35,178 +33,23 @@ export interface Model {
 }
 
 export type User = {
-  id: ID;
-  name: string;
-  simpleFullName: string;
+  id: string;
+  name: string | null;
   email: string;
-  isContact?: boolean;
-  mainPartnerId?: string;
-  tenantId: Tenant['id'];
-  locale?: string;
+  isContact: boolean | null;
+  simpleFullName: string | null;
+  mainPartnerId: string | undefined;
+  tenantId: string | null | undefined;
+  locale: string | null | undefined;
+  image: string | null | undefined;
 };
-
-export interface PortalWorkspace extends Model {
-  name?: string;
-  url: string;
-  theme?: Theme;
-  config?: PortalAppConfig;
-  apps?: PortalApp[];
-  workspaceUser?: Model;
-  navigationSelect?: string;
-  workspacePermissionConfig?: {
-    id: ID;
-  };
-  logo: {
-    id: ID;
-  };
-}
-
-export interface PortalAppConfig extends Model {
-  name: string;
-  allowOnlinePaymentForEcommerce: boolean;
-  allowOnlinePaymentForInvoices: boolean;
-  byAToZ: boolean;
-  byZToA: boolean;
-  byFeature: boolean;
-  byLessExpensive: boolean;
-  byMostExpensive: boolean;
-  byNewest: boolean;
-  company: Company;
-  confirmOrder: boolean;
-  displayPrices: boolean;
-  displayTwoPrices: string;
-  mainPrice: string;
-  eSignature: boolean;
-  priceAfterLogin: string;
-  hidePriceForEmptyPricelist: boolean;
-  requestQuotation: boolean;
-  paymentOptionSet?: Array<{}>;
-  carouselList?: Array<{
-    id: ID;
-    title?: string;
-    subTitle?: string;
-    href?: string;
-    image?: {id: ID};
-    buttonLabel?: string;
-  }>;
-  canPayInvoice?: 'no' | 'total' | 'partial';
-  forumHeroTitle: string;
-  forumHeroDescription: string;
-  forumHeroBgImage: {
-    id: string;
-  };
-  forumHeroOverlayColorSelect: OverlayColor;
-  eventHeroTitle: string;
-  eventHeroDescription: string;
-  eventHeroOverlayColorSelect: OverlayColor;
-  eventHeroBgImage: {
-    id: string;
-  };
-  newsHeroTitle: string;
-  newsHeroDescription: string;
-  newsHeroOverlayColorSelect: OverlayColor;
-  newsHeroBgImage: {
-    id: string;
-  };
-  resourcesHeroTitle: string;
-  resourcesHeroDescription: string;
-  resourcesHeroOverlayColorSelect: OverlayColor;
-  resourcesHeroBgImage: {
-    id: string;
-  };
-  directoryHeroTitle: string;
-  directoryHeroDescription: string;
-  directoryHeroOverlayColorSelect: OverlayColor;
-  directoryHeroBgImage: {
-    id: string;
-  };
-  ticketHeroTitle: string;
-  ticketHeroDescription: string;
-  ticketHeroOverlayColorSelect: OverlayColor;
-  ticketHeroBgImage: {
-    id: string;
-  };
-  ticketStatusChangeMethod: string;
-  allowGuestEventRegistration?: boolean;
-  enableSocialMediaSharing?: boolean;
-  enableComment?: boolean;
-  enableNewsComment?: boolean;
-  enableEventComment?: boolean;
-  socialMediaSelect?: string;
-  noMoreStockSelect?: number;
-  outOfStockQty?: BigDecimal;
-  defaultStockLocation?: any;
-  nonPublicEmailNotFoundMessage?: string;
-  enableRecommendedNews?: boolean;
-  isShowAllTickets: boolean;
-  isShowMyTickets: boolean;
-  isShowManagedTicket: boolean;
-  isShowCreatedTicket: boolean;
-  isShowResolvedTicket: boolean;
-  ticketingFieldSet: {id: string; name: string}[];
-  ticketingFormFieldSet: {id: string; name: string}[];
-  isDisplayChildTicket: boolean;
-  isDisplayRelatedTicket: boolean;
-  isDisplayTicketParent: boolean;
-  isDisplayAssignmentBtn: boolean;
-  isDisplayCancelBtn: boolean;
-  isDisplayCloseBtn: boolean;
-  otpTemplateList: any[];
-  invitationTemplateList: any[];
-  canInviteMembers?: boolean;
-  isExistingContactsOnly?: boolean;
-  isShowPublicationAuthor: boolean;
-  isShowPublicationDate: boolean;
-  isShowPublicationTime: boolean;
-  isDisplayContact?: boolean;
-  contactName?: string;
-  contactEmailAddress?: {address?: string};
-  contactPhone?: string;
-  isCompanyOrAddressRequired?: boolean;
-  payInAdvance?: boolean;
-  advancePaymentPercentage?: BigDecimal;
-  isHomepageDisplay?: boolean;
-  isHomepageDisplayNews?: boolean;
-  isHomepageDisplayEvents?: boolean;
-  isHomepageDisplayMessage?: boolean;
-  isHomepageDisplayResources?: boolean;
-  isHomepageDisplayHyperlinks?: boolean;
-  hyperlinkList?: Array<{
-    id: ID;
-    link?: string;
-    logo?: {id: ID};
-  }>;
-  homepageHeroTitle?: string;
-  homepageHeroDescription?: string;
-  homepageHeroOverlayColorSelect?: OverlayColor;
-  homepageHeroBgImage?: {id: string};
-  isFixedHeader?: boolean;
-  chatDisplayTypeSelect?: number;
-  termsOfUseAcceptanceText?: string;
-}
-
-export interface PortalApp extends Model {
-  name: string;
-  code: string;
-  isInstalled: boolean;
-  orderForMySpaceMenu: number;
-  orderForTopMenu: number;
-  showInMySpace: boolean;
-  showInTopMenu: boolean;
-}
-
-export interface Subapp extends PortalApp {
-  isContactAdmin: boolean;
-  role?: 'restricted' | 'total';
-}
-
 export interface Product extends Model {
   name: string;
   code: string;
   slug: string;
   description?: string;
   thumbnailImage?: {id: string};
-  images?: Array<string | number>;
+  images?: Array<string>;
   salePrice: number;
   costPrice: number;
   featured?: number;
@@ -375,16 +218,16 @@ export enum PartnerKey {
 export interface MainWebsite extends Model {}
 
 export interface Website extends Model {
-  slug: string;
+  slug: string | null;
 }
 
 export interface WebsitePage extends Model {
-  slug: string;
+  slug: string | null;
 }
 
 export interface WebsiteComponent extends Model {
-  title?: string;
-  code?: string;
+  title?: string | null;
+  code?: string | null;
 }
 
 export type PageInfo = {

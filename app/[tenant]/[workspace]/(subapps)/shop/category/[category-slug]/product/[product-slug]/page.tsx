@@ -22,6 +22,7 @@ import {
   PRODUCT_ATTRS,
 } from '@/subapps/shop/common/constants';
 import {transformMetaFields} from '@/subapps/shop/common/utils/meta-field-value';
+import {Metadata} from 'next';
 
 export async function generateMetadata(props: {
   params: Promise<{
@@ -30,7 +31,7 @@ export async function generateMetadata(props: {
     'category-slug': string;
     'product-slug': string;
   }>;
-}) {
+}): Promise<Metadata | null> {
   const params = await props.params;
   const {workspaceURL, tenant: tenantId} = workspacePathname(params);
 

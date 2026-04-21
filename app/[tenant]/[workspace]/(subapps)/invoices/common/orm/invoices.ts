@@ -9,15 +9,20 @@ import {
 } from '@/constants';
 import {clone, getPageInfo, getSkipInfo} from '@/utils';
 import {formatNumber} from '@/locale/server/formatters';
-import type {Partner, PortalWorkspace} from '@/types';
+import type {Partner} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {buildPendingStripeBankTransferIntents} from '@/lib/core/payment/stripe/service';
 import {findPendingHubPispPayments} from '@/lib/core/payment/hubpisp/orm';
 import {findPendingStripeBankTransfers} from '@/lib/core/payment/stripe/orm';
 
 // ---- LOCAL IMPORTS ---- //
-import type {Invoice} from '@/subapps/invoices/common/types/invoices';
+import type {
+  Invoice,
+  PaymentListItem,
+} from '@/subapps/invoices/common/types/invoices';
 import {INVOICE} from '@/subapps/invoices/common/constants/invoices';
 import {buildWhereClause} from '@/subapps/invoices/common/utils/invoices';
+import {ExpandRecursively} from '@/types/util';
 
 export const findInvoices = async ({
   params = {},
@@ -73,8 +78,8 @@ export const findInvoices = async ({
 
   for (const invoice of $invoices) {
     const {currency, exTaxTotal, inTaxTotal, amountRemaining} = invoice;
-    const currencySymbol = currency.symbol || DEFAULT_CURRENCY_SYMBOL;
-    const scale = currency.numberOfDecimals || DEFAULT_CURRENCY_SCALE;
+    const currencySymbol = currency?.symbol || DEFAULT_CURRENCY_SYMBOL;
+    const scale = currency?.numberOfDecimals || DEFAULT_CURRENCY_SCALE;
     const isUnpaid = Number(amountRemaining) !== 0;
 
     const $invoice = {
@@ -124,7 +129,7 @@ export const findInvoice = async ({
   };
   client: Client;
   workspaceURL: PortalWorkspace['url'];
-}) => {
+}): Promise<Invoice | null> => {
   if (!workspaceURL) return null;
 
   const whereClause = buildWhereClause({params, workspaceURL, type});
@@ -240,11 +245,11 @@ export const findInvoice = async ({
     invoicePaymentList,
   } = invoice;
 
-  const currencySymbol = currency.symbol || DEFAULT_CURRENCY_SYMBOL;
-  const scale = currency.numberOfDecimals || DEFAULT_CURRENCY_SCALE;
-  const currencyCode = currency.code || DEFAULT_CURRENCY_CODE;
+  const currencySymbol = currency?.symbol || DEFAULT_CURRENCY_SYMBOL;
+  const scale = currency?.numberOfDecimals || DEFAULT_CURRENCY_SCALE;
+  const currencyCode = currency?.code || DEFAULT_CURRENCY_CODE;
 
-  const $invoicePaymentList: any = [];
+  const $invoicePaymentList: PaymentListItem[] = [];
   for (const list of invoicePaymentList || []) {
     const line = {
       ...list,

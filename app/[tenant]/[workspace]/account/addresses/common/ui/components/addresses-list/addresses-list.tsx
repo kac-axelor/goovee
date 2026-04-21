@@ -24,18 +24,14 @@ export const AddressesList = ({
   onDefault,
 }: {
   isFromQuotation?: boolean;
-  currentAddress?: {id: string | number} | null;
-  addresses: {id: string | number; isDefaultAddr?: boolean; address: any}[];
+  currentAddress?: {id: string} | null;
+  addresses: {id: string; isDefaultAddr?: boolean; address: any}[];
   type: ADDRESS_TYPE;
   onCreate: (type: ADDRESS_TYPE) => void;
-  onEdit: (type: ADDRESS_TYPE, id: string | number) => void;
+  onEdit: (type: ADDRESS_TYPE, id: string) => void;
   onSelect?: (type: ADDRESS_TYPE, address: any) => void;
-  onDelete: (id: string | number) => void;
-  onDefault?: (
-    type: ADDRESS_TYPE,
-    id: string | number,
-    isDefault?: boolean,
-  ) => void;
+  onDelete: (id: string) => void;
+  onDefault?: (type: ADDRESS_TYPE, id: string, isDefault?: boolean) => void;
 }) => {
   return (
     <div className="flex flex-col gap-4">

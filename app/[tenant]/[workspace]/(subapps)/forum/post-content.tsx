@@ -1,7 +1,9 @@
 // ---- CORE IMPORTS ---- //
 import type {Client} from '@/goovee/.generated/client';
+import type {Cloned} from '@/types/util';
 import {DEFAULT_LIMIT} from '@/constants';
-import {PortalWorkspace, User} from '@/types';
+import {User} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';
 
 // ---- LOCAL IMPORTS ---- //
@@ -17,7 +19,7 @@ export async function PostsContent({
   client,
 }: {
   searchParams: {[key: string]: string | undefined};
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   groupIDs: any[];
   memberGroupIDs: string[];
   user: User;

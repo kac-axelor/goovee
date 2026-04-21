@@ -59,7 +59,7 @@ async function Quotation({params: paramsProm}: PageProps) {
     client,
   });
 
-  const {role, isContactAdmin} = app;
+  const {role, isContactAdmin} = app ?? {};
 
   const where = getWhereClauseForEntity({
     user: user as User,

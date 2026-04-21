@@ -327,7 +327,7 @@ async function upload({
     });
 
     return {
-      id: Number(metaFile.id),
+      id: String(metaFile.id),
       description: metaFile.description,
     };
   };

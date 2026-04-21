@@ -1,19 +1,13 @@
 // ---- CORE IMPORTS ---- //
+import {ALLOW_ALL_REGISTRATION, ALLOW_AOS_ONLY_REGISTRATION} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
-import {
-  AOSPortalAppConfig,
-  AOSPortalWorkspace,
-} from '@/goovee/.generated/models';
-import {ID, Partner, PortalAppConfig, PortalWorkspace, User} from '@/types';
+import {AOSPortalAppConfig} from '@/goovee/.generated/models';
+import {ID, Partner, User} from '@/types';
+import {Cloned} from '@/types/util';
 import {clone, getPartnerId} from '@/utils';
-import {SelectOptions} from '@goovee/orm';
-import {
-  ALLOW_ALL_REGISTRATION,
-  ALLOW_AOS_ONLY_REGISTRATION,
-  SUBAPP_CODES,
-} from '@/constants';
+import {Payload, SelectOptions} from '@goovee/orm';
 
-export const portalAppConfigFields: SelectOptions<AOSPortalAppConfig> = {
+export const portalAppConfigFields = {
   name: true,
   company: {
     id: true,
@@ -153,7 +147,29 @@ export const portalAppConfigFields: SelectOptions<AOSPortalAppConfig> = {
   isFixedHeader: true,
   chatDisplayTypeSelect: true,
   termsOfUseAcceptanceText: true,
+} as const satisfies SelectOptions<AOSPortalAppConfig>;
+
+export type PortalAppConfig = Payload<
+  AOSPortalAppConfig,
+  {select: typeof portalAppConfigFields}
+>;
+
+export type App = {
+  id: string;
+  version: number;
+  name: string | null;
+  code: string | null;
+  color: string | null;
+  background: string | null;
+  icon: string | null;
+  isInstalled: boolean | null;
+  orderForMySpaceMenu: number | null;
+  orderForTopMenu: number | null;
+  showInMySpace: boolean | null;
+  showInTopMenu: boolean | null;
 };
+
+export type AppWithRole = App & {role: string | null};
 
 export async function findWorkspaceMembers({
   url,
@@ -240,8 +256,8 @@ export async function findWorkspaceMembers({
         },
       },
     })
-    .then((contacts: any) =>
-      contacts?.map((c: any) => ({
+    .then(contacts =>
+      contacts?.map(c => ({
         ...c,
         contactWorkspaceConfig: c?.contactWorkspaceConfigSet?.[0],
       })),
@@ -253,6 +269,13 @@ export async function findWorkspaceMembers({
   };
 }
 
+export type ContactWorkspaceConfig = {
+  apps: AppWithRole[] | undefined;
+  id: string;
+  version: number;
+  isAdmin: boolean | null;
+};
+
 export async function findContactWorkspaceConfig({
   url,
   partnerId,
@@ -263,7 +286,7 @@ export async function findContactWorkspaceConfig({
   partnerId: Partner['id'];
   contactId: ID;
   client: Client;
-}) {
+}): Promise<ContactWorkspaceConfig | null> {
   if (!(url && contactId && partnerId)) return null;
 
   const contact = await client.aOSPartner.findOne({
@@ -304,18 +327,29 @@ export async function findContactWorkspaceConfig({
     },
   });
 
-  const contactWorkpace: any = contact?.contactWorkspaceConfigSet?.[0];
+  const contactWorkpace = contact?.contactWorkspaceConfigSet?.[0];
+  if (!contactWorkpace) return null;
 
-  const apps = contactWorkpace?.contactAppPermissionList?.map((w: any) => ({
-    ...w.app,
-    role: w.roleSelect,
-  }));
+  const apps = contactWorkpace.contactAppPermissionList
+    ?.filter(w => w.app)
+    ?.map(w => ({
+      ...w.app!,
+      role: w.roleSelect,
+    }));
 
   return {
-    ...contactWorkpace,
+    id: contactWorkpace.id,
+    version: contactWorkpace.version,
+    isAdmin: contactWorkpace.isAdmin,
     apps,
   };
 }
+
+type IntermediateWorkspaceConfig = Promise<{
+  config: PortalAppConfig;
+  apps: App[] | null;
+  workspacePermissionConfig: {id: string};
+} | null>;
 
 export async function findPartnerWorkspaceConfig({
   url,
@@ -325,10 +359,10 @@ export async function findPartnerWorkspaceConfig({
   url: string;
   partnerId?: ID;
   client: Client;
-}) {
+}): IntermediateWorkspaceConfig {
   if (!(url && partnerId)) return null;
 
-  const res: any = await client.aOSPartner.findOne({
+  const res = await client.aOSPartner.findOne({
     where: {
       id: partnerId,
     },
@@ -368,8 +402,11 @@ export async function findPartnerWorkspaceConfig({
 
   if (!partnerWorkspaceConfig) return null;
 
+  const portalAppConfig = partnerWorkspaceConfig?.portalAppConfig;
+  if (!portalAppConfig) return null;
+
   return {
-    config: partnerWorkspaceConfig?.portalAppConfig,
+    config: portalAppConfig,
     apps: partnerWorkspaceConfig?.apps,
     workspacePermissionConfig: {id: partnerWorkspaceConfig.id},
   };
@@ -384,7 +421,7 @@ export async function findDefaultPartnerWorkspaceConfig({
 }) {
   if (!url) return null;
 
-  const workspace: any = await client.aOSPortalWorkspace.findOne({
+  const workspace = await client.aOSPortalWorkspace.findOne({
     where: {
       url: {
         like: url,
@@ -423,7 +460,7 @@ export async function findDefaultPartnerWorkspace({
 }) {
   if (!partnerId) return null;
 
-  const res: any = await client.aOSPartner.findOne({
+  const res = await client.aOSPartner.findOne({
     where: {
       id: partnerId,
     },
@@ -445,10 +482,10 @@ export async function findDefaultGuestWorkspaceConfig({
 }: {
   url: string;
   client: Client;
-}) {
+}): IntermediateWorkspaceConfig {
   if (!url) return null;
 
-  const workspace: any = await client.aOSPortalWorkspace.findOne({
+  const workspace = await client.aOSPortalWorkspace.findOne({
     where: {
       url: {
         like: url,
@@ -478,13 +515,36 @@ export async function findDefaultGuestWorkspaceConfig({
   const defaultGuestWorkspaceConfig = workspace?.defaultGuestWorkspace;
 
   if (!defaultGuestWorkspaceConfig) return null;
+  const portalAppConfig = defaultGuestWorkspaceConfig?.portalAppConfig;
+  if (!portalAppConfig) return null;
 
   return {
-    config: defaultGuestWorkspaceConfig?.portalAppConfig,
-    apps: defaultGuestWorkspaceConfig?.apps,
-    workspacePermissionConfig: {id: workspace?.defaultGuestWorkspace?.id},
+    config: portalAppConfig,
+    apps: defaultGuestWorkspaceConfig.apps,
+    workspacePermissionConfig: {id: defaultGuestWorkspaceConfig.id},
   };
 }
+
+export type PortalWorkspace = {
+  id: string;
+  name: string | null;
+  version: number;
+  workspaceUser: {id: string; version: number} | null;
+  theme: {
+    id: string;
+    version: number;
+    name: string | null;
+    css: string | null;
+  } | null;
+  url: string;
+  logo: {id: string; version: number} | null;
+  navigationSelect: string;
+  config: PortalAppConfig;
+  apps: App[];
+  workspacePermissionConfig: {
+    id: string;
+  };
+};
 
 export async function findWorkspace({
   url = '',
@@ -517,47 +577,35 @@ export async function findWorkspace({
 
   if (!workspace) return null;
 
-  let workspaceConfig;
+  let workspaceConfig: {
+    config: PortalAppConfig;
+    apps: App[] | null;
+    workspacePermissionConfig: {id: string};
+  } | null;
 
   if (user) {
     const partnerId = getPartnerId(user);
 
-    const partnerWorkspaceConfig = await findPartnerWorkspaceConfig({
+    workspaceConfig = await findPartnerWorkspaceConfig({
       partnerId,
       url,
       client,
     });
-
-    if (partnerWorkspaceConfig?.config) {
-      workspaceConfig = partnerWorkspaceConfig;
-    }
   } else {
-    const defaultGuestWorkspaceConfig = await findDefaultGuestWorkspaceConfig({
+    workspaceConfig = await findDefaultGuestWorkspaceConfig({
       url,
       client,
     });
-
-    if (defaultGuestWorkspaceConfig?.config) {
-      workspaceConfig = defaultGuestWorkspaceConfig;
-    }
   }
 
-  const workspacePermissionConfig = workspaceConfig?.workspacePermissionConfig;
-  let config = workspaceConfig?.config;
-  let apps: any[] = workspaceConfig?.apps;
-
-  if (!config) {
-    config = null;
-  }
-
-  apps = apps || [];
+  if (!workspaceConfig) return null;
 
   const {
     id,
     name,
     version,
     defaultTheme: theme,
-    navigationSelect = 'leftSide',
+    navigationSelect,
     user: workspaceUser,
     workspaceLogo: logo,
   } = workspace;
@@ -569,11 +617,11 @@ export async function findWorkspace({
     workspaceUser,
     theme,
     url,
-    config,
-    apps,
-    navigationSelect,
-    workspacePermissionConfig,
     logo,
+    navigationSelect: navigationSelect || 'leftSide',
+    config: workspaceConfig.config,
+    apps: workspaceConfig.apps || [],
+    workspacePermissionConfig: workspaceConfig.workspacePermissionConfig,
   };
 }
 
@@ -612,7 +660,7 @@ export async function findOpenWorkspaces({
           },
         },
       },
-      orderBy: {updatedOn: 'DESC'} as any,
+      orderBy: {updatedOn: 'DESC'},
     })
     .then(workspaces => {
       return (workspaces || [])?.filter(
@@ -634,7 +682,7 @@ export async function findPartnerWorkspaces({
 }) {
   if (!partnerId) return [];
 
-  const res: any = await client.aOSPartner
+  const res = await client.aOSPartner
     .findOne({
       where: {
         id: partnerId,
@@ -670,8 +718,8 @@ export async function findPartnerWorkspaces({
   }
 
   return res?.partnerWorkspaceSet
-    .map((item: any) => item.workspace)
-    .filter(Boolean);
+    .map(item => item.workspace)
+    .filter((x): x is NonNullable<typeof x> => x != null);
 }
 
 export async function findContactWorkspaces({
@@ -695,7 +743,7 @@ export async function findContactWorkspaces({
 
   if (!partnerWorkspaces?.length) return [];
 
-  const res: any = await client.aOSPartner
+  const res = await client.aOSPartner
     .findOne({
       where: {
         id: contactId,
@@ -733,14 +781,16 @@ export async function findContactWorkspaces({
     return [];
   }
 
-  const partnerWorkspaceAccess = (workspace: any) => {
-    return partnerWorkspaces.some((w: any) => w.id === workspace?.id);
+  const partnerWorkspaceAccess = <T extends Record<string, unknown> | null>(
+    workspace: T,
+  ) => {
+    return partnerWorkspaces?.some(w => w?.id === workspace?.id);
   };
 
   return res?.contactWorkspaceConfigSet
-    .map((item: any) => item.portalWorkspace)
+    .map(item => item.portalWorkspace)
     .filter(partnerWorkspaceAccess)
-    .filter(Boolean);
+    .filter((x): x is NonNullable<typeof x> => x != null);
 }
 
 export async function findWorkspaceByURL({
@@ -768,13 +818,16 @@ export async function findWorkspaceByURL({
   });
 }
 
+export type WorkspaceForRegistration = Awaited<
+  ReturnType<typeof findWorkspaceForRegistration>
+>;
 export async function findWorkspaceForRegistration({
   url,
   client,
 }: {
   url: PortalWorkspace['url'];
   client: Client;
-}): Promise<(AOSPortalWorkspace & {config?: PortalAppConfig}) | null> {
+}) {
   if (!url) {
     return null;
   }
@@ -888,6 +941,23 @@ export async function findWorkspaces({
   return [];
 }
 
+export type Subapp = {
+  id: string;
+  version: number;
+  name: string | null;
+  code: string | null;
+  color: string | null;
+  background: string | null;
+  icon: string | null;
+  isInstalled: boolean | null;
+  orderForMySpaceMenu: number | null;
+  orderForTopMenu: number | null;
+  showInMySpace: boolean | null;
+  showInTopMenu: boolean | null;
+  role?: 'restricted' | 'total';
+  isContactAdmin?: boolean;
+};
+
 export async function findWorkspaceApps({
   url,
   user,
@@ -896,7 +966,7 @@ export async function findWorkspaceApps({
   url?: string;
   user?: User;
   client: Client;
-}) {
+}): Promise<Subapp[]> {
   const workspace = await findWorkspace({url, user, client});
 
   const apps = workspace?.apps;
@@ -916,16 +986,15 @@ export async function findWorkspaceApps({
     client,
   });
 
-  if (contactWorkpaceConfig.isAdmin) {
+  if (contactWorkpaceConfig?.isAdmin) {
     return apps.map(app => ({...app, isContactAdmin: true}));
   }
 
-  const available = (app: any) =>
-    apps.some(a => a.code === app.code && a.isInstalled);
+  const contactApps = (contactWorkpaceConfig?.apps || []).filter(app =>
+    apps.some(a => a.code === app.code && a.isInstalled),
+  );
 
-  const contactApps = (contactWorkpaceConfig?.apps || []).filter(available);
-
-  return contactApps;
+  return contactApps as Subapp[];
 }
 
 export async function findSubapps({
@@ -936,7 +1005,7 @@ export async function findSubapps({
   url: string;
   user?: User;
   client: Client;
-}) {
+}): Promise<Subapp[]> {
   const apps = await findWorkspaceApps({
     url,
     user,
@@ -956,10 +1025,10 @@ export async function findSubapp({
   url: string;
   user?: User;
   client: Client;
-}) {
+}): Promise<Subapp | undefined> {
   const subapps = await findSubapps({url, user, client});
 
-  return subapps.find((app: any) => app.code === code);
+  return subapps.find(app => app.code === code);
 }
 
 export async function findSubappAccess({
@@ -972,7 +1041,7 @@ export async function findSubappAccess({
   user: any;
   url: string;
   client: Client;
-}) {
+}): Promise<Subapp | null> {
   if (!(code && url)) return null;
 
   const subapp = await findSubapp({code, url, user, client});

@@ -1,6 +1,7 @@
 'use client';
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import type {Cloned} from '@/types/util';
 import Link from 'next/link';
 import {usePathname, useRouter} from 'next/navigation';
 import {authClient} from '@/lib/auth-client';
@@ -30,7 +31,8 @@ import {getProductImageURL} from '@/utils/files';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {i18n} from '@/locale';
 import {SEARCH_PARAMS} from '@/constants';
-import type {Cart, Product, PortalWorkspace, ComputedProduct} from '@/types';
+import type {Cart, Product, ComputedProduct} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {findProduct} from '@/app/[tenant]/[workspace]/(subapps)/shop/common/actions/cart';
@@ -185,7 +187,7 @@ function CartItems({
   cart: Cart;
   disabled?: boolean;
   onRemove: (product: Product) => Promise<void>;
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const handleRemove =
     (product: Product) => (event: React.MouseEvent<HTMLElement>) => {
@@ -218,7 +220,7 @@ function CartSummary({
   onRequestQuotation: any;
   hideRequestQuotation?: boolean;
   hideCheckout?: boolean;
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -299,7 +301,7 @@ export default function Content({
   workspace,
   tenant,
 }: {
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
   tenant: string;
 }) {
   const {data: session} = authClient.useSession();

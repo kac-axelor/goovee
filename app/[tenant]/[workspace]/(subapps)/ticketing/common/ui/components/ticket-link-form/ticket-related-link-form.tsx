@@ -16,7 +16,7 @@ import {
   FormItem,
   FormMessage,
 } from '@/ui/components/form';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {useMemo, useRef} from 'react';
 import {useForm} from 'react-hook-form';

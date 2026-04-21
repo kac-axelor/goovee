@@ -25,6 +25,7 @@ import {HubPispPendingList} from '@/ui/components/payment/hubpisp';
 import {cn} from '@/utils/css';
 import {useToast} from '@/ui/hooks/';
 import type {BankTransferDetailsType} from '@/ui/components/payment/types';
+import type {Cloned} from '@/types/util';
 
 // ---- LOCAL IMPORTS ---- //
 import {TotalProps} from '@/subapps/invoices/common/types/invoices';
@@ -96,7 +97,7 @@ export function Total({
       .refine(val => parseFloat(val) <= remainingAmountValue, {
         message: i18n.t(
           `Amount cannot exceed {0}`,
-          amountRemaining?.formattedValue,
+          String(amountRemaining?.formattedValue ?? ''),
         ),
       }),
   });
@@ -134,7 +135,7 @@ export function Total({
   };
 
   const handleStripeIntentCancellation = async (
-    transfer: BankTransferDetailsType,
+    transfer: Cloned<BankTransferDetailsType>,
   ): Promise<void> => {
     const {id, contextId} = transfer;
     try {
@@ -280,7 +281,7 @@ export function Total({
                   : `${i18n.t('Pay partially')}: ${formatNumber(
                       currentAmount || 0,
                       {
-                        currency: currency.symbol,
+                        currency: currency?.symbol,
                         type: 'DECIMAL',
                       },
                     )}`}

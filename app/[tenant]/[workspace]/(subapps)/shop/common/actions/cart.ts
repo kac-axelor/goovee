@@ -1,6 +1,7 @@
 'use server';
 
 import axios from 'axios';
+import type {Cloned} from '@/types/util';
 import {headers} from 'next/headers';
 
 // ---- CORE IMPORTS ---- //
@@ -9,7 +10,8 @@ import {clone} from '@/utils';
 import {computeTotal} from '@/utils/cart';
 import {TENANT_HEADER} from '@/proxy';
 import {manager} from '@/tenant';
-import type {PortalWorkspace, Product} from '@/types';
+import type {Product} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {MAIN_PRICE} from '@/constants';
 
 // ---- LOCAL IMPORTS ---- //
@@ -24,7 +26,7 @@ export async function findProduct({
   workspace,
 }: {
   id: Product['id'];
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const tenantId = (await headers()).get(TENANT_HEADER);
 
@@ -67,7 +69,7 @@ export async function requestQuotation({
   workspace,
 }: {
   cart: any;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   return requestOrder({
     cart,
@@ -82,7 +84,7 @@ async function requestOrder({
   type = 'order',
 }: {
   cart: any;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   type?: 'quotation' | 'order';
 }) {
   const tenantId = (await headers()).get(TENANT_HEADER);

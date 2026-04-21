@@ -1,6 +1,7 @@
 'use client';
 
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import type {Cloned} from '@/types/util';
 import {authClient} from '@/lib/auth-client';
 import {useRouter} from 'next/navigation';
 
@@ -25,7 +26,7 @@ import {computeTotal} from '@/utils/cart';
 import {getProductImageURL} from '@/utils/files';
 import {i18n} from '@/locale';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
-import {type PortalWorkspace} from '@/types';
+import {type PortalWorkspace} from '@/orm/workspace';
 import {formatNumber} from '@/locale/formatters';
 import {calculateAdvanceAmount} from '@/utils/payment';
 
@@ -228,7 +229,7 @@ export default function Content({
   orderSubapp,
   tenant,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   orderSubapp?: any;
   tenant: string;
 }) {

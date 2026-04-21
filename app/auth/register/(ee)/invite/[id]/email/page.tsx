@@ -62,7 +62,7 @@ export default async function Page(props: {
           </div>
         </div>
       );
-    } else {
+    } else if (invite.workspace) {
       return (
         <Subscribe workspaceURL={invite.workspace.url} inviteId={invite.id} />
       );

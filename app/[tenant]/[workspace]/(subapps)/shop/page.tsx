@@ -1,4 +1,5 @@
 import {Suspense} from 'react';
+import type {Cloned} from '@/types/util';
 import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
@@ -8,7 +9,8 @@ import {workspacePathname} from '@/utils/workspace';
 import {findWorkspace} from '@/orm/workspace';
 import {manager} from '@/tenant';
 import type {Client} from '@/goovee/.generated/client';
-import type {PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {findProducts} from '@/app/[tenant]/[workspace]/(subapps)/shop/common/orm/product';
@@ -35,7 +37,7 @@ async function Categories({
 }: {
   client: Client;
   user: User | undefined;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const categories = await findCategories({
     workspace,
@@ -61,7 +63,7 @@ async function Featured({
 }: {
   client: Client;
   user: User | undefined;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) {
   const featuredCategories: any = await findFeaturedCategories({
     workspace: workspace!,

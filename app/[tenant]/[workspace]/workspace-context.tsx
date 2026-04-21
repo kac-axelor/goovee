@@ -10,7 +10,7 @@ import {
 // ---- CORE IMPORTS ---- //
 import {useTheme} from '@/app/theme';
 import {Theme} from '@/types/theme';
-import {type PortalWorkspace} from '@/types';
+import {type PortalWorkspace} from '@/orm/workspace';
 import {useEnvironment} from '@/environment';
 
 export const WorkspaceContext = React.createContext<{

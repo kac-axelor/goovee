@@ -1,4 +1,5 @@
 import {Suspense} from 'react';
+import type {Cloned} from '@/types/util';
 import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
@@ -7,7 +8,8 @@ import {findWorkspace} from '@/orm/workspace';
 import {workspacePathname} from '@/utils/workspace';
 import {getSession} from '@/auth';
 import {i18n} from '@/locale';
-import type {PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {manager} from '@/lib/core/tenant';
 import type {Client} from '@/goovee/.generated/client';
 
@@ -29,7 +31,7 @@ async function LatestCategories({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }) {
@@ -47,7 +49,7 @@ async function LatestResources({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }) {

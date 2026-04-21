@@ -28,6 +28,7 @@ import {
 import {Invoice} from '@/subapps/invoices/common/types/invoices';
 import {INVOICE_PAYMENT_OPTIONS} from '@/subapps/invoices/common/constants/invoices';
 import {SUBAPP_CODES} from '@/constants';
+import {Cloned} from '@/types/util';
 
 export function InvoicePayments({
   workspace,
@@ -40,7 +41,7 @@ export function InvoicePayments({
   onPaymentUpdate,
 }: {
   workspace: any;
-  invoice: Invoice;
+  invoice: Cloned<Invoice>;
   amount: string;
   paymentType: INVOICE_PAYMENT_OPTIONS | null;
   resetPaymentType: () => void;

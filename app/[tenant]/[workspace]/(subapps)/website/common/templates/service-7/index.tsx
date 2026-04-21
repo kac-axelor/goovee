@@ -35,7 +35,7 @@ export default function Service7(props: TemplateProps<Service7Data>) {
                   <ServiceCard3
                     title={item.title}
                     description={item.description}
-                    Icon={<Icon />}
+                    Icon={Icon ? <Icon /> : undefined}
                   />
                 </div>
               );

@@ -46,7 +46,12 @@ export const RelatedTicketSchema = z.object({
       issue.input === undefined ? 'Link type is required' : undefined,
   }),
   ticket: z.object(
-    {id: z.string(), fullName: z.string().optional(), version: z.number()},
+    {
+      id: z.string(),
+      fullName: z.string().nullable(),
+      name: z.string().nullable(),
+      version: z.number(),
+    },
     {
       error: issue =>
         issue.input === undefined ? 'Ticket is required' : undefined,
@@ -56,7 +61,12 @@ export const RelatedTicketSchema = z.object({
 
 export const ChildTicketSchema = z.object({
   ticket: z.object(
-    {id: z.string(), fullName: z.string().optional(), version: z.number()},
+    {
+      id: z.string(),
+      fullName: z.string().nullable(),
+      name: z.string().nullable(),
+      version: z.number(),
+    },
     {
       error: issue =>
         issue.input === undefined ? 'Ticket is required' : undefined,

@@ -10,7 +10,7 @@ import {DEFAULT_CURRENCY_SCALE, DEFAULT_CURRENCY_SYMBOL} from '@/constants';
 
 // ---- LOCAL IMPORTS ---- //
 import {getCalculatedTotalPrice} from '@/subapps/events/common/utils/payments';
-import type {EventPayments} from '@/subapps/events/common/types';
+import type {FullEvent} from '../../../orm/event';
 
 const getParticipantsNames = (participants: any[]): string =>
   participants.map((_p: any) => `${_p.name} ${_p.surname}`).join(', ');
@@ -28,7 +28,7 @@ export function SubscriptionsPriceView({
     symbol: string;
     numberOfDecimals: number;
   };
-  event: EventPayments;
+  event: FullEvent;
   onTotalPriceChange: (value: number) => void;
 }) {
   const currencySymbol = currency?.symbol || DEFAULT_CURRENCY_SYMBOL;
@@ -38,10 +38,7 @@ export function SubscriptionsPriceView({
   const rootName = form.watch('name');
   const rootSurname = form.watch('surname');
 
-  const subscriptionSet = useMemo(
-    () => form.watch('subscriptionSet') || [],
-    [form.watch('subscriptionSet')],
-  );
+  const subscriptionSet = form.watch('subscriptionSet') || [];
 
   const selectedMainSubscriptions = useMemo(() => {
     return list.filter(subscription =>

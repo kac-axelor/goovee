@@ -17,6 +17,7 @@ import {
 import {clone} from '@/utils';
 import {Suspense} from 'react';
 import {Plugins, Template} from '../client-wrapper';
+import {Metadata} from 'next';
 
 export async function generateMetadata(props: {
   params: Promise<{
@@ -25,7 +26,7 @@ export async function generateMetadata(props: {
     websiteSlug: string;
     websitePageSlug: string;
   }>;
-}) {
+}): Promise<Metadata | null> {
   const params = await props.params;
   const {workspaceURL} = workspacePathname(params);
   const {tenant: tenantId, websiteSlug, websitePageSlug} = params;

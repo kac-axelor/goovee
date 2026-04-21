@@ -42,11 +42,12 @@ import {Input} from '@/ui/components/input';
 import {SEARCH_PARAMS} from '@/constants';
 import {cn} from '@/utils/css';
 import {InnerHTML} from '@/ui/components/inner-html';
-import type {PortalWorkspace} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {generateOTP} from './actions';
 import {registerByEmail, subscribe} from '../actions';
+import {WorkspaceForRegistration} from '@/orm/workspace';
 
 const formSchema = z
   .object({
@@ -102,7 +103,11 @@ const formSchema = z
     },
   );
 
-export default function SignUp({workspace}: {workspace?: PortalWorkspace}) {
+export default function SignUp({
+  workspace,
+}: {
+  workspace?: WorkspaceForRegistration;
+}) {
   const {data: session} = authClient.useSession();
   const user = session?.user;
 

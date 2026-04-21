@@ -21,12 +21,12 @@ import {
 
 interface ContentProps {
   quotation: {
-    id: string | number | null;
+    id: string | null;
     invoicingAddress: {
-      id: string | number;
+      id: string;
     } | null;
     deliveryAddress: {
-      id: string | number;
+      id: string;
     } | null;
   };
   invoicingAddresses: any;
@@ -87,7 +87,7 @@ function Content({
 
   const handleDefault = async (
     type: ADDRESS_TYPE,
-    id: string | number,
+    id: string,
     isDefault?: boolean,
   ) => {
     const result = await updateDefaultAddress({type, id, isDefault});
@@ -106,7 +106,7 @@ function Content({
     }
   };
 
-  const handleDelete = async (id: string | number) => {
+  const handleDelete = async (id: string) => {
     const result = await deleteAddress(id);
 
     if (result) {

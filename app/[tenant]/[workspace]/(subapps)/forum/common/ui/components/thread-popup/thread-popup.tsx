@@ -1,6 +1,7 @@
 'use client';
 
 import {Swiper, SwiperSlide} from 'swiper/react';
+import type {Cloned} from '@/types/util';
 import {Navigation} from 'swiper/modules';
 
 // ---- CORE IMPORTS ---- //
@@ -15,7 +16,7 @@ import {Thread} from '@/subapps/forum/common/ui/components';
 import {Image as ImageType, Post} from '@/subapps/forum/common/types/forum';
 
 import styles from './styles.module.scss';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 export const ThreadPopup = ({
   post,
@@ -27,7 +28,7 @@ export const ThreadPopup = ({
   post?: Post;
   open: boolean;
   images: any;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   onClose: () => void;
 }) => {
   const {workspaceURI} = useWorkspace();

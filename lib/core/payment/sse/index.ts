@@ -61,7 +61,7 @@ export function unsubscribe(
 
 export function notifyPaymentUpdate(
   source: PaymentSource,
-  entityId: string | number,
+  entityId: string,
   contextId: string,
   status: PaymentUpdateStatus = PAYMENT_UPDATE_STATUS.SUCCESS,
 ): void {

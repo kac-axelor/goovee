@@ -11,7 +11,7 @@ import {
 
 interface UsePaymentSSEOptions {
   source: PaymentSource | undefined;
-  entityId: string | number;
+  entityId: string;
   contextId: string | undefined;
   onUpdate: (status: PaymentUpdateStatus) => void;
 }

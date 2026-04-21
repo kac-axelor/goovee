@@ -92,7 +92,7 @@ export default function About20(props: TemplateProps<About20Data>) {
                       Icon={
                         Icon ? (
                           <Icon className="icon-svg-xs solid text-fuchsia me-4" />
-                        ) : null
+                        ) : undefined
                       }
                     />
                   </div>

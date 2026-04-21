@@ -9,7 +9,6 @@ import {manager} from '@/tenant';
 // ---- LOCAL IMPORTS ---- //
 import {extractSearchParams} from '../../common/utils';
 import Form from './form';
-import {PortalWorkspace} from '@/types';
 
 export default async function Page(props: {
   searchParams: Promise<{
@@ -39,5 +38,5 @@ export default async function Page(props: {
     return notFound();
   }
 
-  return <Form workspace={workspace as PortalWorkspace} />;
+  return <Form workspace={workspace} />;
 }

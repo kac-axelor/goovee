@@ -28,7 +28,7 @@ export const formSchema = z
     }
   });
 
-const IDSchema = z.union([z.string(), z.number()]);
+const IDSchema = z.string();
 
 export const FetchCommentsPropsSchema = z.object({
   workspaceURL: z.string(),

@@ -85,7 +85,7 @@ export async function createCustomFields({
   uniqueModel: string;
   fields: CustomField[];
   client: Client;
-  jsonModel?: {id: string; name?: string};
+  jsonModel?: {id: string; name?: string | null};
   addPanel?: boolean;
 }) {
   const timeStamp = new Date();
@@ -241,8 +241,8 @@ export async function createMetaSelect({
   client: Client;
   metaSelectData: CreateArgs<AOSMetaSelect>;
   metaSelectItemsData: CreateArgs<AOSMetaSelectItem>[];
-}): Promise<{id: string; name?: string} | undefined> {
-  let metaSelect: {id: string; name?: string} | undefined;
+}): Promise<{id: string; name: string | null} | undefined> {
+  let metaSelect: {id: string; name: string | null} | undefined;
   const _metaSelect = await client.aOSMetaSelect.findOne({
     where: {name: metaSelectData.name},
     select: {
@@ -250,7 +250,7 @@ export async function createMetaSelect({
       items: {
         select: {id: true, order: true},
         orderBy: {order: 'ASC'},
-      } as {select: {id: true; order: true}},
+      },
     },
   });
   if (_metaSelect) {

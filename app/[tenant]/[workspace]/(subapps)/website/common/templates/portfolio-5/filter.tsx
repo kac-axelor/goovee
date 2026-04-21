@@ -13,8 +13,8 @@ export function Filter(props: {
   return list?.map(({id, attrs: item}) => (
     <li key={id}>
       <a
-        onClick={handleFilterKeyChange(item.value)}
-        className={`filter-item ${filterKey === item.value ? 'active' : ''}`}>
+        onClick={handleFilterKeyChange(item.value ?? '')}
+        className={`filter-item ${filterKey === (item.value ?? '') ? 'active' : ''}`}>
         {item.title}
       </a>
     </li>

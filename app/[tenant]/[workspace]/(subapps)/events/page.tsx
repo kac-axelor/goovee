@@ -1,4 +1,5 @@
 import {Suspense} from 'react';
+import type {Cloned} from '@/types/util';
 import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ----//
@@ -8,7 +9,8 @@ import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
 import {Card} from '@/ui/components/card';
 import {ORDER_BY} from '@/constants';
-import type {PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {manager} from '@/tenant';
 import type {Client} from '@/goovee/.generated/client';
 
@@ -114,7 +116,7 @@ async function Categories({
 }: {
   user?: User;
   client: Client;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   category: any[];
 }) {
   const categories: any = await findEventCategories({
@@ -141,7 +143,7 @@ async function EventList({
   category: any[];
   page: string | number;
   user?: User;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   type: string;
 }) {

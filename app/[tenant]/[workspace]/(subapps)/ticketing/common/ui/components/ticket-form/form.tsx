@@ -20,14 +20,14 @@ import {
   SelectValue,
 } from '@/ui/components/select';
 import {useToast} from '@/ui/hooks';
-import type {ID} from '@goovee/orm';
+import type {ID} from '@/types';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {useCallback, useMemo, useRef, useState} from 'react';
 import {useForm} from 'react-hook-form';
 import {ZodIssueCode} from 'zod';
 
 // ---- LOCAL IMPORT ---- //
-import type {PortalAppConfig} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 import type {MutateProps, MutateResponse} from '../../../actions';
 import {mutate} from '../../../actions';
 import {FIELDS} from '../../../constants';

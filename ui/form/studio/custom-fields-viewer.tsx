@@ -21,7 +21,7 @@ export const CustomFieldsViewer = ({
 }: {
   metaFields: any[];
   context?: any;
-  form: UseFormReturn<Record<string, any>, any, undefined>;
+  form: UseFormReturn<Record<string, any>>;
   concatSchema?: (customSchema: ZodSchema) => void;
   isReadonly?: boolean;
 }) => {

@@ -49,7 +49,7 @@ export function PushProvider({
     NotificationDTO[]
   >([]);
   const [isSupported, setIsSupported] = useState(false);
-  const lastSyncedUserId = React.useRef<string | number | null>(null);
+  const lastSyncedUserId = React.useRef<string | null>(null);
   const broadcastChannel = React.useRef<BroadcastChannel | null>(null);
 
   const fetchNotifications = useCallback(async () => {

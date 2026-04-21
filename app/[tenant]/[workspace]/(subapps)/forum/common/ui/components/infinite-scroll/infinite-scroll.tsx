@@ -1,6 +1,7 @@
 'use client';
 
 import React, {useEffect, useState, useMemo} from 'react';
+import type {Cloned} from '@/types/util';
 import {useInView} from 'react-intersection-observer';
 import {useParams} from 'next/navigation';
 
@@ -15,7 +16,7 @@ import {useToast} from '@/ui/hooks';
 import {Thread} from '@/subapps/forum/common/ui/components';
 import {fetchPosts} from '@/subapps/forum/common/action/action';
 import {Post} from '@/subapps/forum/common/types/forum';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 interface PageInfo {
   count: number;
@@ -26,7 +27,7 @@ interface InfiniteScrollProps {
   pageInfo: PageInfo;
   memberGroupIDs: string[];
   selectedGroupId: string | null;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }
 
 export const InfiniteScroll: React.FC<InfiniteScrollProps> = ({

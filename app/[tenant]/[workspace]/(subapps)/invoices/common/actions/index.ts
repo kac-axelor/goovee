@@ -28,7 +28,7 @@ import {
   cancelInvalidPendingBankTransfers,
 } from '@/payment/stripe/actions';
 import {findPaymentContext, markPaymentAsProcessed} from '@/payment/common/orm';
-import {PartnerKey, PaymentOption} from '@/types';
+import {PartnerKey, PaymentOption, User} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {getPaymentModeId, isPaymentOptionAvailable} from '@/utils/payment';
 import {formatNumber} from '@/lib/core/locale/server/formatters';
@@ -69,7 +69,7 @@ export async function paypalCreateOrder({
   token,
 }: {
   invoice: {
-    id: string | number;
+    id: string;
   };
   amount: string;
   workspaceURL: string;
@@ -179,13 +179,9 @@ export async function paypalCaptureOrder({
   if (!token) {
     const session = await getSession();
     user = session?.user;
-    if (!user) {
-      return {
-        error: true,
-        message: await t('Unauthorized'),
-      };
-    }
   }
+
+  if (!token && !user) return {error: true, message: await t('Unauthorized')};
 
   const workspace = await findWorkspace({
     user,
@@ -199,7 +195,7 @@ export async function paypalCaptureOrder({
     };
   }
 
-  if (!token) {
+  if (user) {
     const subapp = await findSubappAccess({
       code: SUBAPP_CODES.invoices,
       user,
@@ -289,7 +285,9 @@ export async function paypalCaptureOrder({
 
     const remainingAmount = normalizeAmount(
       $invoice.amountRemaining?.value ?? 0,
-      $invoice.currency?.numberOfDecimals ?? undefined,
+      $invoice.currency?.numberOfDecimals
+        ? Number($invoice.currency.numberOfDecimals)
+        : undefined,
     );
 
     const isPartialPayment =
@@ -464,15 +462,15 @@ export async function validateStripePayment({
   const {client, config} = tenant;
 
   try {
-    let user;
+    let user: User | undefined;
     let invoicesWhereClause = {};
 
     if (!token) {
       const session = await getSession();
       user = session?.user;
-      if (!user) {
-        return {error: true, message: await t('Unauthorized')};
-      }
+    }
+    if (!user && !token) {
+      return {error: true, message: await t('Unauthorized')};
     }
 
     const workspace = await findWorkspace({
@@ -485,7 +483,7 @@ export async function validateStripePayment({
       return {error: true, message: await t('Invalid workspace')};
     }
 
-    if (!token) {
+    if (user) {
       const subapp = await findSubappAccess({
         code: SUBAPP_CODES.invoices,
         user,
@@ -568,7 +566,9 @@ export async function validateStripePayment({
 
     const remainingAmount = normalizeAmount(
       $invoice.amountRemaining?.value ?? 0,
-      $invoice.currency?.numberOfDecimals ?? undefined,
+      $invoice.currency?.numberOfDecimals
+        ? Number($invoice.currency.numberOfDecimals)
+        : undefined,
     );
 
     const isPartialPayment =
@@ -624,7 +624,9 @@ export async function validateStripePayment({
       if (updatedInvoice) {
         const updatedAmountRemaining = normalizeAmount(
           updatedInvoice.amountRemaining?.value ?? 0,
-          updatedInvoice.currency?.numberOfDecimals ?? undefined,
+          updatedInvoice.currency?.numberOfDecimals
+            ? Number(updatedInvoice.currency.numberOfDecimals)
+            : undefined,
         );
 
         /* Cancel any pending bank transfer intents that are now invalid:
@@ -633,7 +635,7 @@ export async function validateStripePayment({
          *   (e.g. a partial card payment was made) → cancel as REQUESTED_BY_CUSTOMER */
         await cancelInvalidPendingBankTransfers({
           client,
-          sourceId: updatedInvoice.id,
+          sourceId: String(updatedInvoice.id),
           amountRemaining: updatedAmountRemaining,
         });
       }
@@ -750,7 +752,9 @@ export async function createStripeBankTransferIntent({
     console.error('Error creating stripe bank transfer payment intent:', error);
 
     const message =
-      error?.raw?.message || error?.message || 'Failed to create bank transfer';
+      (error as any)?.raw?.message ||
+      (error as any)?.message ||
+      'Failed to create bank transfer';
 
     return {
       error: true,
@@ -797,15 +801,15 @@ export async function cancelStripeBankTransferPaymentIntent({
   const {client} = tenant;
 
   try {
-    let user;
+    let user: User | undefined;
     let invoicesWhereClause = {};
 
     if (!token) {
       const session = await getSession();
       user = session?.user;
-      if (!user) {
-        return {error: true, message: await t('Unauthorized')};
-      }
+    }
+    if (!user && !token) {
+      return {error: true, message: await t('Unauthorized')};
     }
 
     const workspace = await findWorkspace({user, url: workspaceURL, client});
@@ -814,7 +818,7 @@ export async function cancelStripeBankTransferPaymentIntent({
       return {error: true, message: await t('Invalid workspace')};
     }
 
-    if (!token) {
+    if (user) {
       const subapp = await findSubappAccess({
         code: SUBAPP_CODES.invoices,
         user,
@@ -1048,9 +1052,9 @@ export async function validatePayboxPayment({
     if (!token) {
       const session = await getSession();
       user = session?.user;
-      if (!user) {
-        return {error: true, message: await t('Unauthorized')};
-      }
+    }
+    if (!user && !token) {
+      return {error: true, message: await t('Unauthorized')};
     }
 
     const workspace = await findWorkspace({
@@ -1063,7 +1067,7 @@ export async function validatePayboxPayment({
       return {error: true, message: await t('Invalid workspace')};
     }
 
-    if (!token) {
+    if (user) {
       const subapp = await findSubappAccess({
         code: SUBAPP_CODES.invoices,
         user,
@@ -1145,7 +1149,9 @@ export async function validatePayboxPayment({
 
     const remainingAmount = normalizeAmount(
       $invoice.amountRemaining?.value ?? 0,
-      $invoice.currency?.numberOfDecimals ?? undefined,
+      $invoice.currency?.numberOfDecimals
+        ? Number($invoice.currency.numberOfDecimals)
+        : undefined,
     );
 
     const isPartialPayment =

@@ -1,5 +1,6 @@
 'use client';
 import {useMemo} from 'react';
+import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ---- //
 import {SUBAPP_CODES} from '@/constants';
@@ -15,7 +16,7 @@ import {
   fetchComments,
   createComment,
 } from '@/subapps/forum/common/action/action';
-import {PortalWorkspace} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 
 export const ThreadFooter = ({
   post,
@@ -28,7 +29,7 @@ export const ThreadFooter = ({
   showCommentsByDefault: boolean;
   hideCloseComments?: boolean;
   usePopUpStyles?: boolean;
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) => {
   const isAllowToComment = useMemo(() => post.isMember, [post]);
   const {workspaceURI} = useWorkspace();

@@ -1,7 +1,7 @@
 'use client';
 
-import type {PortalAppConfig} from '@/types';
-import type {ID} from '@goovee/orm';
+import type {PortalAppConfig} from '@/orm/workspace';
+import type {ID} from '@/types';
 import {useRouter} from 'next/navigation';
 import {useCallback} from 'react';
 import type {

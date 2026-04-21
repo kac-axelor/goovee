@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import type {Cloned} from '@/types/util';
 import {MdSort} from 'react-icons/md';
 
 // ---- CORE IMPORTS ---- //
@@ -14,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/ui/components';
-import type {PortalAppConfig, PortalWorkspace} from '@/types';
+import type {PortalAppConfig, PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {SORT_BY_OPTIONS} from '@/subapps/shop/common/constants';
@@ -30,9 +31,7 @@ export function SortBy({
   const options =
     optionsProp ||
     SORT_BY_OPTIONS.filter(
-      o =>
-        workspace?.config &&
-        (workspace?.config?.[o.value as keyof PortalAppConfig] as boolean),
+      o => workspace?.config && (workspace.config[o.value] as boolean),
     );
 
   if (!options?.length) {
@@ -73,18 +72,12 @@ export function MobileSortBy({
   onChange,
   active,
 }: {
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
   onChange: ({value}: {value: string}) => void;
   active?: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
-  const toggle = () => setOpen(v => !v);
-
   const options = SORT_BY_OPTIONS.filter(
-    o =>
-      workspace?.config &&
-      (workspace?.config?.[o.value as keyof PortalAppConfig] as boolean),
+    o => workspace?.config && (workspace?.config[o.value] as boolean),
   );
 
   if (!options?.length) {
@@ -92,11 +85,8 @@ export function MobileSortBy({
   }
 
   return (
-    <div
-      className="cursor-pointer flex items-center gap-2 border-r"
-      ref={setTargetEl}
-      onClick={toggle}>
-      <Popover trigger={targetEl}>
+    <div className="cursor-pointer flex items-center gap-2 border-r">
+      <Popover>
         <PopoverTrigger asChild>
           <div className="flex">
             <MdSort className="text-2xl" />

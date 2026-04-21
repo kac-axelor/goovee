@@ -1,9 +1,10 @@
-import {PortalWorkspace} from '@/types';
-import {Event} from '../events';
+import {PortalWorkspace} from '@/orm/workspace';
+import type {Cloned} from '@/types/util';
+import type {FullEvent} from '@/subapps/events/common/orm/event';
 
 export interface EventPageCardProps {
-  eventDetails: Event;
+  eventDetails: Cloned<FullEvent>;
   metaFields?: any[];
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   user?: any;
 }

@@ -4,7 +4,7 @@ export type {Entry, ListEntry} from '../orm/directory-entry';
 
 export type MapConfig = {
   map: number;
-  apiKey?: string;
+  apiKey?: string | null;
 };
 
 export type SearchParams = {

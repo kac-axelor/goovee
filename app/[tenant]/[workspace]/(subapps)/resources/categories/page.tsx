@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
+import type {Cloned} from '@/types/util';
 import {notFound} from 'next/navigation';
 import {MdAdd} from 'react-icons/md';
 import {Suspense} from 'react';
@@ -12,7 +13,8 @@ import {clone} from '@/utils';
 import {t} from '@/locale/server';
 import {getSession} from '@/auth';
 import {findWorkspace} from '@/orm/workspace';
-import type {PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 import {manager} from '@/lib/core/tenant';
 import type {Client} from '@/goovee/.generated/client';
 
@@ -36,7 +38,7 @@ async function Categories({
   client,
   user,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
 }) {
@@ -55,7 +57,7 @@ async function Resources({
   user,
   category,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   category?: string;

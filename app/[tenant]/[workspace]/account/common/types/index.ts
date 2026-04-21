@@ -1,5 +1,3 @@
-import {PortalApp} from '@/types';
-
 export enum Role {
   user = 'user',
   admin = 'admin',
@@ -12,8 +10,8 @@ export enum Authorization {
 }
 
 export type InviteAppsConfig = {
-  [key: PortalApp['code']]: {
-    code: PortalApp['code'];
+  [key: string]: {
+    code: string;
     access?: string;
     authorization?: Authorization;
     id?: string;

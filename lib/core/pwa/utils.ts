@@ -53,7 +53,7 @@ export async function notifyUser({
   payload,
   getReplacementTitle,
 }: {
-  userId: string | number;
+  userId: string;
   tenantId: string;
   workspaceURL?: string;
   client: Client;

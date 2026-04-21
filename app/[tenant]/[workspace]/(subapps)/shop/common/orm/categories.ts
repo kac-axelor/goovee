@@ -1,7 +1,9 @@
 // ---- CORE IMPORTS ---- //
 import {filterPrivate} from '@/orm/filter';
+import type {Cloned} from '@/types/util';
 import type {Client} from '@/goovee/.generated/client';
-import type {PortalWorkspace, User} from '@/types';
+import type {User} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 function transform($categories: any[]) {
   const categories: any = {};
@@ -30,7 +32,7 @@ export async function findCategories({
   user,
   archived,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   archived?: boolean;
@@ -65,7 +67,7 @@ export async function findFeaturedCategories({
   user,
   archived,
 }: {
-  workspace: PortalWorkspace;
+  workspace: PortalWorkspace | Cloned<PortalWorkspace>;
   client: Client;
   user?: User;
   archived?: boolean;

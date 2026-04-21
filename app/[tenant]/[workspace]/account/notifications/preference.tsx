@@ -3,7 +3,7 @@
 import {useRouter} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
-import {PortalApp} from '@/types';
+import {App as PortalApp} from '@/orm/workspace';
 import {Separator} from '@/ui/components/separator';
 import {useWorkspace} from '../../workspace-context';
 import {Checkbox} from '@/ui/components/checkbox';
@@ -20,7 +20,7 @@ export function Preference({
 }: {
   preference: any;
   title: string;
-  code: PortalApp['code'];
+  code: string;
   hideSubscription?: boolean;
 }) {
   const {tenant, workspaceURI, workspaceURL} = useWorkspace();

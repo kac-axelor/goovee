@@ -1,4 +1,5 @@
-import type {Entity, ID, Payload, SelectOptions, UpdateArgs} from '@goovee/orm';
+import type {Entity, Payload, SelectOptions, UpdateArgs} from '@goovee/orm';
+import type {ID} from '@/types';
 import axios from 'axios';
 
 // ---- CORE IMPORTS ---- //
@@ -103,7 +104,7 @@ export async function createTicket({
         select: {id: true},
         take: 1,
         orderBy: {sequence: ORDER_BY.ASC},
-      } as unknown as {select: {id: true}}, // type cast to prevent orm type error
+      },
     },
   });
 
@@ -310,7 +311,7 @@ export async function createTicket({
     .then(reciepients => {
       if (reciepients.length) {
         return sendTrackMail({
-          author: auth.user.simpleFullName,
+          author: auth.user.simpleFullName || '',
           type: 'create',
           tracks,
           projectName: newTicket.project?.name || '',
@@ -563,7 +564,7 @@ export async function updateTicket({
     .then(reciepients => {
       if (reciepients.length) {
         return sendTrackMail({
-          author: auth.user.simpleFullName,
+          author: auth.user.simpleFullName || '',
           type: 'update',
           tracks,
           projectName: newTicket.project?.name || '',
@@ -703,7 +704,7 @@ export async function findTickets(
 export async function findRelatedTicketLinks(
   ticketId: ID,
   client: Client,
-): Promise<TicketLink[] | undefined> {
+): Promise<TicketLink[] | null | undefined> {
   const ticket = await client.aOSProjectTask.findOne({
     where: {id: ticketId},
     select: {
@@ -768,7 +769,7 @@ export async function findChildTickets(
 export async function findParentTicket(
   ticketId: ID,
   client: Client,
-): Promise<ParentTicket | undefined> {
+): Promise<ParentTicket | null | undefined> {
   const ticket = await client.aOSProjectTask.findOne({
     where: {
       id: ticketId,
@@ -1139,7 +1140,7 @@ export async function findTicketLinkTypes(
         projectTaskLinkTypeSet: {
           where: {OR: [{archived: false}, {archived: null}]},
           select: {name: true},
-        } as {select: {name: true}},
+        },
       },
     });
     if (project?.projectTaskLinkTypeSet?.length) {
@@ -1282,7 +1283,7 @@ export async function deleteRelatedTicketLink({
 }: {
   data: {currentTicketId: ID; linkTicketId: ID; linkId: ID};
   auth: AuthProps;
-}): Promise<ID> {
+}): Promise<number> {
   const {client} = auth.tenant;
   const {currentTicketId, linkTicketId, linkId} = data;
 
@@ -1312,5 +1313,5 @@ export async function deleteRelatedTicketLink({
   const deleteCount = await client.aOSProjectTaskLink.deleteAll({
     where: {id: {in: linksToDelete}},
   });
-  return deleteCount;
+  return Number(deleteCount);
 }

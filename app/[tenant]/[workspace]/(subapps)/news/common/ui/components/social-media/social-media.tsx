@@ -16,7 +16,7 @@ import {
 import {getSocialURL} from '../../../utils';
 
 type SocialMediaProps = {
-  availableSocials?: string;
+  availableSocials?: string | null;
 };
 
 export const SocialMedia = ({

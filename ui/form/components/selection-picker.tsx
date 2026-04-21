@@ -23,7 +23,7 @@ export const SelectionPicker = ({
   isMulti = false,
   isInteger = false,
 }: {
-  form: UseFormReturn<Record<string, any>, any, undefined>;
+  form: UseFormReturn<Record<string, any>>;
   field: Field;
   formKey: string;
   readonly?: boolean;

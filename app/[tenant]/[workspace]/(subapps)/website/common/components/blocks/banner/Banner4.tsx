@@ -6,13 +6,13 @@ import {ImageType} from '@/subapps/website/common/types/templates';
 type Banner4Props = {
   thumbnail?: ImageType;
   media?: string;
-  mediaType?: string;
+  mediaType?: string | null;
   hideShape?: boolean;
   btnColor?: 'white' | 'primary';
 };
 // ======================================================
 
-function getDataType(mediaType?: string) {
+function getDataType(mediaType?: string | null) {
   if (mediaType?.startsWith('image/')) {
     return 'image';
   }

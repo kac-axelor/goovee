@@ -7,7 +7,8 @@ import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
 import {getSession} from '@/auth';
 import {DEFAULT_LIMIT} from '@/constants';
-import type {Category, PortalAppConfig} from '@/types';
+import type {Category} from '@/types';
+import type {PortalAppConfig} from '@/orm/workspace';
 import {manager} from '@/tenant';
 
 // ---- LOCAL IMPORTS ---- //
@@ -89,9 +90,7 @@ async function Category({
   const breadcrumbs = $category ? getbreadcrumbs($category) : [];
 
   const availableSortByOptions = SORT_BY_OPTIONS.filter(
-    o =>
-      workspace?.config &&
-      (workspace?.config?.[o.value as keyof PortalAppConfig] as boolean),
+    o => workspace?.config && (workspace?.config?.[o.value] as boolean),
   );
 
   const defaultSort = availableSortByOptions?.[0]?.value;

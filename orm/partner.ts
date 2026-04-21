@@ -11,7 +11,8 @@ import {hash} from '@/auth/utils';
 import type {Client} from '@/goovee/.generated/client';
 import {USER_CREATED_FROM} from '@/constants';
 import {clone} from '@/utils';
-import {ID, Localization, PortalWorkspace} from '@/types';
+import {ID, Localization} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
 import {
   findContactWorkspaceConfig,
   findDefaultPartnerWorkspaceConfig,

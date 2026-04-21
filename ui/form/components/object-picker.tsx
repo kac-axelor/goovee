@@ -22,7 +22,7 @@ export const ObjectPicker = ({
   data,
   targetName,
 }: {
-  form: UseFormReturn<Record<string, any>, any, undefined>;
+  form: UseFormReturn<Record<string, any>>;
   field: Field;
   formKey: string;
   readonly?: boolean;

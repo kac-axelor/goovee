@@ -1,6 +1,7 @@
 'use client';
 
 import React, {useEffect, useState} from 'react';
+import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 import {MdOutlineShoppingBasket} from 'react-icons/md';
 
@@ -20,7 +21,8 @@ import {i18n} from '@/locale';
 import {getProductImageURL} from '@/utils/files';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {useCart} from '@/app/[tenant]/[workspace]/cart-context';
-import type {Category, ComputedProduct, PortalWorkspace} from '@/types';
+import type {Category, ComputedProduct} from '@/types';
+import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {ProductMetaFieldView} from '@/subapps/shop/common/ui/components/product-meta-field-view';
@@ -36,7 +38,7 @@ export function ProductView({
   hidePriceAndPurchase: boolean;
   categories?: any;
   product: ComputedProduct;
-  workspace?: PortalWorkspace;
+  workspace?: PortalWorkspace | Cloned<PortalWorkspace>;
   breadcrumbs: any;
   metaFields: any;
 }) {
@@ -126,12 +128,12 @@ export function ProductView({
               images={
                 product.images?.length
                   ? product.images.map(i => ({
-                      id: i as string,
-                      url: getProductImageURL(i, tenant) as string,
+                      id: String(i),
+                      url: getProductImageURL(String(i), tenant),
                     }))
                   : [
                       {
-                        id: 1,
+                        id: '1',
                         url: getProductImageURL('', tenant, {noimage: true}),
                       },
                     ]
