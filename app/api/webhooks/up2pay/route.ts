@@ -43,27 +43,17 @@ function forwardToLegacy(request: Request): boolean {
 
   return true;
 }
-
 export async function GET(request: Request) {
-  const parsed = new URL(request.url);
-  const params = parsed.searchParams;
+  const url = new URL(request.url);
 
-  const SIGNED_PARAMS = ['montant', 'ref', 'erreur'];
-  const message = SIGNED_PARAMS.filter(key => params.has(key))
-    .map(
-      key =>
-        `${key}=${encodeURIComponent(params.get(key)!).replace(/%7E/gi, '~')}`,
-    )
-    .join('&');
+  const rawQuery = url.search.slice(1); // Removes the leading '?'
+  const message = rawQuery.split('&sign=')[0];
 
+  const params = url.searchParams;
   const pem = readPEMFile();
-
   const sign = params.get('sign')?.trim();
-
   const erreur = params.get('erreur');
-
   const ref = params.get('ref');
-
   const montant = params.get('montant');
 
   if (!(pem && message && sign && ref)) {
@@ -72,6 +62,7 @@ export async function GET(request: Request) {
       hasMessage: !!message,
       hasSign: !!sign,
       hasRef: !!ref,
+      message,
     });
     return new NextResponse('Bad Request', {status: 400});
   }
@@ -79,10 +70,11 @@ export async function GET(request: Request) {
   const isSignatureValid = verifySignature(message, sign, pem);
 
   if (!isSignatureValid) {
-    console.error('[UP2PAY][WEBHOOK] Invalid signature', {ref, sign});
+    console.error('[UP2PAY][WEBHOOK] Invalid signature', {ref, message, sign});
     return new NextResponse('Bad Request', {status: 400});
   }
 
+  console.log('[UP2PAY][WEBHOOK] Signature verified', {ref});
   // contextId and tenantId are encoded in ref as: name-sequence~contextId~tenantId
   const tildeIndex = ref.indexOf('~');
   const tildeParts =
