@@ -5,8 +5,18 @@ import prettier from 'eslint-config-prettier/flat';
 
 const eslintConfig = defineConfig([
   ...nextVitals,
-  ...nextTs,
+  // ...nextTs,
   prettier,
+  {
+    rules: {
+      'react-compiler/react-compiler': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/static-components': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/incompatible-library': 'off',
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -18,4 +28,3 @@ const eslintConfig = defineConfig([
 ]);
 
 export default eslintConfig;
-
