@@ -409,7 +409,7 @@ export async function registerPartner({
   identificationNumber?: string;
   companyNumber?: string;
   firstName?: string;
-  name: string;
+  name?: string;
   password?: string;
   email: string;
   workspaceURL?: string;

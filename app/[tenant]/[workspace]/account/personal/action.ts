@@ -24,8 +24,12 @@ import {generateOTP} from '@/otp/actions';
 import {findOne, isValid, markUsed} from '@/otp/orm';
 import {Scope} from '@/otp/constants';
 import {findWorkspace} from '@/orm/workspace';
-import {type PortalWorkspace} from '@/orm/workspace';
 import {withMattermostEmailSync} from '@/lib/core/mattermost';
+import {z} from 'zod';
+import {
+  EmailUpdateOTPSchema,
+  type EmailUpdateOTP,
+} from '@/lib/core/auth/validation-utils';
 
 const pump = promisify(pipeline);
 
@@ -349,22 +353,20 @@ export async function update({
   }
 }
 
-export async function generateOTPForUpdate({
-  email,
-  workspaceURL,
-}: {
-  email: string;
-  workspaceURL: PortalWorkspace['url'];
-}) {
-  if (!(email && workspaceURL)) {
-    return error(await t('Email and workspace is required'));
-  }
-
+export async function generateOTPForUpdate(data: EmailUpdateOTP) {
   const tenantId = (await headers()).get(TENANT_HEADER);
 
   if (!tenantId) {
     return error(await t('TenantId is required'));
   }
+
+  const validation = EmailUpdateOTPSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {email, workspaceURL} = validation.data;
 
   const session = await getSession();
   const user = session?.user;
@@ -391,13 +393,11 @@ export async function generateOTPForUpdate({
     return error(await t('Bad request'));
   }
 
-  const workspace =
-    workspaceURL &&
-    (await findWorkspace({
-      url: workspaceURL,
-      client,
-      user,
-    }));
+  const workspace = await findWorkspace({
+    url: workspaceURL,
+    client,
+    user,
+  });
 
   if (!workspace) {
     return error(await t('Bad request'));

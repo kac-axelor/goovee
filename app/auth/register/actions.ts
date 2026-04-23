@@ -1,20 +1,25 @@
 'use server';
 
+import {z} from 'zod';
 import {revalidatePath} from 'next/cache';
 
 // ---- CORE IMPORTS ---- //
 import {getSession} from '@/auth';
-import {register, RegisterDTO} from '@/lib/core/auth/orm';
-import {t} from '@/locale/server';
+import {register} from '@/lib/core/auth/orm';
+import {getTranslation} from '@/locale/server';
 import {
   findDefaultPartnerWorkspaceConfig,
   findWorkspaces,
-  WorkspaceForRegistration,
 } from '@/orm/workspace';
 import {Scope} from '@/otp/constants';
 import {findOne, isValid, markUsed} from '@/otp/orm';
-import {manager, type Tenant} from '@/tenant';
-import type {PortalWorkspace} from '@/orm/workspace';
+import {manager} from '@/tenant';
+import {
+  EmailRegisterSchema,
+  SubscribeSchema,
+  type EmailRegister,
+  type Subscribe,
+} from '@/lib/core/auth/validation-utils';
 
 function error(message: string) {
   return {
@@ -23,29 +28,29 @@ function error(message: string) {
   };
 }
 
-export async function subscribe({
-  workspace,
-  tenantId,
-}: {
-  workspace: WorkspaceForRegistration;
-  tenantId?: Tenant['id'] | null;
-}) {
+export async function subscribe(data: Subscribe) {
+  const validation = SubscribeSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {workspace, tenantId} = validation.data;
+
   const session = await getSession();
   const user = session?.user;
 
-  if (!(workspace && tenantId)) {
-    return error(await t('Bad request'));
-  }
-
   if (!user) {
-    return error(await t('Unauthorized'));
+    return error(await getTranslation({tenant: tenantId}, 'Unauthorized'));
   }
 
   const url = workspace?.url;
-  if (!url) return error(await t('Bad request'));
+  if (!url)
+    return error(await getTranslation({tenant: tenantId}, 'Bad request'));
 
   const tenant = await manager.getTenant(tenantId);
-  if (!tenant) return error(await t('Invalid tenant'));
+  if (!tenant)
+    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
   const {client} = tenant;
 
   const userWorkspaces = await findWorkspaces({url, user, client});
@@ -53,7 +58,9 @@ export async function subscribe({
   const existing = userWorkspaces?.find(w => w.id === workspace?.id);
 
   if (existing) {
-    return error(await t('Already subscribed'));
+    return error(
+      await getTranslation({tenant: tenantId}, 'Already subscribed'),
+    );
   }
 
   const defaultPartnerWorkspaceConfig = await findDefaultPartnerWorkspaceConfig(
@@ -62,7 +69,8 @@ export async function subscribe({
 
   if (!defaultPartnerWorkspaceConfig) {
     return error(
-      await t(
+      await getTranslation(
+        {tenant: tenantId},
         'Cannot subscribe, no default permissions available for the workspace',
       ),
     );
@@ -81,7 +89,7 @@ export async function subscribe({
   });
 
   if (!$user) {
-    return error(await t('Bad request'));
+    return error(await getTranslation({tenant: tenantId}, 'Bad request'));
   }
 
   if (!$user.isContact) {
@@ -105,14 +113,22 @@ export async function subscribe({
 
       return {
         success: true,
-        message: await t('Successfully subscribed'),
+        message: await getTranslation(
+          {tenant: tenantId},
+          'Successfully subscribed',
+        ),
       };
     } catch (err) {}
   } else {
     const {mainPartner} = $user;
 
     if (!mainPartner?.id) {
-      return error(await t('Partner not available for the contact'));
+      return error(
+        await getTranslation(
+          {tenant: tenantId},
+          'Partner not available for the contact',
+        ),
+      );
     }
     const partnerWorkspaces = await findWorkspaces({
       url,
@@ -127,7 +143,10 @@ export async function subscribe({
 
     if (!existsInPartner) {
       return error(
-        await t(`Partner didn't have access to workspace, cannot subscribe`),
+        await getTranslation(
+          {tenant: tenantId},
+          `Partner didn't have access to workspace, cannot subscribe`,
+        ),
       );
     } else {
       try {
@@ -155,7 +174,10 @@ export async function subscribe({
 
         return {
           success: true,
-          message: await t('Successfully subscribed'),
+          message: await getTranslation(
+            {tenant: tenantId},
+            'Successfully subscribed',
+          ),
         };
       } catch (err) {
         console.log(err);
@@ -163,36 +185,36 @@ export async function subscribe({
     }
   }
 
-  return error(await t('Error subscribing, try again'));
+  return error(
+    await getTranslation({tenant: tenantId}, 'Error subscribing, try again'),
+  );
 }
 
-export async function registerByEmail(
-  data: Omit<RegisterDTO, 'client' | 'config'>,
-) {
-  const {email, password, confirmPassword, otp, tenantId} = data;
+export async function registerByEmail(data: EmailRegister) {
+  const validation = EmailRegisterSchema.safeParse(data);
 
-  if (!tenantId) {
-    return error(await t('Bad request'));
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
   }
 
-  if (!(email && password && confirmPassword)) {
-    return error(await t('Email and password are required.'));
-  }
-
-  if (password !== confirmPassword) {
-    return error(await t('Password and confirm password mismatch.'));
-  }
-
-  if (password.length < 8) {
-    return error(await t('Password must be at least 8 characters'));
-  }
-
-  if (!otp) {
-    return error(await t('OTP is required'));
-  }
+  const {
+    email,
+    tenantId,
+    otp,
+    type,
+    name,
+    password,
+    workspaceURL,
+    firstName,
+    companyName,
+    identificationNumber,
+    companyNumber,
+    locale,
+  } = validation.data;
 
   const tenant = await manager.getTenant(tenantId);
-  if (!tenant) return error(await t('Invalid tenant'));
+  if (!tenant)
+    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
   const {client, config} = tenant;
 
   const otpResult = await findOne({
@@ -202,14 +224,28 @@ export async function registerByEmail(
   });
 
   if (!otpResult) {
-    return error(await t('Invalid OTP'));
+    return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
   }
 
   if (!(await isValid({id: otpResult.id, value: otp, client}))) {
-    return error(await t('Invalid OTP'));
+    return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
   }
 
   await markUsed({id: otpResult.id, client});
 
-  return register({...data, client, config});
+  return register({
+    email,
+    tenantId,
+    type,
+    name,
+    password,
+    workspaceURL,
+    firstName,
+    companyName,
+    identificationNumber,
+    companyNumber,
+    locale,
+    client,
+    config,
+  });
 }

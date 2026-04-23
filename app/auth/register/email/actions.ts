@@ -1,10 +1,15 @@
 'use server';
 
+import {z} from 'zod';
 import {generateOTP as coreGenerateOTP} from '@/otp/actions';
-import {t} from '@/locale/server';
+import {getTranslation} from '@/locale/server';
 import {Scope} from '@/otp/constants';
-import {manager, type Tenant} from '@/tenant';
+import {manager} from '@/tenant';
 import {findDefaultPartnerWorkspaceConfig} from '@/orm/workspace';
+import {
+  EmailRegisterOTPSchema,
+  type EmailRegisterOTP,
+} from '@/lib/core/auth/validation-utils';
 
 function error(message: string) {
   return {
@@ -13,22 +18,18 @@ function error(message: string) {
   };
 }
 
-export async function generateOTP({
-  email,
-  workspaceURL,
-  tenantId,
-}: {
-  email: string;
-  workspaceURL?: string;
-  tenantId: Tenant['id'];
-}) {
-  if (!(email && tenantId)) {
-    return error(await t('Email, Scope and Tenant is required'));
+export async function generateOTP(data: EmailRegisterOTP) {
+  const validation = EmailRegisterOTPSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
   }
+
+  const {email, workspaceURL, tenantId} = validation.data;
 
   const tenant = await manager.getTenant(tenantId);
   if (!tenant) {
-    return error(await t('Invalid tenant'));
+    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
   }
 
   const {client} = tenant;

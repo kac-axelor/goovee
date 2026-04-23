@@ -71,11 +71,12 @@ export default function Page(props: {params: Promise<{email: string}>}) {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const {email, password, otp} = values;
+    const {email, password, confirmPassword, otp} = values;
 
     const res: any = await resetPassword({
       email,
       password,
+      confirmPassword,
       otp,
       tenantId: tenantId!,
     });

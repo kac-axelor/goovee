@@ -310,8 +310,12 @@ export default function Personal({
 
   const handleGenerateOTP = async () => {
     try {
-      await generateOTPForUpdate({email, workspaceURL});
-      reset(1);
+      const res = await generateOTPForUpdate({email, workspaceURL});
+      if (res && 'error' in res) {
+        toast({title: i18n.t(res.message), variant: 'destructive'});
+      } else {
+        reset(1);
+      }
     } catch (err) {
       form.setError('email', {
         type: 'custom',

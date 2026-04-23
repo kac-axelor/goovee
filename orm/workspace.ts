@@ -3,7 +3,6 @@ import {ALLOW_ALL_REGISTRATION, ALLOW_AOS_ONLY_REGISTRATION} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
 import {AOSPortalAppConfig} from '@/goovee/.generated/models';
 import {ID, Partner, User} from '@/types';
-import {Cloned} from '@/types/util';
 import {clone, getPartnerId} from '@/utils';
 import {Payload, SelectOptions} from '@goovee/orm';
 

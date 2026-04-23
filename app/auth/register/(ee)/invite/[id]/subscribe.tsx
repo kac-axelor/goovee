@@ -38,7 +38,7 @@ export default function Subscribe({
   };
 
   const handleSubscription = async () => {
-    if (!workspaceURL) return;
+    if (!workspaceURL || !tenantId) return;
 
     try {
       const res: any = await subscribe({

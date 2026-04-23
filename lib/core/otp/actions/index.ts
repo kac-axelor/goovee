@@ -1,5 +1,3 @@
-'use server';
-
 // ---- CORE IMPORTS ---- //
 import {getTranslation} from '@/locale/server';
 import NotificationManager, {NotificationType} from '@/notification';
@@ -8,7 +6,6 @@ import {
   isValidMailConfig,
   replacePlaceholders,
 } from '@/orm/email-template';
-import {manager, type Tenant} from '@/tenant';
 import type {Client} from '@/goovee/.generated/client';
 
 // ---- LOCAL IMPORTS ---- //
@@ -95,25 +92,21 @@ const otpTemplateHTML = ({otp}: {otp: string}) => `
 
 export async function generateOTP({
   email,
-  scope = Scope.Registration,
+  scope,
+  tenantId,
   client,
   mailConfig,
-  tenantId,
 }: {
   email: string;
   scope?: string;
-  mailConfig?: MailConfig;
+  tenantId?: string;
   client: Client;
-  tenantId?: Tenant['id'];
+  mailConfig?: MailConfig;
 }) {
-  if (!email) {
-    return error(await getTranslation({tenant: tenantId}, 'Email is required'));
-  }
-
   try {
     const result: any = await create({
       force: true,
-      scope,
+      scope: scope || Scope.Registration,
       entity: email,
       client,
     });

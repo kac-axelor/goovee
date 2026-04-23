@@ -1,3 +1,5 @@
+import {type OAuthInviteRegister, type OAuthRegister} from './validation-utils';
+
 import {deleteInviteById} from '@/app/[tenant]/[workspace]/account/common/orm/invites';
 import {findInviteById} from '@/app/auth/register/common/orm/register';
 import {
@@ -32,16 +34,6 @@ import {getPublicEnvironment} from '../environment/utils';
 import {withMattermostSync} from '../mattermost/user-api';
 import type {Client} from '@/goovee/.generated/client';
 
-export function isRegisterInviteDTO(
-  value: Record<string, unknown>,
-): value is RegisterInviteDTO {
-  return (
-    'inviteId' in value &&
-    typeof value.inviteId === 'string' &&
-    value.inviteId !== ''
-  );
-}
-
 function error(message: string) {
   return {
     error: true,
@@ -49,15 +41,8 @@ function error(message: string) {
   };
 }
 
-export type RegisterInviteDTO = {
-  firstName: string;
-  name: string;
-  email: string;
-  otp?: string;
+export type RegisterInviteDTO = OAuthInviteRegister & {
   password?: string;
-  tenantId: string;
-  inviteId: string;
-  locale?: string;
   client: Client;
   config: TenantConfig;
 };
@@ -73,10 +58,6 @@ export async function registerByInvite({
   client,
   config,
 }: RegisterInviteDTO) {
-  if (!(name && firstName && tenantId && inviteId)) {
-    return error(await getTranslation({tenant: tenantId}, 'Bad request'));
-  }
-
   const invite = await findInviteById({id: inviteId, client});
 
   if (!invite) {
@@ -203,20 +184,8 @@ export async function registerByInvite({
   }
 }
 
-export type RegisterDTO = {
-  type: UserType;
-  companyName?: string;
-  identificationNumber?: string;
-  companyNumber?: string;
-  firstName?: string;
-  name: string;
-  email: string;
-  otp?: string;
+export type RegisterDTO = OAuthRegister & {
   password?: string;
-  confirmPassword?: string;
-  workspaceURL?: string;
-  tenantId: Tenant['id'];
-  locale?: string;
   client: Client;
   config: TenantConfig;
 };
@@ -236,29 +205,11 @@ export async function register({
   client,
   config,
 }: RegisterDTO) {
-  const isIndividual = type === UserType.individual;
-
-  if (isIndividual && !name) {
-    return error(await getTranslation({tenant: tenantId}, 'Name is required.'));
-  }
-
   const isCompany = type === UserType.company;
 
   if (isCompany && !companyName) {
     return error(
       await getTranslation({tenant: tenantId}, 'Company name is required'),
-    );
-  }
-
-  if (!tenantId) {
-    return error(
-      await getTranslation({tenant: tenantId}, 'Tenant is required.'),
-    );
-  }
-
-  if (!workspaceURL) {
-    return error(
-      await getTranslation({tenant: tenantId}, 'Workspace is required.'),
     );
   }
 
@@ -523,16 +474,6 @@ async function registerAosContactAsAdmin({
   client,
   config,
 }: RegisterDTO) {
-  if (!email)
-    return error(
-      await getTranslation({tenant: tenantId, locale}, 'Email is required'),
-    );
-
-  if (!workspaceURL)
-    return error(
-      await getTranslation({tenant: tenantId}, 'Workspace is required'),
-    );
-
   const workspace = await findWorkspaceByURL({url: workspaceURL, client});
 
   if (!workspace) {
@@ -586,16 +527,6 @@ async function registerAosContactAsAdmin({
   }
 
   const localization = await findRegistrationLocalization({locale, client});
-
-  if (password && password.length < 8) {
-    return {
-      success: false,
-      error: await getTranslation(
-        {tenant: tenantId},
-        'Password must be at least 8 characters',
-      ),
-    };
-  }
 
   if (password) {
     const isCompany = type === UserType.company;

@@ -1,3 +1,4 @@
+import {z} from 'zod';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {manager} from '@/tenant';
 import {
@@ -11,13 +12,12 @@ import {customSession} from 'better-auth/plugins';
 import google from './core/auth/(ee)/google';
 import keycloak from './core/auth/(ee)/keycloak';
 import credentials from './core/auth/credentials';
+import {register, registerByInvite, registerByKeycloak} from './core/auth/orm';
 import {
-  register,
-  registerByInvite,
-  registerByKeycloak,
-  isRegisterInviteDTO,
-  type RegisterDTO,
-} from './core/auth/orm';
+  KeycloakRegisterSchema,
+  OAuthInviteRegisterSchema,
+  OAuthRegisterSchema,
+} from './core/auth/validation-utils';
 
 const showKeycloakOauth = process.env.SHOW_KEYCLOAK_OAUTH === 'true';
 
@@ -57,26 +57,41 @@ const options = {
             let partner = await findGooveeUserByEmail(user.email, client);
             if (!partner) {
               if (ctx.params?.id === 'google' && data.requestSignUp) {
+                const registrationData = {
+                  ...data,
+                  email: user.email,
+                };
+
+                const {success: inviteSuccess, data: inviteData} =
+                  OAuthInviteRegisterSchema.safeParse(registrationData);
+
                 let res;
-                try {
-                  const registrationData = {
-                    ...data,
-                    email: user.email,
+                if (inviteSuccess) {
+                  res = await registerByInvite({
+                    ...inviteData,
                     client,
                     config,
-                  };
-                  if (isRegisterInviteDTO(registrationData)) {
-                    res = await registerByInvite(registrationData);
-                  } else {
-                    res = await register(
-                      registrationData as unknown as RegisterDTO,
-                    );
+                  });
+                } else {
+                  const {
+                    success: registerSuccess,
+                    data: registerData,
+                    error: registerError,
+                  } = OAuthRegisterSchema.safeParse(registrationData);
+
+                  if (!registerSuccess) {
+                    throw new APIError('UNPROCESSABLE_ENTITY', {
+                      message: z.prettifyError(registerError),
+                    });
                   }
-                } catch (err) {
-                  throw new APIError('UNPROCESSABLE_ENTITY', {
-                    message: ERROR_CODES.REGISTRATION_FAILED,
+
+                  res = await register({
+                    ...registerData,
+                    client,
+                    config,
                   });
                 }
+
                 if ('error' in res) {
                   throw new APIError('UNPROCESSABLE_ENTITY', {
                     message: res.message,
@@ -86,22 +101,29 @@ const options = {
                 partner = await findGooveeUserByEmail(user.email, client);
               }
               if (ctx.params?.providerId === 'keycloak') {
-                // implicit signup with keycloak
-                let res;
-                try {
-                  res = await registerByKeycloak({
-                    email: user.email,
-                    name: user.name,
-                    workspaceURI: data.workspaceURI,
-                    tenantId: data.tenantId,
-                    locale: data.locale,
-                    client,
-                  });
-                } catch (err) {
+                const {
+                  success,
+                  data: keycloakData,
+                  error: keycloakError,
+                } = KeycloakRegisterSchema.safeParse({
+                  email: user.email,
+                  name: user.name,
+                  tenantId: data.tenantId,
+                  workspaceURI: data.workspaceURI,
+                  locale: data.locale,
+                });
+
+                if (!success) {
                   throw new APIError('UNPROCESSABLE_ENTITY', {
-                    message: ERROR_CODES.REGISTRATION_FAILED,
+                    message: z.prettifyError(keycloakError),
                   });
                 }
+
+                const res = await registerByKeycloak({
+                  ...keycloakData,
+                  client,
+                });
+
                 if ('error' in res) {
                   throw new APIError('UNPROCESSABLE_ENTITY', {
                     message: res.message,

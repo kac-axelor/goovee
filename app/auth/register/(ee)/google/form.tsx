@@ -41,7 +41,6 @@ import {Button} from '@/ui/components/button';
 import {Checkbox} from '@/ui/components/checkbox';
 import {Input} from '@/ui/components/input';
 import {SEARCH_PARAMS} from '@/constants';
-import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {subscribe} from '../../actions';
@@ -51,7 +50,7 @@ const formSchema = z
   .object({
     type: z.enum([UserType.company, UserType.individual]),
     companyName: z.string().superRefine((val, ctx) => {}),
-    indentificationNumber: z.string(),
+    identificationNumber: z.string(),
     companyNumber: z.string(),
     firstName: z.string(),
     email: z.string().optional(),
@@ -102,7 +101,7 @@ export default function SignUp({
     defaultValues: {
       type: UserType.individual,
       companyName: '',
-      indentificationNumber: '',
+      identificationNumber: '',
       companyNumber: '',
       firstName: '',
       name: '',
@@ -159,7 +158,7 @@ export default function SignUp({
   };
 
   const handleSubscription = async () => {
-    if (!workspace) return;
+    if (!workspace || !tenantId) return;
 
     try {
       const res: any = await subscribe({
@@ -284,7 +283,7 @@ export default function SignUp({
                 />
                 <FormField
                   control={form.control}
-                  name="indentificationNumber"
+                  name="identificationNumber"
                   render={({field}) => (
                     <FormItem>
                       <FormLabel>{i18n.t('Identification number')}</FormLabel>

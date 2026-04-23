@@ -1,11 +1,16 @@
 'use server';
 
+import {z} from 'zod';
 import {generateOTP as coreGenerateOTP} from '@/otp/actions';
-import {t} from '@/locale/server';
+import {getTranslation} from '@/locale/server';
 import {Scope} from '@/otp/constants';
 import {findWorkspace} from '@/orm/workspace';
 import {manager, type Tenant} from '@/tenant';
 import {findInviteById} from '../../../../common/orm/register';
+import {
+  InviteEmailRegisterOTPSchema,
+  type EmailInviteOTP,
+} from '@/lib/core/auth/validation-utils';
 
 function error(message: string) {
   return {
@@ -14,19 +19,18 @@ function error(message: string) {
   };
 }
 
-export async function generateOTP({
-  inviteId,
-  tenantId,
-}: {
-  inviteId: string;
-  tenantId: Tenant['id'];
-}) {
-  if (!(inviteId && tenantId)) {
-    return error(await t('Invitation and Tenant is required'));
+export async function generateOTP(data: EmailInviteOTP) {
+  const validation = InviteEmailRegisterOTPSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
   }
 
+  const {inviteId, tenantId} = validation.data;
+
   const tenant = await manager.getTenant(tenantId);
-  if (!tenant) return error(await t('Invalid tenant'));
+  if (!tenant)
+    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
   const {client} = tenant;
 
   const invite = await findInviteById({
@@ -35,7 +39,7 @@ export async function generateOTP({
   });
 
   if (!(invite?.workspace && invite?.partner)) {
-    return error(await t('Bad request'));
+    return error(await getTranslation({tenant: tenantId}, 'Bad request'));
   }
 
   const workspace = await findWorkspace({
@@ -47,18 +51,18 @@ export async function generateOTP({
   });
 
   if (!workspace?.config) {
-    return error(await t('Bad request'));
+    return error(await getTranslation({tenant: tenantId}, 'Bad request'));
   }
 
-  const email = invite?.emailAddress?.address;
+  const emailAddress = invite?.emailAddress?.address;
 
-  if (!email) {
-    return error(await t('Email is required'));
+  if (!emailAddress) {
+    return error(await getTranslation({tenant: tenantId}, 'Email is required'));
   }
 
   if (!workspace.config.otpTemplateList?.length) {
     return coreGenerateOTP({
-      email,
+      email: emailAddress,
       scope: Scope.Registration,
       tenantId,
       client,
@@ -76,7 +80,7 @@ export async function generateOTP({
     }
 
     return coreGenerateOTP({
-      email,
+      email: emailAddress,
       scope: Scope.Registration,
       tenantId,
       client,

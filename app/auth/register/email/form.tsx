@@ -42,7 +42,6 @@ import {Input} from '@/ui/components/input';
 import {SEARCH_PARAMS} from '@/constants';
 import {cn} from '@/utils/css';
 import {InnerHTML} from '@/ui/components/inner-html';
-import type {PortalWorkspace} from '@/orm/workspace';
 
 // ---- LOCAL IMPORTS ---- //
 import {generateOTP} from './actions';
@@ -56,7 +55,9 @@ const formSchema = z
     identificationNumber: z.string(),
     companyNumber: z.string(),
     firstName: z.string(),
-    otp: z.string().min(1, {message: i18n.t('Validation code is required')}),
+    otp: z
+      .string()
+      .regex(/^\d{6}$/, {message: i18n.t('Validation code is required')}),
     name: z.string(),
     email: z.string().min(1, {message: i18n.t('Email is required')}),
     phone: z.string(),
@@ -215,7 +216,7 @@ export default function SignUp({
   };
 
   const handleSubscription = async () => {
-    if (!workspace) return;
+    if (!workspace || !tenantId) return;
 
     try {
       const res: any = await subscribe({

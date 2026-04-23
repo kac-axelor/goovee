@@ -1,7 +1,8 @@
 'use server';
 
+import {z} from 'zod';
 import {hash} from '@/auth/utils';
-import {t} from '@/locale/server';
+import {getTranslation} from '@/locale/server';
 import {create as createOTP, findOne, isValid} from '@/otp/orm';
 import {Scope} from '@/otp/constants';
 import {findGooveeUserByEmail} from '@/orm/partner';
@@ -9,6 +10,12 @@ import NotificationManager, {NotificationType} from '@/notification';
 import {manager, type Tenant} from '@/tenant';
 import {withMattermostSync} from '@/lib/core/mattermost';
 import {RESET_PASSWORD} from '@/constants';
+import {
+  RequestResetPasswordSchema,
+  ResetPasswordSchema,
+  type RequestResetPassword,
+  type ResetPassword,
+} from '@/lib/core/auth/validation-utils';
 
 function error(message: string) {
   return {
@@ -100,26 +107,18 @@ const otpTemplateHTML = ({
       </html>
       `;
 
-export async function requestResetPassword({
-  email,
-  tenantId,
-  searchQuery,
-}: {
-  email: string;
-  tenantId: Tenant['id'];
-  searchQuery: string;
-}) {
-  if (!tenantId) {
-    return error(await t('TenantId is required'));
+export async function requestResetPassword(data: RequestResetPassword) {
+  const validation = RequestResetPasswordSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
   }
 
-  if (!email) {
-    return error(await t('Email is required'));
-  }
+  const {email, tenantId, searchQuery} = validation.data;
 
   const tenant = await manager.getTenant(tenantId);
   if (!tenant) {
-    return error(await t('Invalid tenant'));
+    return error(await getTranslation({tenant: tenantId}, 'Invalid tenant'));
   }
   const {client} = tenant;
 
@@ -152,39 +151,33 @@ export async function requestResetPassword({
   };
 }
 
-export async function resetPassword({
-  email,
-  otp,
-  password,
-  tenantId,
-}: {
-  email: string;
-  otp: string;
-  password: string;
-  tenantId: Tenant['id'];
-}) {
-  if (!tenantId) {
-    return error(await t('TenantId is required'));
+export async function resetPassword(data: ResetPassword) {
+  /* Validate all input at entry point */
+  const validation = ResetPasswordSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
   }
 
-  if (!(email && password && otp)) {
-    return error(await t('Email, password and otp is required'));
-  }
-
-  if (password.length < 8) {
-    return error(await t('Password must be at least 8 characters'));
-  }
+  const {email, otp, password, tenantId} = validation.data;
 
   const tenant = await manager.getTenant(tenantId);
   if (!tenant) {
-    return error(await t('Error resetting password. Try again.'));
+    return error(
+      await getTranslation(
+        {tenant: tenantId},
+        'Error resetting password. Try again.',
+      ),
+    );
   }
   const {client, config} = tenant;
 
   const user = await findGooveeUserByEmail(email, client);
 
   if (!user) {
-    return error(await t('You are not registered'));
+    return error(
+      await getTranslation({tenant: tenantId}, 'You are not registered'),
+    );
   }
 
   try {
@@ -195,13 +188,13 @@ export async function resetPassword({
     });
 
     if (!result) {
-      return error(await t('Bad request'));
+      return error(await getTranslation({tenant: tenantId}, 'Bad request'));
     }
 
     const isValidOTP = await isValid({id: result.id, value: otp, client});
 
     if (!isValidOTP) {
-      return error(await t('Invalid OTP'));
+      return error(await getTranslation({tenant: tenantId}, 'Invalid OTP'));
     }
 
     const hashedPassword = await hash(password);
@@ -217,7 +210,10 @@ export async function resetPassword({
       });
     } catch (err: any) {
       return {
-        message: await t('Error resetting password. Try again.'),
+        message: await getTranslation(
+          {tenant: tenantId},
+          'Error resetting password. Try again.',
+        ),
         success: false,
       };
     }
@@ -244,7 +240,10 @@ export async function resetPassword({
 
     return {
       success: true,
-      message: await t('Password reset successfully.'),
+      message: await getTranslation(
+        {tenant: tenantId},
+        'Password reset successfully.',
+      ),
     };
   } catch (err: any) {
     console.error('[RESET_PASSWORD] ERROR caught:', {
@@ -253,6 +252,11 @@ export async function resetPassword({
       name: err?.name,
       cause: err?.cause,
     });
-    return error(await t('Error resetting password. Try again.'));
+    return error(
+      await getTranslation(
+        {tenant: tenantId},
+        'Error resetting password. Try again.',
+      ),
+    );
   }
 }
