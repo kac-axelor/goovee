@@ -212,6 +212,8 @@ export const auth = betterAuth({
         const cookies = ctx.context.authCookies;
         ctx.setCookie(cookies.sessionToken.name, '', {maxAge: 0});
         ctx.setCookie(cookies.sessionData.name, '', {maxAge: 0});
+        ctx.setCookie(cookies.accountData.name, '', {maxAge: 0});
+        ctx.setCookie(cookies.dontRememberToken.name, '', {maxAge: 0});
         // Cast to `never` so this branch is excluded from the function’s inferred return type.
         return null as never;
       }
