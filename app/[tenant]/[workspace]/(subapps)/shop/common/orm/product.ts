@@ -450,19 +450,15 @@ export async function findProducts({
 
     const getCurrency = (): Currency => {
       if (ws) {
-        return (
-          wsProduct?.currency || {
-            symbol: DEFAULT_CURRENCY_SYMBOL,
-          }
-        );
+        return (wsProduct?.currency || {
+          symbol: DEFAULT_CURRENCY_SYMBOL,
+        }) as Currency;
       }
 
-      return (
-        product?.saleCurrency ||
+      return (product?.saleCurrency ||
         productcompany?.company?.currency || {
           symbol: DEFAULT_CURRENCY_SYMBOL,
-        }
-      );
+        }) as Currency;
     };
 
     const getPrice = async (): Promise<ComputedProduct['price']> => {

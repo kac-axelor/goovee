@@ -171,11 +171,10 @@ function Shipping({value, onChange}: {value: string; onChange: any}) {
     <div className="bg-card text-card-foreground p-6 rounded-lg">
       <Title className="text-xl font-medium" text={i18n.t('Shipping method')} />
       <Separator className="my-4" />
-      <RadioGroup defaultValue={value}>
+      <RadioGroup name="shipping" defaultValue={value}>
         <div className="border rounded-lg flex p-4 gap-4 items-center">
           <div className="flex items-center space-x-2">
             <RadioGroupItem
-              name="shipping"
               value={SHIPPING_TYPE.REGULAR}
               className={`${styles.radio}`}
               onClick={onChange}
@@ -195,7 +194,6 @@ function Shipping({value, onChange}: {value: string; onChange: any}) {
         <div className="border rounded-lg flex p-4 gap-4 mt-4">
           <div className="flex items-center space-x-2">
             <RadioGroupItem
-              name="shipping"
               value={SHIPPING_TYPE.FAST}
               className={`${styles.radio}`}
               onClick={onChange}

@@ -239,7 +239,7 @@ export function ProductList({
                     product={computedProduct}
                     quantity={quantity}
                     onAdd={handleAdd}
-                    displayPrices={workspace?.config?.displayPrices}
+                    displayPrices={workspace?.config?.displayPrices ?? false}
                     hidePriceAndPurchase={hidePriceAndPurchase}
                     category={category}
                   />

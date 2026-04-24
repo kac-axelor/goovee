@@ -10,12 +10,13 @@ export async function findModelRecord({
   client: Client;
 }) {
   if (!client) {
-    return [];
+    return null;
   }
 
   const record = await client.aOSMetaJsonRecord
     .findOne({
       where: {id: recordId},
+      select: {attrs: true},
     })
     .then(clone);
 
