@@ -10,8 +10,6 @@ import {z} from 'zod';
 // ---- CORE IMPORTS ---- //
 import {SEARCH_PARAMS} from '@/constants';
 import {i18n, l10n} from '@/locale';
-import {useEnvironment} from '@/lib/core/environment';
-import {isSameOrigin} from '@/utils/url';
 import {Button} from '@/ui/components/button';
 import {
   Form,
@@ -35,9 +33,11 @@ const formSchema = z.object({
 export default function SignUp({
   email,
   inviteId,
+  workspaceURL,
 }: {
   email: string;
   inviteId: string;
+  workspaceURL?: string;
 }) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,15 +50,7 @@ export default function SignUp({
 
   const searchParams = useSearchParams();
   const tenantId = searchParams.get(SEARCH_PARAMS.TENANT_ID);
-  const workspaceURI = searchParams.get('workspaceURI') as string;
-  const callbackurl = searchParams.get('callbackurl');
-  const env = useEnvironment();
-  const host = env.GOOVEE_PUBLIC_HOST!;
-  const decoded = callbackurl ? decodeURIComponent(callbackurl) : '';
-  const redirection =
-    (decoded && isSameOrigin(decoded, host) && decoded) ||
-    (workspaceURI && isSameOrigin(workspaceURI, host) && workspaceURI) ||
-    '/';
+  const redirection = workspaceURL || '/';
 
   const {toast} = useToast();
 
@@ -74,7 +66,7 @@ export default function SignUp({
     await authClient.signIn.social({
       provider: 'google',
       callbackURL: redirection,
-      errorCallbackURL: `/auth/error?tenantId=${tenantId}&workspaceURI=${workspaceURI}`,
+      errorCallbackURL: `/auth/error?tenantId=${tenantId}${workspaceURL ? `&workspaceURI=${new URL(workspaceURL).pathname}` : ''}`,
       requestSignUp: true,
       additionalData: {
         ...values,

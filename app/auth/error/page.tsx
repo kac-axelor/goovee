@@ -25,10 +25,12 @@ export default async function Page(props: {
               <AlertCircle className="h-10 w-10 text-destructive" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">{error}</CardTitle>
+          <CardTitle className="text-2xl font-bold break-words">
+            {error}
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-center text-sm text-slate-500 dark:text-slate-400">
-          <p>Error code: {error}</p>
+          <p className="break-words">Error code: {error}</p>
         </CardContent>
         <CardFooter className="flex justify-center">
           <Button asChild variant="outline" className="w-full">

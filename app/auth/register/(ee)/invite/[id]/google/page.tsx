@@ -69,5 +69,11 @@ export default async function Page(props: {
     }
   }
 
-  return <Form email={invite?.emailAddress?.address} inviteId={invite.id} />;
+  return (
+    <Form
+      email={invite?.emailAddress?.address}
+      inviteId={invite.id}
+      workspaceURL={invite.workspace?.url}
+    />
+  );
 }
