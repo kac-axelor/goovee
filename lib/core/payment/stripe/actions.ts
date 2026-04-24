@@ -207,7 +207,7 @@ export async function createStripePaymentIntent({
   amount: number;
   context: PaymentContextData;
   countryCode: CountryCode;
-}): Promise<BankTransferIntentResult> {
+}) {
   if (!(amount && customer?.email && currency && countryCode)) {
     throw new Error(
       'Name, amount, customer, currency and Country code are required',

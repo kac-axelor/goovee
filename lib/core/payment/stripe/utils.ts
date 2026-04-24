@@ -2,7 +2,10 @@ import Stripe from 'stripe';
 
 // ---- CORE IMPORTS ---- //
 import {getCountryName} from '@/utils/country';
-import {NormalizedBankDetails} from '@/ui/components/payment/types';
+import {
+  BankAddress,
+  NormalizedBankDetails,
+} from '@/ui/components/payment/types';
 import {BankTransferCurrency, CountryCode, StripeBankTransfer} from './types';
 import {
   BANK_ACCOUNT_TYPE,
@@ -11,6 +14,15 @@ import {
   BANK_TRANSFER_TYPE,
   COUNTRY_TO_BANK_TRANSFER,
 } from './constants';
+
+type StripeIban =
+  Stripe.PaymentIntent.NextAction.DisplayBankTransferInstructions.FinancialAddress.Iban & {
+    bank_address?: BankAddress | null;
+    account_holder_address?: BankAddress | null;
+  };
+
+type StripeAba =
+  Stripe.PaymentIntent.NextAction.DisplayBankTransferInstructions.FinancialAddress.Aba;
 
 export function getBankTransferConfig(
   currency: string,
@@ -73,7 +85,7 @@ export function getBankDetailsFromInstructions(
 
   switch (financialAddress.type) {
     case BANK_ACCOUNT_TYPE.IBAN: {
-      const iban = financialAddress.iban;
+      const iban = financialAddress.iban as StripeIban | undefined;
       if (!iban) return null;
 
       return {
@@ -88,7 +100,7 @@ export function getBankDetailsFromInstructions(
     }
 
     case BANK_ACCOUNT_TYPE.ABA: {
-      const aba = financialAddress.aba;
+      const aba = financialAddress.aba as StripeAba | undefined;
       if (!aba) return null;
 
       return {
@@ -96,7 +108,6 @@ export function getBankDetailsFromInstructions(
         routingNumber: aba.routing_number,
         accountNumber: aba.account_number,
         bankName: aba.bank_name ?? undefined,
-        accountType: aba.account_type ?? undefined,
       };
     }
 
