@@ -67,7 +67,6 @@ export async function getAllEvents({
   dates,
   workspace,
   tenantId,
-  user,
   onlyRegisteredEvent = false,
 }: {
   limit?: number;
@@ -81,7 +80,6 @@ export async function getAllEvents({
   dates?: [Date | undefined];
   workspace?: any;
   tenantId?: any;
-  user?: User;
   onlyRegisteredEvent?: boolean;
 }) {
   tenantId = (await headers()).get(TENANT_HEADER) || tenantId;
@@ -103,6 +101,9 @@ export async function getAllEvents({
   if (result.error) {
     return result;
   }
+
+  const session = await getSession();
+  const user = session?.user;
 
   try {
     const {events, pageInfo} = await findEvents({

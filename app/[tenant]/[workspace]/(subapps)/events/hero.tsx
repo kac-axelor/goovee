@@ -1,5 +1,5 @@
 'use client';
-import {authClient} from '@/lib/auth-client';
+
 import type {Cloned} from '@/types/util';
 import {useRouter} from 'next/navigation';
 
@@ -26,8 +26,6 @@ export const Hero = ({
 }: {
   workspace: PortalWorkspace | Cloned<PortalWorkspace>;
 }) => {
-  const {data: session} = authClient.useSession();
-  const {user} = session || {};
   const {workspaceURI} = useWorkspace();
   const router = useRouter();
   const {toast} = useToast();
@@ -42,7 +40,6 @@ export const Hero = ({
         try {
           const response: any = await getAllEvents({
             workspace,
-            user,
             search: query,
           });
           if (response?.error) {
