@@ -13,11 +13,6 @@
       "target": "AOSPortalForumGroup"
     },
     {
-      "name": "author",
-      "type": "ManyToOne",
-      "target": "AOSPartner"
-    },
-    {
       "name": "content",
       "type": "String"
     },

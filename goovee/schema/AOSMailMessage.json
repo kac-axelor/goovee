@@ -47,11 +47,6 @@
       "target": "AOSUser"
     },
     {
-      "type": "ManyToOne",
-      "name": "createdBy",
-      "target": "AOSUser"
-    },
-    {
       "type": "String",
       "name": "note"
     },

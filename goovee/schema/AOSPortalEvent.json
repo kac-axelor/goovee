@@ -111,10 +111,6 @@
       "type": "Int"
     },
     {
-      "name": "maxParticipantPerEvent",
-      "type": "Int"
-    },
-    {
       "name": "maxParticipantPerRegistration",
       "type": "Int"
     },
