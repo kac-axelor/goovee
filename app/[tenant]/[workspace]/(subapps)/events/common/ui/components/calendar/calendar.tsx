@@ -233,7 +233,7 @@ export function Calendar({
       }
     };
     fetchEventDates();
-  }, [month, workspace]);
+  }, [month, workspace, onlyRegisteredEvent]);
 
   return (
     <DayPicker
