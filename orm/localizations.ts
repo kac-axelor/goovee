@@ -9,6 +9,7 @@ export async function findLocalizations({client}: {client: Client}) {
       select: {
         name: true,
         code: true,
+        isAvailableOnPortal: true,
       },
       where: {
         isAvailableOnPortal: true,
