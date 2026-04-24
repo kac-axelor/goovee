@@ -84,7 +84,7 @@ export async function GET(
   const file = await findFile({
     client: tenant.client,
     storage: tenant.config.aos.storage,
-    id: order.orderReport.id,
+    id: reportId,
     meta: true,
   });
 
