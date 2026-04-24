@@ -156,26 +156,33 @@ export const AddressForm = ({
         version: address?.version,
       });
 
-      if (result) {
+      if (result?.error) {
+        toast({
+          variant: 'destructive',
+          description:
+            result.message ||
+            (address
+              ? i18n.t('Something went wrong while saving the address')
+              : i18n.t('Something went wrong while creating the address')),
+        });
+        return;
+      }
+
+      if (result?.success) {
         if (checkout) {
           updateCartAddress({
             addressType: type,
-            address: result?.id,
+            address: result?.data?.id,
           });
         }
         router.push(
           `${workspaceURI}/${SUBAPP_PAGE.account}/${SUBAPP_PAGE.addresses}?${queryString}`,
         );
+        toast({
+          variant: 'success',
+          title: i18n.t(`Address information saved successfully!`),
+        });
       }
-
-      toast({
-        variant: result ? 'success' : 'destructive',
-        title: result
-          ? i18n.t(`Address information saved successfully!`)
-          : i18n.t(
-              `Something went wrong while ${address ? 'saving' : 'creating'} the address!`,
-            ),
-      });
     } catch (error) {
       console.error('Error:', error);
       toast({

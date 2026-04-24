@@ -1,7 +1,7 @@
 'use server';
 
 import {headers} from 'next/headers';
-import {revalidatePath} from 'next/cache';
+import {z} from 'zod';
 
 // ---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
@@ -16,6 +16,18 @@ import {clone} from '@/utils';
 import {findInviteById} from '../../common/orm/invites';
 import {findAvailableSubapps} from '../../common/orm/members';
 import {Authorization} from '../../common/types';
+import {
+  UpdateInviteApplicationSchema,
+  UpdateInviteAuthenticationSchema,
+  DeleteMemberSchema,
+  UpdateMemberApplicationSchema,
+  UpdateMemberAuthenticationSchema,
+  type UpdateInviteApplication,
+  type UpdateInviteAuthentication,
+  type DeleteMember,
+  type UpdateMemberApplication,
+  type UpdateMemberAuthentication,
+} from '../../common/utils/validators';
 
 function error(message: string) {
   return {
@@ -71,19 +83,15 @@ async function canUpdate({workspaceURL}: {workspaceURL: string}) {
   return true;
 }
 
-export async function updateInviteApplication({
-  workspaceURL,
-  workspaceURI,
-  invite,
-  app,
-  value,
-}: {
-  workspaceURL: string;
-  workspaceURI: string;
-  invite: {id: string};
-  app: {id: string; code: string};
-  value: 'yes' | 'no';
-}) {
+export async function updateInviteApplication(input: UpdateInviteApplication) {
+  const validation = UpdateInviteApplicationSchema.safeParse(input);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {workspaceURL, workspaceURI, invite, app, value} = validation.data;
+
   const canUpdateInvite = await canUpdate({workspaceURL});
 
   if (!canUpdateInvite) {
@@ -168,8 +176,6 @@ export async function updateInviteApplication({
       select: {id: true},
     });
 
-    revalidatePath(`${workspaceURI}/account/members`);
-
     return {
       success: true,
       data: await findInviteById({id: invite.id, client}),
@@ -180,19 +186,17 @@ export async function updateInviteApplication({
   }
 }
 
-export async function updateInviteAuthentication({
-  workspaceURL,
-  workspaceURI,
-  invite,
-  app,
-  value,
-}: {
-  workspaceURL: string;
-  workspaceURI: string;
-  invite: {id: string};
-  app: {id: string; code: string};
-  value: Authorization;
-}) {
+export async function updateInviteAuthentication(
+  input: UpdateInviteAuthentication,
+) {
+  const validation = UpdateInviteAuthenticationSchema.safeParse(input);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {workspaceURL, workspaceURI, invite, app, value} = validation.data;
+
   const canUpdateInvite = await canUpdate({workspaceURL});
 
   if (!canUpdateInvite) {
@@ -238,7 +242,7 @@ export async function updateInviteAuthentication({
   const contactConfig: any = $invite?.contactAppPermissionList?.[0];
 
   if (!contactConfig) {
-    return error(await t('Invalid operation'));
+    return error(await t('Invite not configured for workspace'));
   }
 
   const existingApp = contactConfig?.contactAppPermissionList.find(
@@ -246,7 +250,7 @@ export async function updateInviteAuthentication({
   );
 
   if (!existingApp) {
-    return error(await t('Invalid operation'));
+    return error(await t('Invite does not have access to this application'));
   }
 
   try {
@@ -267,8 +271,6 @@ export async function updateInviteAuthentication({
       select: {id: true},
     });
 
-    revalidatePath(`${workspaceURI}/account/members`);
-
     return {
       success: true,
       data: await findInviteById({id: invite.id, client}),
@@ -279,15 +281,15 @@ export async function updateInviteAuthentication({
   }
 }
 
-export async function deleteMember({
-  member,
-  workspaceURL,
-  workspaceURI,
-}: {
-  member: {id: string; email: string};
-  workspaceURL: string;
-  workspaceURI: string;
-}) {
+export async function deleteMember(input: DeleteMember) {
+  const validation = DeleteMemberSchema.safeParse(input);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {member, workspaceURL, workspaceURI} = validation.data;
+
   const canUpdateInvite = await canUpdate({workspaceURL});
 
   if (!canUpdateInvite) {
@@ -341,8 +343,6 @@ export async function deleteMember({
       client,
     }).then(clone);
 
-    revalidatePath(`${workspaceURI}/account/members`);
-
     return {
       success: true,
       data: updatedPartner,
@@ -352,19 +352,15 @@ export async function deleteMember({
   }
 }
 
-export async function updateMemberApplication({
-  workspaceURL,
-  workspaceURI,
-  member,
-  app,
-  value,
-}: {
-  workspaceURL: string;
-  workspaceURI: string;
-  member: {id: string; email: string};
-  app: {id: string; code: string};
-  value: 'yes' | 'no';
-}) {
+export async function updateMemberApplication(input: UpdateMemberApplication) {
+  const validation = UpdateMemberApplicationSchema.safeParse(input);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {workspaceURL, workspaceURI, member, app, value} = validation.data;
+
   const canUpdateInvite = await canUpdate({workspaceURL});
 
   if (!canUpdateInvite) {
@@ -461,8 +457,6 @@ export async function updateMemberApplication({
       })
       .then(clone);
 
-    revalidatePath(`${workspaceURI}/account/members`);
-
     return {
       success: true,
       data: updatedConfig,
@@ -473,19 +467,17 @@ export async function updateMemberApplication({
   }
 }
 
-export async function updateMemberAuthentication({
-  workspaceURL,
-  workspaceURI,
-  member,
-  app,
-  value,
-}: {
-  workspaceURL: string;
-  workspaceURI: string;
-  member: {id: string; email: string};
-  app: {id: string; code: string};
-  value: Authorization;
-}) {
+export async function updateMemberAuthentication(
+  input: UpdateMemberAuthentication,
+) {
+  const validation = UpdateMemberAuthenticationSchema.safeParse(input);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {workspaceURL, workspaceURI, member, app, value} = validation.data;
+
   const canUpdateInvite = await canUpdate({workspaceURL});
 
   if (!canUpdateInvite) {
@@ -541,7 +533,7 @@ export async function updateMemberAuthentication({
   const contactConfig: any = $member?.contactWorkspaceConfig;
 
   if (!contactConfig) {
-    return error(await t('Invalid operation'));
+    return error(await t('Member not found in workspace'));
   }
 
   const existingApp = contactConfig?.contactAppPermissionList?.find(
@@ -549,7 +541,7 @@ export async function updateMemberAuthentication({
   );
 
   if (!existingApp) {
-    return error(await t('Invalid operation'));
+    return error(await t('Member does not have access to this application'));
   }
 
   try {
@@ -571,8 +563,6 @@ export async function updateMemberAuthentication({
         select: {id: true},
       })
       .then(clone);
-
-    revalidatePath(`${workspaceURI}/account/members`);
 
     return {
       success: true,

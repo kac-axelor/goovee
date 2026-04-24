@@ -1,6 +1,7 @@
 'use server';
 
 import {headers} from 'next/headers';
+import {z} from 'zod';
 
 // ---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
@@ -12,6 +13,12 @@ import {findContactWorkspaces, findPartnerWorkspaces} from '@/orm/workspace';
 // ---- CORE IMPORTS ---- //
 import {findLocalizations} from '@/orm/localizations';
 import {findGooveeUserByEmail, updatePartner} from '@/orm/partner';
+import {UpdateArgs} from '@goovee/orm';
+import {AOSPartner} from '@/goovee/.generated/models';
+import {
+  UpdatePreferenceSchema,
+  type UpdatePreference,
+} from '../common/utils/validators';
 
 function error(message: string) {
   return {
@@ -20,13 +27,15 @@ function error(message: string) {
   };
 }
 
-export async function updatePreference({
-  defaultWorkspace,
-  localization,
-}: {
-  defaultWorkspace?: string;
-  localization?: string;
-}) {
+export async function updatePreference(data: UpdatePreference) {
+  const validation = UpdatePreferenceSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {defaultWorkspace, localization} = validation.data;
+
   const tenantId = (await headers()).get(TENANT_HEADER);
 
   if (!tenantId) {
@@ -81,15 +90,21 @@ export async function updatePreference({
       }
     }
 
+    const updateData: UpdateArgs<AOSPartner> = {
+      id: partner.id,
+      version: partner.version,
+    };
+
+    if (defaultWorkspace) {
+      updateData.defaultWorkspace = {select: {id: partnerWorkspace?.id}};
+    }
+
+    if (localization) {
+      updateData.localization = {select: {id: localization}};
+    }
+
     const updatedPartner = await updatePartner({
-      data: {
-        id: partner.id,
-        version: partner.version,
-        defaultWorkspace: defaultWorkspace
-          ? {select: {id: partnerWorkspace?.id}}
-          : null,
-        localization: localization ? {select: {id: localization}} : null,
-      },
+      data: updateData,
       client,
     });
 

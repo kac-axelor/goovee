@@ -45,7 +45,7 @@ export const AddressCard = ({
   };
   onSelect?: (type: ADDRESS_TYPE, address: any) => void;
   onEdit: (type: ADDRESS_TYPE, id: string) => void;
-  onDefault?: (type: ADDRESS_TYPE, id: string, isDefault?: boolean) => void;
+  onDefault?: (type: ADDRESS_TYPE, id: string, isDefault: boolean) => void;
   onDelete: (id: string) => void;
 }) => {
   const {

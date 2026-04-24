@@ -1,10 +1,15 @@
 'use server';
 
+import {z} from 'zod';
 import {getSession} from '@/auth';
 import {t} from '@/locale/server';
 import {manager} from '@/tenant';
 import {updatePreferences} from '@/orm/notification';
 import {revalidatePath} from 'next/cache';
+import {
+  UpdateNotificationPreferenceSchema,
+  type UpdateNotificationPreference,
+} from '../common/utils/validators';
 
 const error = (message: string) => {
   return {
@@ -13,28 +18,20 @@ const error = (message: string) => {
   };
 };
 
-export async function updatePreference({
-  workspaceURL,
-  workspaceURI,
-  code,
-  data,
-  tenant: tenantId,
-}: {
-  code: string;
-  data?: {
-    activateNotification?: boolean;
-    record?: {
-      id: string;
-      activateNotification?: boolean;
-    };
-  };
-  workspaceURL: string;
-  workspaceURI: string;
-  tenant: string;
-}) {
-  if (!(code && data && workspaceURL && tenantId)) {
-    return error(await t('Code, url, tenant and payload is required'));
+export async function updatePreference(data: UpdateNotificationPreference) {
+  const validation = UpdateNotificationPreferenceSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
   }
+
+  const {
+    workspaceURL,
+    workspaceURI,
+    code,
+    data: notificationData,
+    tenant: tenantId,
+  } = validation.data;
   const session = await getSession();
   const user = session?.user;
 
@@ -54,7 +51,8 @@ export async function updatePreference({
       code,
       user,
       client,
-      ...data,
+      activateNotification: notificationData.activateNotification,
+      record: notificationData.record,
     });
 
     if (!result) {

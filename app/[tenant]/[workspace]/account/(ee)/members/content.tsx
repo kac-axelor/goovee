@@ -58,7 +58,6 @@ function Members({members, availableApps}: any) {
   const {workspaceURI, workspaceURL, tenant} = useWorkspace();
   const {toast} = useToast();
   const router = useRouter();
-
   const [confirmationDialog, setConfirmationDialog] = useState<any>(null);
 
   const openConfirmation = (member: any) => () => {
@@ -72,7 +71,7 @@ function Members({members, availableApps}: any) {
   const handleUpdateApplication =
     (member: any, app: any) => async (value: 'yes' | 'no') => {
       const result = await updateMemberApplication({
-        member,
+        member: {id: member.id},
         app,
         value,
         workspaceURL,
@@ -92,7 +91,7 @@ function Members({members, availableApps}: any) {
   const handleUpdateAuthentication =
     (member: any, app: any) => async (value: Authorization) => {
       const result = await updateMemberAuthentication({
-        member,
+        member: {id: member.id},
         app,
         value,
         workspaceURL,
@@ -110,12 +109,12 @@ function Members({members, availableApps}: any) {
     };
 
   const handleDeleteMember = async () => {
-    const {id, email} = confirmationDialog;
+    const {id} = confirmationDialog;
     closeConfirmation();
 
     const result =
       (await deleteMember({
-        member: {id, email},
+        member: {id},
         workspaceURL,
         workspaceURI,
       })) || ({error: true} as any);
@@ -334,7 +333,6 @@ function Invited({invites, availableApps}: any) {
   const {workspaceURI, workspaceURL} = useWorkspace();
   const {toast} = useToast();
   const router = useRouter();
-
   const [confirmationDialog, setConfirmationDialog] = useState<any>(null);
 
   const openConfirmation = (invite: any) => () => {
@@ -344,33 +342,30 @@ function Invited({invites, availableApps}: any) {
   const closeConfirmation = () => {
     setConfirmationDialog(null);
   };
-
   const handleUpdateApplication =
     (invite: any, app: any) => async (value: 'yes' | 'no') => {
       const result = await updateInviteApplication({
-        invite,
+        invite: {id: invite.id},
         app,
         value,
         workspaceURL,
         workspaceURI,
       });
 
-      if (result) {
-        if ('error' in result) {
-          toast({
-            title: i18n.t('Error updating invite'),
-            variant: 'destructive',
-          });
-        } else {
-          router.refresh();
-        }
+      if (result && 'error' in result) {
+        toast({
+          title: i18n.t('Error updating invite'),
+          variant: 'destructive',
+        });
+      } else {
+        router.refresh();
       }
     };
 
   const handleUpdateAuthentication =
     (invite: any, app: any) => async (value: Authorization) => {
       const result = await updateInviteAuthentication({
-        invite,
+        invite: {id: invite.id},
         app,
         value,
         workspaceURL,

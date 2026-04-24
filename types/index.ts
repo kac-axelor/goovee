@@ -3,6 +3,11 @@ import type {PortalAppConfig} from '@/orm/workspace';
 export type ID = string;
 export type Version = number;
 
+export interface Model {
+  id: ID;
+  version: Version;
+}
+
 export type OverlayColor =
   | 'default'
   | 'red'
@@ -27,11 +32,6 @@ export type OverlayColor =
   | 'black'
   | 'white';
 
-export interface Model {
-  id: ID;
-  version: Version;
-}
-
 export type User = {
   id: string;
   name: string | null;
@@ -43,6 +43,7 @@ export type User = {
   locale: string | null | undefined;
   image: string | null | undefined;
 };
+
 export interface Product extends Model {
   name: string;
   code: string;
@@ -105,8 +106,17 @@ export interface Address extends Model {
   addressl5?: string;
   addressl6?: string;
   country?: Country;
+  city?: City;
   townName?: string;
   zip?: string;
+  streetName?: string;
+  firstName?: string;
+  lastName?: string;
+  companyName?: string;
+  fullName?: string;
+  formattedFullName?: string;
+  countrySubDivision?: string;
+  department?: string;
 }
 
 export interface PartnerAddress extends Model {

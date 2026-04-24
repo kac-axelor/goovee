@@ -88,7 +88,7 @@ function Content({
   const handleDefault = async (
     type: ADDRESS_TYPE,
     id: string,
-    isDefault?: boolean,
+    isDefault: boolean,
   ) => {
     const result = await updateDefaultAddress({type, id, isDefault});
 
@@ -109,17 +109,18 @@ function Content({
   const handleDelete = async (id: string) => {
     const result = await deleteAddress(id);
 
-    if (result) {
+    if (result?.error) {
+      toast({
+        title: i18n.t('Error deleting address'),
+        description: result.message,
+        variant: 'destructive',
+      });
+    } else if (result?.success) {
       toast({
         title: i18n.t('Address deleted successfully'),
         variant: 'success',
       });
       router.refresh();
-    } else {
-      toast({
-        title: i18n.t('Error deleting address'),
-        variant: 'destructive',
-      });
     }
   };
 
@@ -131,20 +132,29 @@ function Content({
   };
 
   const handleQuotationConfirm = () => {
-    startTransition(async () => {
-      const payload = {
-        invoicingAddress: selectedAddresses.invoicing,
-        deliveryAddress: selectedAddresses.delivery,
-      };
+    const quotationId = quotation.id;
+    const invoicingAddress = selectedAddresses.invoicing;
+    const deliveryAddress = selectedAddresses.delivery;
 
+    if (!quotationId || !invoicingAddress || !deliveryAddress) {
+      toast({
+        variant: 'destructive',
+        description: i18n.t(
+          'Please select both invoicing and delivery addresses.',
+        ),
+      });
+      return;
+    }
+
+    startTransition(async () => {
       try {
         const result = await confirmAddresses({
           workspaceURL,
           subAppCode: SUBAPP_CODES.quotations,
           record: {
-            ...quotation,
-            deliveryAddress: payload.deliveryAddress,
-            mainInvoicingAddress: payload.invoicingAddress,
+            id: quotationId,
+            deliveryAddress: deliveryAddress,
+            mainInvoicingAddress: invoicingAddress,
           },
         });
 

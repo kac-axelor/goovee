@@ -31,7 +31,7 @@ export const AddressesList = ({
   onEdit: (type: ADDRESS_TYPE, id: string) => void;
   onSelect?: (type: ADDRESS_TYPE, address: any) => void;
   onDelete: (id: string) => void;
-  onDefault?: (type: ADDRESS_TYPE, id: string, isDefault?: boolean) => void;
+  onDefault?: (type: ADDRESS_TYPE, id: string, isDefault: boolean) => void;
 }) => {
   return (
     <div className="flex flex-col gap-4">

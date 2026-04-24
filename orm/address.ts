@@ -1,7 +1,7 @@
-import type {AOSPartnerAddress} from '@/goovee/.generated/models';
+import type {AOSPartnerAddress, AOSPartner} from '@/goovee/.generated/models';
 import type {Client} from '@/goovee/.generated/client';
-import {PartnerAddress, Partner, ID} from '@/types';
-import type {SelectOptions} from '@goovee/orm';
+import {PartnerAddress, Partner, ID, Address} from '@/types';
+import type {SelectOptions, UpdateArgs, CreateArgs} from '@goovee/orm';
 
 const addressFields = {
   address: {
@@ -9,6 +9,7 @@ const addressFields = {
     addressl2: true,
     addressl3: true,
     addressl4: true,
+    addressl5: true,
     addressl6: true,
     city: {id: true, name: true, zip: true},
     streetName: true,
@@ -22,6 +23,7 @@ const addressFields = {
       id: true,
       name: true,
     },
+    fullName: true,
     formattedFullName: true,
   },
   isDefaultAddr: true,
@@ -55,7 +57,12 @@ export async function findPartnerAddress({
 
 export async function createPartnerAddress(
   partnerId: Partner['id'],
-  values: Partial<PartnerAddress>,
+  values: {
+    address: Partial<Address>;
+    isDeliveryAddr?: boolean | null;
+    isInvoicingAddr?: boolean | null;
+    isDefaultAddr?: boolean | null;
+  },
   client: Client,
 ) {
   if (!partnerId) return null;
@@ -69,13 +76,33 @@ export async function createPartnerAddress(
       },
       address: {
         create: {
-          ...values.address,
+          addressl2: values.address.addressl2,
+          addressl3: values.address.addressl3,
+          addressl4: values.address.addressl4,
+          addressl5: values.address.addressl5,
+          addressl6: values.address.addressl6,
+          firstName: values.address.firstName,
+          lastName: values.address.lastName,
+          companyName: values.address.companyName,
+          fullName: values.address.fullName,
+          formattedFullName: values.address.formattedFullName,
+          streetName: values.address.streetName,
+          zip: values.address.zip,
+          townName: values.address.townName,
+          countrySubDivision: values.address.countrySubDivision,
+          department: values.address.department,
           country: {
             select: {
-              id: values?.address?.country?.id,
+              id: values.address.country?.id,
             },
           },
-          townName: values?.address?.townName,
+          city: values.address.city?.id
+            ? {
+                select: {
+                  id: values.address.city.id,
+                },
+              }
+            : undefined,
         },
       },
       isInvoicingAddr: values.isInvoicingAddr,
@@ -85,13 +112,13 @@ export async function createPartnerAddress(
     select: {id: true},
   });
 
-  if (values.isDeliveryAddr && values?.address?.country?.id) {
+  if (values.isDeliveryAddr && values.address.country?.id) {
     await updatePartnerFiscal({
       partnerId,
       countryId: values.address.country.id,
       client,
-      isDeliveryAddr: values.isDeliveryAddr,
-      isDefaultAddr: values.isDefaultAddr,
+      isDeliveryAddr: !!values.isDeliveryAddr,
+      isDefaultAddr: !!values.isDefaultAddr,
     });
   }
 
@@ -100,10 +127,17 @@ export async function createPartnerAddress(
 
 export async function updatePartnerAddress(
   partnerId: Partner['id'],
-  values: Partial<PartnerAddress>,
+  values: {
+    id: ID;
+    version: number;
+    address: Address;
+    isDeliveryAddr?: boolean | null;
+    isInvoicingAddr?: boolean | null;
+    isDefaultAddr?: boolean | null;
+  },
   client: Client,
 ) {
-  const partnerAddressId = values?.id;
+  const partnerAddressId = values.id;
 
   if (!(partnerId && partnerAddressId)) return null;
 
@@ -117,19 +151,44 @@ export async function updatePartnerAddress(
 
   const address = await client.aOSPartnerAddress.update({
     data: {
-      id: values.id as any,
-      version: partnerAddress.version as any,
+      id: values.id,
+      version: partnerAddress.version,
+      partner: {
+        select: {
+          id: partnerId,
+        },
+      },
       address: {
         update: {
-          ...values.address,
-          id: values?.address?.id as string,
-          version: values?.address?.version as number,
+          id: values.address.id,
+          version: values.address.version,
+          addressl2: values.address.addressl2,
+          addressl3: values.address.addressl3,
+          addressl4: values.address.addressl4,
+          addressl5: values.address.addressl5,
+          addressl6: values.address.addressl6,
+          firstName: values.address.firstName,
+          lastName: values.address.lastName,
+          companyName: values.address.companyName,
+          fullName: values.address.fullName,
+          formattedFullName: values.address.formattedFullName,
+          streetName: values.address.streetName,
+          zip: values.address.zip,
+          townName: values.address.townName,
+          countrySubDivision: values.address.countrySubDivision,
+          department: values.address.department,
           country: {
             select: {
-              id: values?.address?.country?.id,
+              id: values.address.country?.id,
             },
           },
-          townName: values?.address?.townName,
+          city: values.address.city?.id
+            ? {
+                select: {
+                  id: values.address.city.id,
+                },
+              }
+            : undefined,
         },
       },
       isInvoicingAddr: values.isInvoicingAddr,
@@ -139,7 +198,7 @@ export async function updatePartnerAddress(
     select: {id: true, isDeliveryAddr: true, isDefaultAddr: true},
   });
 
-  if (values.isDeliveryAddr && values?.address?.country?.id) {
+  if (values.isDeliveryAddr && values.address.country?.id) {
     await updatePartnerFiscal({
       partnerId,
       countryId: values.address.country.id,
@@ -528,7 +587,7 @@ export async function updatePartnerFiscalAndPriceList({
 
     if (!currentPartner) return null;
 
-    const updateData: any = {
+    const updateData: UpdateArgs<AOSPartner> = {
       id: partnerId,
       version: currentPartner.version,
     };

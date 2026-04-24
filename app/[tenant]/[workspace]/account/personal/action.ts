@@ -30,6 +30,10 @@ import {
   EmailUpdateOTPSchema,
   type EmailUpdateOTP,
 } from '@/lib/core/auth/validation-utils';
+import {
+  UpdatePersonalSchema,
+  type UpdatePersonal,
+} from '../common/utils/validators';
 
 const pump = promisify(pipeline);
 
@@ -182,35 +186,29 @@ export async function fetchPersonalSettings() {
   };
 }
 
-export async function update({
-  companyName,
-  identificationNumber,
-  companyNumber,
-  firstName,
-  name,
-  email,
-  otp,
-  mainPartner,
-  linkedInLink,
-}: {
-  companyName?: string;
-  identificationNumber?: string;
-  companyNumber?: string;
-  firstName?: string;
-  name: string;
-  email: string;
-  otp?: string;
-  mainPartner?: string;
-  linkedInLink?: string;
-}) {
+export async function update(data: UpdatePersonal) {
+  const validation = UpdatePersonalSchema.safeParse(data);
+
+  if (!validation.success) {
+    return error(z.prettifyError(validation.error));
+  }
+
+  const {
+    companyName,
+    identificationNumber,
+    companyNumber,
+    firstName,
+    name,
+    email: inputEmail,
+    otp,
+    mainPartner,
+    linkedInLink,
+  } = validation.data;
+
   const tenantId = (await headers()).get(TENANT_HEADER);
 
   if (!tenantId) {
     return error(await t('TenantId is required'));
-  }
-
-  if (!email) {
-    return error(await t('Email is required'));
   }
 
   const tenant = await manager.getTenant(tenantId);
@@ -224,14 +222,16 @@ export async function update({
     return error(await t('Unauthorized'));
   }
 
-  if (user.email !== email) {
+  const email = inputEmail || user.email;
+
+  if (inputEmail && user.email !== inputEmail) {
     if (!otp) {
       return error(await t('OTP is required'));
     }
 
     const otpResult = await findOne({
       scope: Scope.EmailUpdate,
-      entity: email,
+      entity: inputEmail!,
       client,
     });
 

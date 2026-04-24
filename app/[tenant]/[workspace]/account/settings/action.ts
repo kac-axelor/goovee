@@ -2,6 +2,7 @@
 
 import {headers} from 'next/headers';
 import {revalidatePath} from 'next/cache';
+import {z} from 'zod';
 
 // ---- CORE IMPORTS ---- //
 import {t} from '@/locale/server';
@@ -12,20 +13,22 @@ import {findGooveeUserByEmail, updatePartner} from '@/orm/partner';
 import {clone} from '@/utils';
 import {SUBAPP_PAGE} from '@/constants';
 import {manager, type Tenant} from '@/tenant';
+import {
+  RemoveWorkspaceSchema,
+  type RemoveWorkspace,
+} from '../common/utils/validators';
 
-export async function removeWorkpace({
-  workspaceURL,
-  workspaceURI,
-}: {
-  workspaceURL: string;
-  workspaceURI: string;
-}) {
-  if (!workspaceURL) {
+export async function removeWorkpace(data: RemoveWorkspace) {
+  const validation = RemoveWorkspaceSchema.safeParse(data);
+
+  if (!validation.success) {
     return {
       error: true,
-      message: await t('Bad request'),
+      message: z.prettifyError(validation.error),
     };
   }
+
+  const {workspaceURL, workspaceURI} = validation.data;
 
   const tenantId = (await headers()).get(TENANT_HEADER);
 

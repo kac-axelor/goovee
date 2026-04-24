@@ -1,6 +1,7 @@
 'use server';
 
 import {headers} from 'next/headers';
+import {z} from 'zod';
 
 // ---- CORE IMPORTS ---- //
 import {TENANT_HEADER} from '@/proxy';
@@ -18,59 +19,127 @@ import {
   updatePartnerAddress,
   deletePartnerAddress,
 } from '@/orm/address';
-import {PartnerAddress} from '@/types';
 import {manager} from '@/tenant';
+import {
+  CreateAddressSchema,
+  UpdateAddressSchema,
+  UpdateDefaultAddressSchema,
+  ConfirmAddressesSchema,
+  type CreateAddress,
+  type UpdateAddress,
+  type UpdateDefaultAddress,
+  type ConfirmAddresses,
+} from '../../../common/utils/validators';
+import {IdSchema} from '@/utils/validators';
 
 // ---- LOCAL IMPORT ---- //
 import {getQuotationRecord} from '@/app/[tenant]/[workspace]/account/addresses/common/utils';
 
-export async function createAddress(values: Partial<PartnerAddress>) {
+export async function createAddress(data: CreateAddress) {
+  const validation = CreateAddressSchema.safeParse(data);
+
+  if (!validation.success) {
+    return {error: true, message: z.prettifyError(validation.error)};
+  }
+
+  const {address, isDeliveryAddr, isInvoicingAddr, isDefaultAddr} =
+    validation.data;
+
   const session = await getSession();
   const tenantId = (await headers()).get(TENANT_HEADER);
 
-  if (!(session && tenantId)) return null;
+  if (!(session && tenantId)) {
+    return {error: true, message: await t('Unauthorized')};
+  }
 
   const tenant = await manager.getTenant(tenantId);
-  if (!tenant) return null;
+  if (!tenant) {
+    return {error: true, message: await t('Bad request')};
+  }
   const {client} = tenant;
 
   const userId = getPartnerId(session?.user);
 
-  const address = await createPartnerAddress(userId, values, client).then(
-    clone,
-  );
+  try {
+    const partnerAddress = await createPartnerAddress(
+      userId,
+      {
+        address,
+        isDeliveryAddr,
+        isInvoicingAddr,
+        isDefaultAddr,
+      },
+      client,
+    ).then(clone);
 
-  return address;
+    return {success: true, data: partnerAddress};
+  } catch (error) {
+    console.error('Create address error >>>', error);
+    return {
+      error: true,
+      message: await t('Error creating address'),
+    };
+  }
 }
 
-export async function updateAddress(values: PartnerAddress) {
+export async function updateAddress(data: UpdateAddress) {
+  const validation = UpdateAddressSchema.safeParse(data);
+
+  if (!validation.success) {
+    return {error: true, message: z.prettifyError(validation.error)};
+  }
+
+  const {id, version, address, isDeliveryAddr, isInvoicingAddr, isDefaultAddr} =
+    validation.data;
+
   const session = await getSession();
   const tenantId = (await headers()).get(TENANT_HEADER);
 
-  if (!(session && tenantId)) return null;
+  if (!(session && tenantId)) {
+    return {error: true, message: await t('Unauthorized')};
+  }
 
   const tenant = await manager.getTenant(tenantId);
-  if (!tenant) return null;
+  if (!tenant) {
+    return {error: true, message: await t('Bad request')};
+  }
   const {client} = tenant;
 
   const userId = getPartnerId(session?.user);
 
-  const address = await updatePartnerAddress(userId, values, client).then(
-    clone,
-  );
+  try {
+    const partnerAddress = await updatePartnerAddress(
+      userId,
+      {
+        id,
+        version,
+        address,
+        isDeliveryAddr,
+        isInvoicingAddr,
+        isDefaultAddr,
+      },
+      client,
+    ).then(clone);
 
-  return address;
+    return {success: true, data: partnerAddress};
+  } catch (error) {
+    console.error('Update address error >>>', error);
+    return {
+      error: true,
+      message: await t('Error updating address'),
+    };
+  }
 }
 
-export async function updateDefaultAddress({
-  type,
-  id,
-  isDefault,
-}: {
-  type: ADDRESS_TYPE;
-  id: PartnerAddress['id'];
-  isDefault?: boolean;
-}) {
+export async function updateDefaultAddress(data: UpdateDefaultAddress) {
+  const validation = UpdateDefaultAddressSchema.safeParse(data);
+
+  if (!validation.success) {
+    return null;
+  }
+
+  const {type, id, isDefault} = validation.data;
+
   const session = await getSession();
   const tenantId = (await headers()).get(TENANT_HEADER);
 
@@ -95,41 +164,56 @@ export async function updateDefaultAddress({
   }).then(clone);
 }
 
-export async function deleteAddress(id: PartnerAddress['id']) {
+export async function deleteAddress(data: z.infer<typeof IdSchema>) {
+  const validation = IdSchema.safeParse(data);
+
+  if (!validation.success) {
+    return {error: true, message: z.prettifyError(validation.error)};
+  }
+
+  const id = validation.data;
+
   const session = await getSession();
   const tenantId = (await headers()).get(TENANT_HEADER);
 
-  if (!(session?.user && tenantId && id)) return null;
+  if (!(session?.user && tenantId)) {
+    return {error: true, message: await t('Unauthorized')};
+  }
 
   const tenant = await manager.getTenant(tenantId);
-  if (!tenant) return null;
+  if (!tenant) {
+    return {error: true, message: await t('Bad request')};
+  }
   const {client} = tenant;
 
   const {user} = session;
   const userId = getPartnerId(user);
 
-  const address = await deletePartnerAddress(userId, id, client).then(clone);
-
-  return address;
-}
-
-export async function confirmAddresses({
-  workspaceURL,
-  record,
-  subAppCode,
-}: {
-  workspaceURL: string;
-  record: any;
-  subAppCode: SUBAPP_CODES;
-}) {
-  const tenantId = (await headers()).get(TENANT_HEADER);
-
-  if (!workspaceURL) {
+  try {
+    const address = await deletePartnerAddress(userId, id, client).then(clone);
+    return {success: true, data: address};
+  } catch (error) {
+    console.error('Delete address error >>>', error);
     return {
       error: true,
-      message: await t('Workspace not provided.'),
+      message: await t('Error deleting address'),
     };
   }
+}
+
+export async function confirmAddresses(data: ConfirmAddresses) {
+  const validation = ConfirmAddressesSchema.safeParse(data);
+
+  if (!validation.success) {
+    return {
+      error: true,
+      message: z.prettifyError(validation.error),
+    };
+  }
+
+  const {workspaceURL, record, subAppCode} = validation.data;
+
+  const tenantId = (await headers()).get(TENANT_HEADER);
 
   if (!tenantId) {
     return {
@@ -141,13 +225,6 @@ export async function confirmAddresses({
   const tenant = await manager.getTenant(tenantId);
   if (!tenant) return {error: true, message: await t('Bad request')};
   const {client} = tenant;
-
-  if (!record) {
-    return {
-      error: true,
-      message: await t('Invalid record.'),
-    };
-  }
 
   const session = await getSession();
 
@@ -209,8 +286,8 @@ export async function confirmAddresses({
 
   try {
     const reqBody = {
-      id: modelRecord.id,
-      version: modelRecord.version,
+      id: record.id,
+      version: modelRecord?.version,
       mainInvoicingAddressStr: record.mainInvoicingAddress.formattedFullName,
       mainInvoicingAddress: {
         select: {

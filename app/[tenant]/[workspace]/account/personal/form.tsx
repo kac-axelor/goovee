@@ -107,6 +107,18 @@ const formSchema = z
       message: i18n.t('OTP is required'),
       path: ['otp'],
     },
+  )
+  .refine(
+    data => {
+      if (data.editEmail && data.otp) {
+        if (!/^\d{6}$/.test(data.otp)) return false;
+      }
+      return true;
+    },
+    {
+      message: i18n.t('OTP must be a 6-digit number'),
+      path: ['otp'],
+    },
   );
 
 export default function Personal({
@@ -198,7 +210,10 @@ export default function Personal({
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const res: any = await update(values);
+      const res: any = await update({
+        ...values,
+        otp: values.otp || undefined,
+      });
 
       if ('success' in res) {
         toast({
