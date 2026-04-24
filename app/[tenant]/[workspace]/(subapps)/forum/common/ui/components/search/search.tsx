@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {MdOutlineSearch} from 'react-icons/md';
 import debounce from 'lodash/debounce';
 
@@ -16,10 +16,11 @@ export const Search = ({
 }) => {
   const [searchValue, setSearchValue] = useState<string>('');
 
-  const debouncedOnChange = useCallback(
-    debounce((value: string) => {
-      onChange(value);
-    }, 300),
+  const debouncedOnChange = useMemo(
+    () =>
+      debounce((value: string) => {
+        onChange(value);
+      }, 300),
     [onChange],
   );
 

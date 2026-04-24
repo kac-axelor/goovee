@@ -1,7 +1,6 @@
 'use client';
 
 import {useEffect, useState} from 'react';
-import Image from 'next/image';
 
 // ---- CORE IMPORTS ---- //
 import {MetaFile} from '@/types';
@@ -41,11 +40,7 @@ export const MediaContent = ({groupId = ''}: {groupId: string}) => {
         return (
           <div key={i} className="w-full h-[9.375rem] relative">
             {item.metaFile.fileType?.startsWith('image') ? (
-              <Image
-                fill
-                //src={/* add it later */}
-                alt={item.metaFile.fileName}
-              />
+              <></>
             ) : (
               <div className="absolute top-0 left-0 w-full h-full bg-muted flex items-end">
                 <div className="px-2 border h-10 xl:h-12 flex items-center font-xl  rounded-md gap-2 w-full bg-background">

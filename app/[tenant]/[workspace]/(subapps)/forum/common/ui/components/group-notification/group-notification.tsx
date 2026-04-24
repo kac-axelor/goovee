@@ -25,15 +25,17 @@ interface groupNotificationPros {
 }
 
 export const GroupNotification = ({group}: groupNotificationPros) => {
-  const [selectedOption, setSelectedOption] = useState<string | null>('');
   const {forumGroup, notificationSelect} = group;
+  const [selectedOption, setSelectedOption] = useState<string | null>(
+    notificationSelect,
+  );
 
   const {workspaceURI, workspaceURL} = useWorkspace();
   const {toast} = useToast();
 
   useEffect(() => {
     setSelectedOption(notificationSelect);
-  }, []);
+  }, [notificationSelect]);
 
   const handleChange = async (notificationType: string) => {
     const prevType = selectedOption;

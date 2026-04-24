@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useEffect, useState, useMemo} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import type {Cloned} from '@/types/util';
 import {useInView} from 'react-intersection-observer';
 import {useParams} from 'next/navigation';
@@ -54,7 +54,7 @@ export const InfiniteScroll: React.FC<InfiniteScrollProps> = ({
     [searchParams],
   );
 
-  const loadMorePosts = async () => {
+  const loadMorePosts = useCallback(async () => {
     if (loading || posts.length >= Number(count)) return;
 
     setLoading(true);
@@ -89,13 +89,24 @@ export const InfiniteScroll: React.FC<InfiniteScrollProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    count,
+    limit,
+    loading,
+    memberGroupIDs,
+    page,
+    posts.length,
+    selectedGroupId,
+    sort,
+    toast,
+    workspaceURL,
+  ]);
 
   useEffect(() => {
     if (inView) {
       loadMorePosts();
     }
-  }, [inView]);
+  }, [inView, loadMorePosts]);
 
   useEffect(() => {
     setPage(1);
