@@ -786,7 +786,7 @@ export async function findNewsAttachments({
     },
   }).then(clone);
 
-  const [{attachmentList = []} = {}] = response?.news ?? [];
+  const [{attachmentList = []} = {}] = (response as NewsResponse)?.news ?? [];
   return attachmentList ?? [];
 }
 
@@ -869,7 +869,7 @@ export async function findNewsRelatedNews({
     },
   }).then(clone);
 
-  const [{relatedNewsSet = []} = {}] = response?.news ?? [];
+  const [{relatedNewsSet = []} = {}] = (response as NewsResponse)?.news ?? [];
   return relatedNewsSet ?? [];
 }
 
