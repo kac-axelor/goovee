@@ -27,15 +27,13 @@ import {Button} from '@/ui/components/button';
 import {resetPassword} from '../action';
 import {useState, use} from 'react';
 import {authClient} from '@/lib/auth-client';
+import {PasswordSchema} from '@/utils/validators';
 
 const formSchema = z
   .object({
     email: z.email().min(1, i18n.t('Email is required')),
     otp: z.string().min(1, i18n.t('OTP is required')),
-    password: z
-      .string()
-      .min(1, i18n.t('Password is required'))
-      .min(8, i18n.t('Password must be at least 8 characters')),
+    password: PasswordSchema,
     confirmPassword: z.string().min(1, i18n.t('Confirm password is required')),
   })
   .refine(data => data.password === data.confirmPassword, {

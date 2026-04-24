@@ -1,19 +1,11 @@
 import {z} from 'zod';
 import {UserType} from './types';
-
-export const OTPSchema = z.string().regex(/^\d{6}$/);
-
-const PasswordSchema = z
-  .string()
-  .min(8, 'Password must be at least 8 characters');
-
-const TenantIdSchema = z.string().min(1, 'Tenant ID is required');
-
-// TODO: z.httpUrl() is too strict and does not allow urls without actual domain like http://localhost:3000, http://192.168.1.10:3000
-// https://github.com/colinhacks/zod/issues/5577
-// We should set a env to indicate if we are in production or not and use z.url() or z.httpUrl() accordingly
-// const WorkspaceURLSchema = z.httpUrl();
-const WorkspaceURLSchema = z.url({protocol: /^https?$/});
+import {
+  OTPSchema,
+  PasswordSchema,
+  TenantIdSchema,
+  WorkspaceURLSchema,
+} from '@/utils/validators';
 
 const LocaleSchema = z.string().optional();
 
@@ -150,3 +142,16 @@ export const EmailUpdateOTPSchema = z.object({
 });
 
 export type EmailUpdateOTP = z.infer<typeof EmailUpdateOTPSchema>;
+
+export const ChangePasswordSchema = z
+  .object({
+    oldPassword: z.string().min(1, 'Old password is required'),
+    newPassword: PasswordSchema,
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine(data => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
+
+export type ChangePassword = z.infer<typeof ChangePasswordSchema>;

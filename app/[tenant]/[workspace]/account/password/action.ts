@@ -1,6 +1,7 @@
 'use server';
 
 import {headers} from 'next/headers';
+import {z} from 'zod';
 
 // ---- CORE IMPORTS ---- //
 import {getSession} from '@/auth';
@@ -11,27 +12,22 @@ import {TENANT_HEADER} from '@/proxy';
 import {manager} from '@/tenant';
 import {withMattermostSync} from '@/lib/core/mattermost';
 import {CHANGE_PASSWORD} from '@/constants';
+import {
+  ChangePasswordSchema,
+  type ChangePassword,
+} from '@/lib/core/auth/validation-utils';
 
-export async function changePassword({
-  oldPassword,
-  newPassword,
-}: {
-  oldPassword: string;
-  newPassword: string;
-}) {
-  if (!(oldPassword && newPassword)) {
+export async function changePassword(data: ChangePassword) {
+  const validation = ChangePasswordSchema.safeParse(data);
+
+  if (!validation.success) {
     return {
       error: true,
-      message: await t('Bad request'),
+      message: z.prettifyError(validation.error),
     };
   }
 
-  if (newPassword.length < 8) {
-    return {
-      error: true,
-      message: await t('Password must be at least 8 characters'),
-    };
-  }
+  const {oldPassword, newPassword} = validation.data;
 
   const session = await getSession();
   const user = session?.user;

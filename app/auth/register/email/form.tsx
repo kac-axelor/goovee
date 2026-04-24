@@ -47,6 +47,7 @@ import {InnerHTML} from '@/ui/components/inner-html';
 import {generateOTP} from './actions';
 import {registerByEmail, subscribe} from '../actions';
 import {WorkspaceForRegistration} from '@/orm/workspace';
+import {PasswordSchema} from '@/utils/validators';
 
 const formSchema = z
   .object({
@@ -61,10 +62,7 @@ const formSchema = z
     name: z.string(),
     email: z.string().min(1, {message: i18n.t('Email is required')}),
     phone: z.string(),
-    password: z
-      .string()
-      .min(1, {message: i18n.t('Password is required')})
-      .min(8, {message: i18n.t('Password must be at least 8 characters')}),
+    password: PasswordSchema,
     confirmPassword: z
       .string()
       .min(1, {message: i18n.t('Confirm password is required')}),

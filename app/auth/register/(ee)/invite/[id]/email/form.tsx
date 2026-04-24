@@ -1,4 +1,5 @@
 'use client';
+import {PasswordSchema} from '@/utils/validators';
 
 import {useMemo, useState} from 'react';
 import {useRouter, useSearchParams} from 'next/navigation';
@@ -36,10 +37,7 @@ const formSchema = z
     name: z.string().min(1, {message: i18n.t('Last name is required.')}),
     email: z.string().min(1, {message: i18n.t('Email is required')}),
     otp: z.string().min(1, {message: i18n.t('OTP is required')}),
-    password: z
-      .string()
-      .min(1, {message: i18n.t('Password is required')})
-      .min(8, {message: i18n.t('Password must be at least 8 characters')}),
+    password: PasswordSchema,
     confirmPassword: z
       .string()
       .min(1, {message: i18n.t('Confirm password is required')}),

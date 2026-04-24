@@ -17,18 +17,22 @@ import {
   FormMessage,
 } from '@/ui/components/form';
 import {useToast} from '@/ui/hooks';
+import {PasswordSchema} from '@/utils/validators';
 
 // ---- LOCAL IMPORTS ---- //
 import {Title} from '../common/ui/components';
 import {changePassword} from './action';
 
-const formSchema = z.object({
-  oldPassword: z.string(),
-  newPassword: z
-    .string()
-    .min(8, {message: i18n.t('Password must be at least 8 characters')}),
-  confirmPassword: z.string(),
-});
+const formSchema = z
+  .object({
+    oldPassword: z.string(),
+    newPassword: PasswordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine(data => data.newPassword === data.confirmPassword, {
+    message: i18n.t("Passwords don't match"),
+    path: ['confirmPassword'],
+  });
 
 export default function Page() {
   const {toast} = useToast();
@@ -45,10 +49,12 @@ export default function Page() {
   const onSubmit = async ({
     oldPassword,
     newPassword,
+    confirmPassword,
   }: z.infer<typeof formSchema>) => {
     const result = await changePassword({
       oldPassword,
       newPassword,
+      confirmPassword,
     });
 
     toast({
