@@ -1,5 +1,6 @@
 import {notFound} from 'next/navigation';
 import type {Cloned} from '@/types/util';
+import {Suspense} from 'react';
 
 // ---- CORE IMPORTS ----//
 import {getSession} from '@/auth';
@@ -8,6 +9,9 @@ import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
 import {manager} from '@/tenant';
 import type {Client} from '@/goovee/.generated/client';
+import {User} from '@/types';
+import {PortalWorkspace} from '@/orm/workspace';
+import {Card} from '@/ui/components';
 
 // ---- LOCAL IMPORTS ---- //
 import {t} from '@/lib/core/locale/server';
@@ -29,10 +33,6 @@ import {
   EventTabs,
   EventTabsContent,
 } from '@/subapps/events/common/ui/components';
-import {User} from '@/types';
-import {PortalWorkspace} from '@/orm/workspace';
-import {Card} from '@/ui/components';
-import {Suspense} from 'react';
 
 export default async function Page(context: any) {
   const params = await context?.params;
