@@ -41,16 +41,18 @@ const options = {
           ) {
             const data = await getOAuthState();
             if (!data?.tenantId || !user.email) {
-              throw new APIError('UNPROCESSABLE_ENTITY', {
-                message: ERROR_CODES.TENANT_ID_REQUIRED,
-              });
+              throw new APIError(
+                'UNPROCESSABLE_ENTITY',
+                ERROR_CODES.TENANT_ID_REQUIRED,
+              );
             }
 
             const tenant = await manager.getTenant(data.tenantId);
             if (!tenant) {
-              throw new APIError('UNPROCESSABLE_ENTITY', {
-                message: ERROR_CODES.TENANT_ID_REQUIRED,
-              });
+              throw new APIError(
+                'UNPROCESSABLE_ENTITY',
+                ERROR_CODES.TENANT_ID_REQUIRED,
+              );
             }
             const {client, config} = tenant;
 
@@ -135,9 +137,10 @@ const options = {
             }
 
             if (!partner) {
-              throw new APIError('UNPROCESSABLE_ENTITY', {
-                message: ERROR_CODES.PARTNER_NOT_FOUND,
-              });
+              throw new APIError(
+                'UNPROCESSABLE_ENTITY',
+                ERROR_CODES.PARTNER_NOT_FOUND,
+              );
             }
           }
           return {data: user};
@@ -153,9 +156,10 @@ const options = {
           ) {
             const data = await getOAuthState();
             if (!data?.tenantId) {
-              throw new APIError('UNPROCESSABLE_ENTITY', {
-                message: ERROR_CODES.TENANT_ID_REQUIRED,
-              });
+              throw new APIError(
+                'UNPROCESSABLE_ENTITY',
+                ERROR_CODES.TENANT_ID_REQUIRED,
+              );
             }
             return {
               data: {
@@ -166,9 +170,10 @@ const options = {
           }
 
           if (!session.tenantId) {
-            throw new APIError('UNPROCESSABLE_ENTITY', {
-              message: ERROR_CODES.TENANT_ID_REQUIRED,
-            });
+            throw new APIError(
+              'UNPROCESSABLE_ENTITY',
+              ERROR_CODES.TENANT_ID_REQUIRED,
+            );
           }
 
           return {data: session};

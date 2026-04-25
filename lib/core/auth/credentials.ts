@@ -36,30 +36,22 @@ const credentials = {
 
         const tenant = await manager.getTenant(tenantId);
         if (!tenant) {
-          throw new APIError('UNAUTHORIZED', {
-            message: ERROR_CODES.INVALID_CREDENTIALS,
-          });
+          throw new APIError('UNAUTHORIZED', ERROR_CODES.INVALID_CREDENTIALS);
         }
         const {client} = tenant;
 
         const user = await findGooveeUserByEmail(email, client);
         if (!user) {
-          throw new APIError('UNAUTHORIZED', {
-            message: ERROR_CODES.INVALID_CREDENTIALS,
-          });
+          throw new APIError('UNAUTHORIZED', ERROR_CODES.INVALID_CREDENTIALS);
         }
 
         if (!user.password) {
-          throw new APIError('UNAUTHORIZED', {
-            message: ERROR_CODES.INVALID_CREDENTIALS,
-          });
+          throw new APIError('UNAUTHORIZED', ERROR_CODES.INVALID_CREDENTIALS);
         }
 
         const valid = await compare(password, user.password);
         if (!valid) {
-          throw new APIError('UNAUTHORIZED', {
-            message: ERROR_CODES.INVALID_CREDENTIALS,
-          });
+          throw new APIError('UNAUTHORIZED', ERROR_CODES.INVALID_CREDENTIALS);
         }
 
         const session = await ctx.context.internalAdapter.createSession(
