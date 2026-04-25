@@ -16,7 +16,7 @@ import {
 import {useResponsive, useToast} from '@/ui/hooks';
 import type {ID} from '@/types';
 import {Drawer, DrawerContent, DrawerTrigger} from '@/ui/components/drawer';
-import {debounce} from 'lodash';
+import {debounce} from 'lodash-es';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {searchTickets} from '../../../actions';

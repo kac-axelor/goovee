@@ -1,4 +1,4 @@
-import {capitalize, startCase} from 'lodash';
+import {capitalize, startCase} from 'lodash-es';
 
 export function toTitleCase(name: string): string;
 export function toTitleCase(name: string, allUpper: boolean): string;

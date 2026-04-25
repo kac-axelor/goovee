@@ -1,6 +1,6 @@
 import {ORDER_BY} from '@/constants';
 import {parseJSON} from 'date-fns';
-import {get} from 'lodash';
+import {get} from 'lodash-es';
 import {useCallback, useMemo, useState} from 'react';
 
 function sortDate(a: string | Date, b: string | Date) {

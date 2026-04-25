@@ -1,4 +1,4 @@
-import padStart from 'lodash/padStart';
+import {padStart} from 'lodash-es';
 import {i18n} from '@/locale/i18n';
 import {l10n} from '@/locale/server/l10n';
 import {DEFAULT_SCALE} from '@/locale/contants';

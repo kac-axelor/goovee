@@ -1,5 +1,5 @@
 import {Entity, WhereOptions} from '@goovee/orm';
-import {isEmpty} from 'lodash';
+import {isEmpty} from 'lodash-es';
 
 export function and<T extends Entity>(
   filters: (WhereOptions<T> | undefined | 0 | null | '' | false)[],

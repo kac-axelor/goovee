@@ -15,7 +15,7 @@ import {
 import {useToast} from '@/ui/hooks';
 import {cn} from '@/utils/css';
 import type {ID} from '@/types';
-import {debounce} from 'lodash';
+import {debounce} from 'lodash-es';
 import {useRouter} from 'next/navigation';
 import type {ChangeEvent} from 'react';
 import {useCallback, useMemo, useRef, useState} from 'react';

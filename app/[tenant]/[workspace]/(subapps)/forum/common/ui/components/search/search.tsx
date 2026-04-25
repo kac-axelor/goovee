@@ -2,7 +2,7 @@
 
 import {useEffect, useMemo, useState} from 'react';
 import {MdOutlineSearch} from 'react-icons/md';
-import debounce from 'lodash/debounce';
+import {debounce} from 'lodash-es';
 
 // ---- CORE IMPORTS ---- //
 import {Button, Input} from '@/ui/components';

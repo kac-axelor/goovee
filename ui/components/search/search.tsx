@@ -1,7 +1,7 @@
 'use client';
 
 import React, {useCallback, useEffect, useState, useRef} from 'react';
-import {debounce} from 'lodash';
+import {debounce} from 'lodash-es';
 
 // ---- CORE IMPORTS ---- //
 import {cn} from '@/utils/css';

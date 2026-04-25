@@ -10,7 +10,7 @@ import weekOfYear from 'dayjs/plugin/weekOfYear';
 import calendar from 'dayjs/plugin/calendar';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import utc from 'dayjs/plugin/utc';
-import kebabCase from 'lodash/kebabCase';
+import {kebabCase} from 'lodash-es';
 import {DEFAULT_DATE_FORMAT} from '@/locale/contants';
 import timezone from 'dayjs/plugin/timezone';
 

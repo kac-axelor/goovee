@@ -1,4 +1,4 @@
-import lodash from 'lodash';
+import {get} from 'lodash-es';
 
 export type MailConfig = {
   template: {
@@ -22,6 +22,6 @@ export function replacePlaceholders({
 
   return content.replace(/\$\{([^}]+)\}/g, (placeholder: string) => {
     const key = placeholder.slice(2, -1);
-    return lodash.get(values, key, placeholder);
+    return get(values, key, placeholder);
   });
 }

@@ -1,5 +1,5 @@
 import {notFound} from 'next/navigation';
-import uniqBy from 'lodash/uniqBy';
+import {uniqBy} from 'lodash-es';
 
 // ---- CORE IMPORT ---- //
 import {getSession} from '@/auth';

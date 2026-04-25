@@ -8,7 +8,7 @@ import {
   findWebsitePageBySlug,
   populateContent,
 } from '@/subapps/website/common/orm/website';
-import {get} from 'lodash';
+import {get} from 'lodash-es';
 import {findFile, streamFile} from '@/utils/download';
 import {
   MountType,
