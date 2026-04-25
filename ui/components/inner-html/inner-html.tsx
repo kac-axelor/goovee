@@ -24,7 +24,7 @@ export function InnerHTML<T extends ElementType = 'div'>({
   const Component = Tag as ElementType<HTMLElementProps>;
   return (
     <Component
-      {...(rest as HTMLElementProps)}
+      {...rest}
       dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(content || '')}}
     />
   );
