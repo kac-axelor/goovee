@@ -1,6 +1,5 @@
 export {Logo} from './logo';
 export {Navbar} from './navbar';
-export {ThemeProvider} from './theme-provider';
 
 export {
   EventCalendar,
