@@ -38,6 +38,11 @@ export const HUBPISP_LOCAL_INSTRUMENT = {
 export type HubPispLocalInstrument =
   (typeof HUBPISP_LOCAL_INSTRUMENT)[keyof typeof HUBPISP_LOCAL_INSTRUMENT];
 
+export const HUBPISP_TRANSFER_TYPE = {
+  STANDARD: 'standard',
+  INSTANT: 'instant',
+} as const;
+
 // Default expiry for a payment link: 30 minutes
 export const HUBPISP_DEFAULT_EXPIRE_IN = 1800;
 

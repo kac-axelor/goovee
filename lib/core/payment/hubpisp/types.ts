@@ -1,10 +1,14 @@
 // ---- CORE IMPORTS ---- //
 import {
   HUBPISP_CONSENT_STATUS,
+  HUBPISP_TRANSFER_TYPE,
   HubPispLocalInstrument,
   HubPispConsentStatus,
 } from '@/lib/core/payment/hubpisp/constants';
 import type {PaymentContextData} from '@/lib/core/payment/common/type';
+
+export type HubPispTransferType =
+  (typeof HUBPISP_TRANSFER_TYPE)[keyof typeof HUBPISP_TRANSFER_TYPE];
 
 export type HubPispContextData = PaymentContextData & {
   amount?: number;

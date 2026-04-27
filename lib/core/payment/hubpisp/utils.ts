@@ -1,8 +1,28 @@
-import crypto from 'crypto';
+import {PortalAppConfig} from '@/orm/workspace';
+import {PaymentOption} from '@/types';
+import {HUBPISP_TRANSFER_TYPE} from './constants';
+import {HubPispTransferType} from './types';
 
 export function generateRequestId(): string {
   return crypto.randomUUID();
 }
+
+export const getHubPispTransferTypes = (
+  paymentOptions: PortalAppConfig['paymentOptionSet'] = [],
+): HubPispTransferType[] => {
+  const raw = (paymentOptions || []).find(
+    option => option.typeSelect === PaymentOption.hubpisp,
+  )?.transferTypeSelect;
+
+  if (!raw) return [];
+
+  const allowed = new Set<string>(Object.values(HUBPISP_TRANSFER_TYPE));
+
+  return raw
+    .split(',')
+    .map(v => v.trim())
+    .filter((v): v is HubPispTransferType => allowed.has(v));
+};
 
 /**
  * Formats a timestamp as YYYY-MM-DDTHH:mm:ss.SSS+HH:MM in Europe/Paris timezone.

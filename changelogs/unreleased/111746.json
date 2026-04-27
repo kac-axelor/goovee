@@ -1,0 +1,6 @@
+{
+  "title": "Support configurable HUB PISP transfer types",
+  "type": "feature",
+  "description": "HUB PISP payments can now be restricted to Instant (SCTInst), Standard (SCT), or both via a new transferTypeSelect config. The UI shows only the allowed transfer tiles and the server rejects requests for transfer types that are not allowed.",
+  "scope": ["core"]
+}

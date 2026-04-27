@@ -7,6 +7,7 @@ import {PortalWorkspace} from '@/orm/workspace';
 import {ErrorResponse, SuccessResponse} from '@/types/action';
 import {Paybox, Paypal, Stripe, Up2pay, HubPISP} from '@/ui/components/payment';
 import {isPaymentOptionAvailable} from '@/utils/payment';
+import {getHubPispTransferTypes} from '@/payment/hubpisp/utils';
 import type {PaymentSSEProps} from '@/ui/components/payment/types';
 
 export function Payments({
@@ -82,10 +83,11 @@ export function Payments({
     PaymentOption.up2pay,
   );
 
-  const allowHubPisp = isPaymentOptionAvailable(
-    paymentOptionSet,
-    PaymentOption.hubpisp,
-  );
+  const hubPispTransferTypes = getHubPispTransferTypes(paymentOptionSet);
+
+  const allowHubPisp =
+    isPaymentOptionAvailable(paymentOptionSet, PaymentOption.hubpisp) &&
+    hubPispTransferTypes.length > 0;
 
   if (!allowOnlinePayment) {
     return null;
@@ -152,6 +154,7 @@ export function Payments({
           onCreateOrder={onInitiatePispPayment}
           errorMessage={errorMessage}
           sse={sse}
+          transferTypes={hubPispTransferTypes}
         />
       )}
     </div>

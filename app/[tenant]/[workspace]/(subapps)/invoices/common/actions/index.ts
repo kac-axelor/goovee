@@ -31,6 +31,7 @@ import {findPaymentContext, markPaymentAsProcessed} from '@/payment/common/orm';
 import {PartnerKey, PaymentOption, User} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {getPaymentModeId, isPaymentOptionAvailable} from '@/utils/payment';
+import {getHubPispTransferTypes} from '@/payment/hubpisp/utils';
 import {formatNumber} from '@/lib/core/locale/server/formatters';
 import {PAYMENT_SOURCE, PAYMENT_TYPE} from '@/lib/core/payment/common/type';
 import {
@@ -40,6 +41,7 @@ import {
 import {
   HUBPISP_LOCAL_INSTRUMENT,
   HUBPISP_REDIRECT_STATUS,
+  HUBPISP_TRANSFER_TYPE,
   HubPispLocalInstrument,
 } from '@/lib/core/payment/hubpisp/constants';
 import {
@@ -1392,6 +1394,26 @@ export async function initiatePispPayment({
     return {
       error: true,
       message: await t('HUB PISP is not available'),
+    };
+  }
+
+  const allowedTransferTypes = getHubPispTransferTypes(paymentOptions);
+  if (!allowedTransferTypes.length) {
+    return {
+      error: true,
+      message: await t('No HUB PISP transfer type is configured.'),
+    };
+  }
+
+  const requestedTransferType =
+    localInstrument === HUBPISP_LOCAL_INSTRUMENT.INST
+      ? HUBPISP_TRANSFER_TYPE.INSTANT
+      : HUBPISP_TRANSFER_TYPE.STANDARD;
+
+  if (!allowedTransferTypes.includes(requestedTransferType)) {
+    return {
+      error: true,
+      message: await t('Selected transfer type is not allowed'),
     };
   }
 

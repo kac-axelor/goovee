@@ -35,6 +35,7 @@ export const portalAppConfigFields = {
       paymentMode: {
         id: true,
       },
+      transferTypeSelect: true,
     },
   },
   ticketStatusChangeMethod: true,

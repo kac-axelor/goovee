@@ -20,6 +20,7 @@ import {PaymentOption} from '@/types';
 import {
   HUBPISP_LOCAL_INSTRUMENT,
   HUBPISP_REDIRECT_STATUS,
+  HUBPISP_TRANSFER_TYPE,
   HubPispLocalInstrument,
 } from '@/payment/hubpisp/constants';
 
@@ -30,11 +31,19 @@ export function HubPISP({
   errorMessage,
   cancelMessage,
   sse,
+  transferTypes,
 }: HubPispProps) {
   const [showTransferOptions, setShowTransferOptions] = useState(false);
   const [loadingInstrument, setLoadingInstrument] =
     useState<HubPispLocalInstrument | null>(null);
   const isLoading = loadingInstrument !== null;
+
+  const showInstant =
+    !transferTypes?.length ||
+    transferTypes.includes(HUBPISP_TRANSFER_TYPE.INSTANT);
+  const showStandard =
+    !transferTypes?.length ||
+    transferTypes.includes(HUBPISP_TRANSFER_TYPE.STANDARD);
 
   const notifiedRef = useRef(false);
 
@@ -197,63 +206,67 @@ export function HubPISP({
             </DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-3 p-4 border rounded-lg">
-                <div
-                  className={`p-3 border rounded-lg transition-all ${
-                    isLoading
-                      ? 'cursor-default bg-gray-50 opacity-75'
-                      : 'cursor-pointer hover:bg-gray-50'
-                  }`}
-                  onClick={() =>
-                    !isLoading &&
-                    handleInitiatePispPayment(HUBPISP_LOCAL_INSTRUMENT.INST)
-                  }>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center flex-1">
-                      <div className="mr-3 text-xl">⚡</div>
-                      <div>
-                        <h4 className="font-medium">
-                          {i18n.t('Instant transfer (SCTInst)')}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {i18n.t('Within seconds')}
-                        </p>
+                {showInstant && (
+                  <div
+                    className={`p-3 border rounded-lg transition-all ${
+                      isLoading
+                        ? 'cursor-default bg-gray-50 opacity-75'
+                        : 'cursor-pointer hover:bg-gray-50'
+                    }`}
+                    onClick={() =>
+                      !isLoading &&
+                      handleInitiatePispPayment(HUBPISP_LOCAL_INSTRUMENT.INST)
+                    }>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center flex-1">
+                        <div className="mr-3 text-xl">⚡</div>
+                        <div>
+                          <h4 className="font-medium">
+                            {i18n.t('Instant transfer (SCTInst)')}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {i18n.t('Within seconds')}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    {loadingInstrument === HUBPISP_LOCAL_INSTRUMENT.INST && (
-                      <div className="flex items-center justify-center pt-1">
-                        <Spinner className="h-5 w-5 text-primary" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div
-                  className={`p-3 border rounded-lg transition-all ${
-                    isLoading
-                      ? 'cursor-default bg-gray-50 opacity-75'
-                      : 'cursor-pointer hover:bg-gray-50'
-                  }`}
-                  onClick={() => !isLoading && handleInitiatePispPayment()}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center flex-1">
-                      <div className="mr-3 text-xl">🏦</div>
-                      <div>
-                        <h4 className="font-medium">
-                          {i18n.t('Standard transfer (SCT)')}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {i18n.t('1-3 business days')}
-                        </p>
-                      </div>
+                      {loadingInstrument === HUBPISP_LOCAL_INSTRUMENT.INST && (
+                        <div className="flex items-center justify-center pt-1">
+                          <Spinner className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
                     </div>
-
-                    {loadingInstrument === HUBPISP_LOCAL_INSTRUMENT.SCT && (
-                      <div className="flex items-center justify-center pt-1">
-                        <Spinner className="h-5 w-5 text-primary" />
-                      </div>
-                    )}
                   </div>
-                </div>
+                )}
+                {showStandard && (
+                  <div
+                    className={`p-3 border rounded-lg transition-all ${
+                      isLoading
+                        ? 'cursor-default bg-gray-50 opacity-75'
+                        : 'cursor-pointer hover:bg-gray-50'
+                    }`}
+                    onClick={() => !isLoading && handleInitiatePispPayment()}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center flex-1">
+                        <div className="mr-3 text-xl">🏦</div>
+                        <div>
+                          <h4 className="font-medium">
+                            {i18n.t('Standard transfer (SCT)')}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {i18n.t('1-3 business days')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {loadingInstrument === HUBPISP_LOCAL_INSTRUMENT.SCT && (
+                        <div className="flex items-center justify-center pt-1">
+                          <Spinner className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </DialogDescription>
           </DialogHeader>

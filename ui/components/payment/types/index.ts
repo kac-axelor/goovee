@@ -1,5 +1,6 @@
 // ---- CORE IMPORTS ---- //
 import {HubPispLocalInstrument} from '@/lib/core/payment/hubpisp/constants';
+import {HubPispTransferType} from '@/lib/core/payment/hubpisp/types';
 import {BANK_TRANSFER_STATUS} from '@/lib/core/payment/stripe/constants';
 import {BankAccountType} from '@/lib/core/payment/stripe/types';
 import {ErrorResponse, SuccessResponse} from '@/types/action';
@@ -147,4 +148,5 @@ export type HubPispProps = {
     localInstrument?: HubPispLocalInstrument;
   }) => Promise<any>;
   sse?: PaymentSSEProps;
+  transferTypes?: HubPispTransferType[];
 };

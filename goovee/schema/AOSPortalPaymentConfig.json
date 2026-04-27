@@ -20,6 +20,10 @@
       "type": "ManyToMany",
       "name": "portalAppConfigSet",
       "target": "AOSPortalAppConfig"
+    },
+    {
+      "type": "String",
+      "name": "transferTypeSelect"
     }
   ]
 }
