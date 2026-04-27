@@ -24,11 +24,14 @@ export function verifySignature(
   return verifier.verify(publicKeyPem, signatureBuffer);
 }
 
-export function readPEMFile(filePath?: string): string {
+export function readPEMFile(): string {
   try {
-    if (!filePath) {
-      filePath = path.join(process.cwd(), 'certs', 'paybox', 'public-key.pem');
-    }
+    const filePath = path.join(
+      process.cwd(),
+      'certs',
+      'paybox',
+      'public-key.pem',
+    );
     const absolutePath = path.resolve(filePath);
     const pemContent = fs.readFileSync(absolutePath, 'utf8');
     return pemContent;

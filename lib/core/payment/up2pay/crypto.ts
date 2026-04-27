@@ -38,11 +38,14 @@ export function verifySignature(
   }
 }
 
-export function readPEMFile(filePath?: string): string {
+export function readPEMFile(): string {
   try {
-    const resolvedPath = filePath
-      ? path.resolve(filePath)
-      : path.join(process.cwd(), 'certs', 'up2pay', 'public-key.pem');
+    const resolvedPath = path.join(
+      process.cwd(),
+      'certs',
+      'up2pay',
+      'public-key.pem',
+    );
 
     if (!fs.existsSync(resolvedPath)) {
       return '';
