@@ -1,5 +1,5 @@
 import {DEFAULT_CURRENCY_CODE} from '@/constants';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {PaymentOption} from '@/types';
 import {decodeFilter as decode} from '@/utils/url';
 import {getPaymentURL} from '.';

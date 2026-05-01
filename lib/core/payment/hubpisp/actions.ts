@@ -1,5 +1,5 @@
 import type {Tenant} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {PaymentOption} from '@/types';
 import {
   createPaymentContext,

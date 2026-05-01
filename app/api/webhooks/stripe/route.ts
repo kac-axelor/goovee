@@ -3,7 +3,7 @@ import {headers} from 'next/headers';
 import Stripe from 'stripe';
 
 // ---- CORE IMPORTS ---- //
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {stripe} from '@/payment/stripe';
 import {
   CONTEXT_STATUS,

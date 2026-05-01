@@ -1,6 +1,6 @@
 import {DEFAULT_CURRENCY_CODE} from '@/constants';
 import type {Tenant} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {PaymentOption} from '@/types';
 import {getPaymentURL} from '.';
 import {createPaymentContext} from '../common/orm';

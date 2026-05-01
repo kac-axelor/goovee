@@ -5,8 +5,8 @@ import type {Cloned} from '@/types/util';
 import type {PortalWorkspace} from '@/orm/workspace';
 import {filterPrivate} from '@/orm/filter';
 import {and} from '@/utils/orm';
-import type {AOSPortalEventCategory} from '@/goovee/.generated/models';
-import type {Client} from '@/goovee/.generated/client';
+import type {AOSPortalEventCategory} from '@goovee/generated/models';
+import type {Client} from '@goovee/generated/client';
 import {Category} from '../ui/components/events/types';
 
 export async function findEventCategories({

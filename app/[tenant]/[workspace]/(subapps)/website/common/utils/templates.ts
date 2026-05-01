@@ -1,4 +1,4 @@
-import type {GooveeClient} from '@/goovee/.generated/client';
+import type {GooveeClient} from '@goovee/generated/client';
 import {
   ArrayFieldTypes,
   COMPONENT_MODEL,

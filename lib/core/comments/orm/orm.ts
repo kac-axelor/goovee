@@ -6,9 +6,9 @@ import {promisify} from 'util';
 
 // ---- CORE IMPORTS ---- //
 import {ORDER_BY} from '@/constants';
-import {AOSMailMessage} from '@/goovee/.generated/models';
+import {AOSMailMessage} from '@goovee/generated/models';
 import {t} from '@/locale/server';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {ID} from '@/types';
 import {getFileSizeText} from '@/utils/files';
 import {sql} from '@/utils/template-string';

@@ -2,7 +2,7 @@ import {Suspense} from 'react';
 import type {Cloned} from '@/types/util';
 
 // ---- CORE IMPORTS ----//
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {getSession} from '@/auth';
 import {PortalWorkspace} from '@/orm/workspace';
 import {SUBAPP_CODES} from '@/constants';

@@ -15,7 +15,7 @@ import {parseCommentContent} from '@/lib/core/comments';
 import {t} from '@/lib/core/locale/server';
 import type {User, OverlayColor} from '@/types';
 import {PortalWorkspace} from '@/orm/workspace';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {BigNewsCard} from '@/ui/components/big-news-card';
 import {Card, CardContent, CardHeader, CardTitle} from '@/ui/components/card';
 import {Carousel} from '@/ui/components/carousel';

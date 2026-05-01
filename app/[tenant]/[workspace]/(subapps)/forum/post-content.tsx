@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {Cloned} from '@/types/util';
 import {DEFAULT_LIMIT} from '@/constants';
 import {User} from '@/types';

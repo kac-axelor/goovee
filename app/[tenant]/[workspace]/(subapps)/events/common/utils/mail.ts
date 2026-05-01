@@ -6,7 +6,7 @@ import {html} from '@/utils/template-string';
 import {findEvent} from '../orm/event';
 import {generateIcs} from './index';
 import {formatDate} from '@/lib/core/locale/server/formatters';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {TenantConfig} from '@/tenant';
 
 export async function mailTemplate({

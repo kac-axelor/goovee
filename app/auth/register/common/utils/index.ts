@@ -1,4 +1,4 @@
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {getSession} from '@/auth';
 import {getPublicEnvironment} from '@/environment';
 import {findWorkspaces} from '@/orm/workspace';

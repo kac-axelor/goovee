@@ -3,7 +3,7 @@ import {SUBAPP_WITH_ROLES} from '@/constants';
 import {getSession} from '@/lib/core/auth';
 import {isAdminContact, isPartner} from '@/orm/partner';
 import {findSubapps, findWorkspaceMembers} from '@/orm/workspace';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {Partner} from '@/types';
 import type {PortalWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';

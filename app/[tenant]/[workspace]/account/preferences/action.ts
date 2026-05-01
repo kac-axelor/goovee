@@ -14,7 +14,7 @@ import {findContactWorkspaces, findPartnerWorkspaces} from '@/orm/workspace';
 import {findLocalizations} from '@/orm/localizations';
 import {findGooveeUserByEmail, updatePartner} from '@/orm/partner';
 import {UpdateArgs} from '@goovee/orm';
-import {AOSPartner} from '@/goovee/.generated/models';
+import {AOSPartner} from '@goovee/generated/models';
 import {
   UpdatePreferenceSchema,
   type UpdatePreference,

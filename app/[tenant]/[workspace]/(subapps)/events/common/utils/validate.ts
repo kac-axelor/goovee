@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {t} from '@/locale/server';
 import {findPayboxOrder} from '@/payment/paybox/actions';
 import {findPaypalOrder} from '@/payment/paypal/actions';

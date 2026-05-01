@@ -5,7 +5,7 @@ import {
 } from '@paypal/paypal-server-sdk';
 import PayPalClient from '.';
 import {DEFAULT_CURRENCY_CODE} from '@/constants';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {PaymentOption} from '@/types';
 import {createPaymentContext, findPaymentContext} from '../common/orm';
 import type {PaymentOrder} from '../common/type';

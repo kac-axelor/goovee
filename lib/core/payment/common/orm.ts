@@ -1,6 +1,6 @@
 // ---- CORE IMPORTS ---- //
 import {PaymentOption} from '@/types';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {type PaymentContext} from './type';
 
 export const CONTEXT_STATUS = {

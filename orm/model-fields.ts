@@ -1,5 +1,5 @@
 // ---- CORE IMPORTS ---- //
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {clone} from '@/utils';
 
 export async function findModelFields({

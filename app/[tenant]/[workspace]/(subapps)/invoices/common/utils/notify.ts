@@ -4,7 +4,7 @@ import {findGooveeUserByEmail} from '@/orm/partner';
 import {SUBAPP_CODES} from '@/constants';
 import {getTranslation} from '@/locale/server';
 import {DEFAULT_LOCALE} from '@/locale/contants';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 export async function notifyInvoicePaymentSuccess({
   invoiceId,

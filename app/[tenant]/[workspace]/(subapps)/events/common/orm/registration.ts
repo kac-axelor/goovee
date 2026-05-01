@@ -1,10 +1,10 @@
 // ---- CORE IMPORTS ---- //
 import type {ID, Participant} from '@/types';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {USER_CREATED_FROM} from '@/constants';
-import {AOSPortalParticipant} from '@/goovee/.generated/models';
+import {AOSPortalParticipant} from '@goovee/generated/models';
 import {UserType} from '@/lib/core/auth/types';
 import {PartnerTypeMap} from '@/orm/partner';
 import {CreateArgs} from '@goovee/orm';

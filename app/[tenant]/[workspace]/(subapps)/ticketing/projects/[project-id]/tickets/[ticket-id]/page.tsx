@@ -8,7 +8,7 @@ import {FaChevronRight} from 'react-icons/fa';
 import {Comments, isCommentEnabled, SORT_TYPE} from '@/comments';
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {
   Breadcrumb,
   BreadcrumbItem,

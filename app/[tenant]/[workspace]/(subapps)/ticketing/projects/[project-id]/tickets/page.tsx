@@ -1,7 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {PortalAppConfig} from '@/orm/workspace';
 import {
   Breadcrumb,

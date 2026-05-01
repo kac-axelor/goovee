@@ -15,7 +15,7 @@ import {
 import type {Product, Currency, ComputedProduct, User} from '@/types';
 import type {PortalWorkspace} from '@/orm/workspace';
 import type {TenantConfig} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {filterPrivate} from '@/orm/filter';
 import {formatNumber} from '@/locale/server/formatters';
 import {getPartnerId} from '@/utils';

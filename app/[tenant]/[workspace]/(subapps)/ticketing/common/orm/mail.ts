@@ -1,5 +1,5 @@
 import {SUBAPP_CODES} from '@/constants';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {ID} from '@/types';
 import type {Maybe} from '@/types/util';
 

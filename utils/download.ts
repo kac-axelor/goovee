@@ -5,7 +5,7 @@ import type {ReadableOptions} from 'stream';
 
 // ---- CORE IMPORTS ---- //
 import {filterPrivate} from '@/orm/filter';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {ID, User} from '@/types';
 
 export async function findFile({

@@ -1,7 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {ORDER_BY, SUBAPP_CODES} from '@/constants';
-import type {Client} from '@/goovee/.generated/client';
-import type {AOSProject} from '@/goovee/.generated/models';
+import type {Client} from '@goovee/generated/client';
+import type {AOSProject} from '@goovee/generated/models';
 import type {ID} from '@/types';
 
 import type {QueryProps} from './helpers';

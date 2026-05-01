@@ -8,7 +8,7 @@ import type {
 import {getSession} from '@/auth';
 import {UserType} from '@/auth/types';
 import {hash} from '@/auth/utils';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {USER_CREATED_FROM} from '@/constants';
 import {clone} from '@/utils';
 import {ID, Localization} from '@/types';
@@ -17,7 +17,7 @@ import {
   findContactWorkspaceConfig,
   findDefaultPartnerWorkspaceConfig,
 } from './workspace';
-import type {AOSPartner} from '@/goovee/.generated/models';
+import type {AOSPartner} from '@goovee/generated/models';
 import {Cloned} from '@/types/util';
 
 const partnerFields = {

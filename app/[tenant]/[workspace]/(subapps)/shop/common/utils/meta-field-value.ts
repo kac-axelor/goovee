@@ -3,7 +3,7 @@ import {
   JSON_MANY_TO_MANY,
   JSON_MANY_TO_ONE,
 } from '@/subapps/shop/common/constants';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 export async function transformMetaFields(
   metaFields: any[],

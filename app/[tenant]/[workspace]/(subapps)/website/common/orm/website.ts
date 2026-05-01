@@ -3,7 +3,7 @@ import axios from 'axios';
 // ---- CORE IMPORTS ---- //
 import {filterPrivate} from '@/orm/filter';
 import type {TenantConfig} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {ID, MainWebsite, User, Website, WebsitePage} from '@/types';
 import type {PortalWorkspace} from '@/orm/workspace';
 import {clone} from '@/utils';

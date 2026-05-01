@@ -3,7 +3,7 @@ import sanitizeHtml from 'sanitize-html';
 import {NextResponse} from 'next/server';
 
 import {manager} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {findPreferences} from '@/orm/notification';
 import NotificationManager, {NotificationType} from '@/notification';
 import {getTranslation} from '@/locale/server';

@@ -1,4 +1,4 @@
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {CONTEXT_STATUS} from '@/lib/core/payment/common/orm';
 import {PAYMENT_TYPE} from '@/lib/core/payment/common/type';
 

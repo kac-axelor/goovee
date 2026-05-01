@@ -1,5 +1,5 @@
-import type {AOSPartnerAddress, AOSPartner} from '@/goovee/.generated/models';
-import type {Client} from '@/goovee/.generated/client';
+import type {AOSPartnerAddress, AOSPartner} from '@goovee/generated/models';
+import type {Client} from '@goovee/generated/client';
 import {PartnerAddress, Partner, ID, Address} from '@/types';
 import type {SelectOptions, UpdateArgs, CreateArgs} from '@goovee/orm';
 

@@ -1,4 +1,4 @@
-import type {AOSPartner} from '@/goovee/.generated/models';
+import type {AOSPartner} from '@goovee/generated/models';
 import type {WhereOptions} from '@goovee/orm';
 
 export function getCompanyAccessFilter() {

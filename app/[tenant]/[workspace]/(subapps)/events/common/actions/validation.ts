@@ -3,7 +3,7 @@ import type {Cloned} from '@/types/util';
 import {getSession} from '@/auth';
 import {findSubappAccess, findWorkspace} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {

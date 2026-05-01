@@ -16,6 +16,7 @@ const nextConfig = {
       bodySizeLimit: '5mb',
     },
   },
+  serverExternalPackages: ['@goovee/generated'],
   reactStrictMode: false,
   turbopack: {
     rules: {

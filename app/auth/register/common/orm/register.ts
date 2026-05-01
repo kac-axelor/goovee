@@ -1,4 +1,4 @@
-import {Client} from '@/goovee/.generated/client';
+import {Client} from '@goovee/generated/client';
 
 export async function findInviteById({
   id,

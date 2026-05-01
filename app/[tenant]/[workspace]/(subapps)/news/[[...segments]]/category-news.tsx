@@ -5,7 +5,7 @@ import {Suspense} from 'react';
 // ---- CORE IMPORTS ----//
 import {getSession} from '@/auth';
 import {SUBAPP_CODES} from '@/constants';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {PortalWorkspace} from '@/orm/workspace';
 import {t} from '@/locale/server';
 

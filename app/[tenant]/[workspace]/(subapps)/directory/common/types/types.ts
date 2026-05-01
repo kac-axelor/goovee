@@ -1,4 +1,4 @@
-import type {AOSPartner} from '@/goovee/.generated/models';
+import type {AOSPartner} from '@goovee/generated/models';
 import type {OrderByOptions} from '@goovee/orm';
 export type {Entry, ListEntry} from '../orm/directory-entry';
 

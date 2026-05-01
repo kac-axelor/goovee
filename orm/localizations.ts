@@ -1,6 +1,6 @@
 import {DEFAULT_LOCALE} from '@/locale/contants';
 import {findLocaleLanguage, inverseTransformLocale} from '@/locale/utils';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {clone} from '@/utils';
 
 export async function findLocalizations({client}: {client: Client}) {

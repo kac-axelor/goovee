@@ -1,4 +1,4 @@
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {CamelCase, ExpandRecursively} from '@/types/util';
 import type {
   Payload,

@@ -2,7 +2,7 @@
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {PartnerKey, User} from '@/types';
 import type {Subapp} from '@/orm/workspace';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 // ---- LOCAL IMPORT ---- //
 import {findQuotation} from '@/app/[tenant]/[workspace]/(subapps)/quotations/common/orm/quotations';

@@ -6,7 +6,7 @@ import {
   isValidMailConfig,
   replacePlaceholders,
 } from '@/orm/email-template';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {create} from '../orm';

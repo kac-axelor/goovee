@@ -1,4 +1,4 @@
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 import {MAP_SELECT} from '../constants';
 import type {MapConfig} from '../types';

@@ -2,9 +2,9 @@
 import {SUBAPP_CODES} from '@/constants';
 import {getSession} from '@/lib/core/auth';
 import {and} from '@/utils/orm';
-import type {AOSPartner} from '@/goovee/.generated/models';
+import type {AOSPartner} from '@goovee/generated/models';
 import {getPartnerId} from '@/utils';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {

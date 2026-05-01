@@ -1,5 +1,7 @@
 {
   "schema": {
-    "dirs": ["goovee/schema", "app/**/schema"]
+    "dirs": ["goovee/schema", "app/**/schema"],
+    "outDir": "node_modules/@goovee/generated",
+    "transpile": true
   }
 }

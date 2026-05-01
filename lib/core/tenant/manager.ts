@@ -1,7 +1,7 @@
 'server only';
 
 import {DEFAULT_TENANT} from '@/constants';
-import {createClient} from '@/goovee/.generated/client';
+import {createClient} from '@goovee/generated/client';
 import {LRUCache} from './lru';
 import type {Tenant, TenantConfig} from './types';
 import {getStoragePath} from '@/storage/index';

@@ -8,7 +8,7 @@ import {clone} from '@/utils';
 import {workspacePathname} from '@/utils/workspace';
 import {findWorkspace} from '@/orm/workspace';
 import {manager} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {User} from '@/types';
 import type {PortalWorkspace} from '@/orm/workspace';
 

@@ -16,8 +16,8 @@ import type {
   AOSPortalCmsMainWebsite,
   AOSPortalCmsPage,
   AOSPortalCmsSite,
-} from '@/goovee/.generated/models';
-import type {Client} from '@/goovee/.generated/client';
+} from '@goovee/generated/models';
+import type {Client} from '@goovee/generated/client';
 import {getFileSizeText} from '@/utils/files';
 import {xml} from '@/utils/template-string';
 import type {CreateArgs, SelectArg} from '@goovee/orm';

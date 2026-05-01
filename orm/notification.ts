@@ -1,4 +1,4 @@
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {SUBAPP_CODES} from '@/constants';
 import type {User} from '@/types';
 import type {App as PortalApp, PortalWorkspace} from '@/orm/workspace';

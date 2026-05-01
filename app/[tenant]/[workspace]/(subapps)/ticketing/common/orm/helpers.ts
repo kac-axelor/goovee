@@ -1,5 +1,5 @@
 import {ROLE} from '@/constants';
-import type {AOSProject, AOSProjectTask} from '@/goovee/.generated/models';
+import type {AOSProject, AOSProjectTask} from '@goovee/generated/models';
 import type {Entity, OrderByArg, WhereOptions} from '@goovee/orm';
 import {TYPE_SELECT} from '../constants';
 import {AuthProps} from '../utils/auth-helper';

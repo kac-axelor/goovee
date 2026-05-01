@@ -29,7 +29,7 @@ import {MapSkeleton} from './common/ui/components/map/map-skeleton';
 import {getOrderBy, getPages, getSkip} from './common/utils';
 import {ensureAuth} from './common/utils/auth-helper';
 import Hero from './hero';
-import {Client} from '@/goovee/.generated/client';
+import {Client} from '@goovee/generated/client';
 
 const ITEMS_PER_PAGE = 7;
 

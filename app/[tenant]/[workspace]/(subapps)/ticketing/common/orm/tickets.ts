@@ -7,10 +7,10 @@ import {MAIL_MESSAGE_TYPE, type Track} from '@/comments';
 import {addComment} from '@/comments/orm';
 import {ModelMap, ORDER_BY, SUBAPP_CODES} from '@/constants';
 import {findSubappAccess} from '@/orm/workspace';
-import type {AOSProjectTask} from '@/goovee/.generated/models';
+import type {AOSProjectTask} from '@goovee/generated/models';
 import {t, getTranslation} from '@/locale/server';
 import {DEFAULT_LOCALE} from '@/locale/contants';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {uniqueById} from '@/utils';
 import {sql} from '@/utils/template-string';
 

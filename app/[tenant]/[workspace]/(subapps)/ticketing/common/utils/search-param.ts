@@ -1,5 +1,5 @@
 import {ORDER_BY} from '@/constants';
-import type {AOSProjectTask} from '@/goovee/.generated/models';
+import type {AOSProjectTask} from '@goovee/generated/models';
 import type {Maybe} from '@/types/util';
 import type {Entity, IdFilter, WhereArg, WhereOptions} from '@goovee/orm';
 import type {ID} from '@/types';

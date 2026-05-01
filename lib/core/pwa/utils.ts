@@ -1,6 +1,6 @@
 import type {ActionResponse} from '@/types/action';
 import webpush, {WebPushError} from 'web-push';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {NotificationDTO, NotificationPayload} from './types';
 
 async function sendNotification(

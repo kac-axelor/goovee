@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // ---- CORE IMPORTS ---- //
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {TenantConfig} from '@/tenant';
 import {findWorkspace} from '@/orm/workspace';
 import {t} from '@/locale/server';

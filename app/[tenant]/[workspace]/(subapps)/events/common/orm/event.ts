@@ -15,11 +15,11 @@ import type {
   AOSMetaJsonField,
   AOSPortalEvent,
   AOSPortalEventCategory,
-} from '@/goovee/.generated/models';
+} from '@goovee/generated/models';
 import {dayjs} from '@/locale';
 import {formatNumber} from '@/locale/server/formatters';
 import {filterPrivate} from '@/orm/filter';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import type {TenantConfig} from '@/tenant';
 import type {ID, PageInfo, User} from '@/types';
 import type {PortalWorkspace} from '@/orm/workspace';

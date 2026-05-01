@@ -14,7 +14,7 @@ import {createPayboxOrder, findPayboxOrder} from '@/payment/paybox/actions';
 import {createPaypalOrder, findPaypalOrder} from '@/payment/paypal/actions';
 import {createStripeOrder, findStripeOrder} from '@/payment/stripe/actions';
 import {manager, type Tenant} from '@/tenant';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {PaymentOption} from '@/types';
 import {PortalWorkspace} from '@/orm/workspace';
 import {computeTotal} from '@/utils/cart';

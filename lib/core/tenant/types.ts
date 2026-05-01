@@ -1,4 +1,4 @@
-import {GooveeClient} from '@/goovee/.generated/client';
+import {GooveeClient} from '@goovee/generated/client';
 
 export type Tenant = {
   id: string;

@@ -2,7 +2,7 @@
 import {ORDER_BY} from '@/constants';
 import type {Cloned} from '@/types/util';
 import {SORT_TYPE} from '@/comments';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {ID, User} from '@/types';
 import {clone, getPageInfo, getSkipInfo} from '@/utils';
 import {PortalWorkspace} from '@/orm/workspace';

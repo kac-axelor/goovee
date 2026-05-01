@@ -4,7 +4,7 @@ import {manager} from '@/tenant';
 import {filterPrivate} from '@/orm/filter';
 import {getSession} from '@/lib/core/auth';
 import {and} from '@/utils/orm';
-import type {AOSProduct} from '@/goovee/.generated/models';
+import type {AOSProduct} from '@goovee/generated/models';
 
 export async function GET(
   request: NextRequest,

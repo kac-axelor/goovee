@@ -32,7 +32,7 @@ import type {PortalWorkspace} from '@/orm/workspace';
 import {hash} from './utils';
 import {getPublicEnvironment} from '../environment/utils';
 import {withMattermostSync} from '../mattermost/user-api';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 function error(message: string) {
   return {

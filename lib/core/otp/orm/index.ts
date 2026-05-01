@@ -1,6 +1,6 @@
 // ---- CORE IMPORTS ---- /
 import {hash, compare as compareHashed} from '@/auth/utils';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 import {clone} from '@/utils';
 import type {ID} from '@/types';
 

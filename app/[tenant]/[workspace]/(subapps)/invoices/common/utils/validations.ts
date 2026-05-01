@@ -8,7 +8,7 @@ import {getWhereClauseForEntity} from '@/utils/filters';
 import {PartnerKey, User} from '@/types';
 import {PortalWorkspace} from '@/orm/workspace';
 import type {ActionResponse} from '@/types/action';
-import type {Client} from '@/goovee/.generated/client';
+import type {Client} from '@goovee/generated/client';
 
 // ---- LOCAL IMPORTS ---- //
 import {findInvoice} from '@/subapps/invoices/common/orm/invoices';
