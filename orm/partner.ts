@@ -18,7 +18,13 @@ import {
   findDefaultPartnerWorkspaceConfig,
 } from './workspace';
 import type {AOSPartner} from '@/goovee/.generated/models';
-import {aosClient, toAOSPayload, type AOSConfig} from '@/service';
+import {
+  aosClient,
+  AOSError,
+  toAOSPayload,
+  type AOSConfig,
+  type AOSFieldMapping,
+} from '@/service';
 import {Cloned} from '@/types/util';
 
 const partnerFields = {
@@ -287,6 +293,15 @@ export async function updatePartner({
 
 const PARTNER_MODEL = 'com.axelor.apps.base.db.Partner';
 
+/* `password` sits on `portal_password`, which AOS declares as `portalPassword`.
+ * `fullName` and `simpleFullName` are both recomputed by
+ * PartnerService.setPartnerFullName, which PartnerBaseRepository.save() reaches
+ * through onSave. */
+const PARTNER_MAPPING: AOSFieldMapping = {
+  renames: {password: 'portalPassword'},
+  computed: ['fullName', 'simpleFullName'],
+};
+
 /* Same contract as updatePartner, but the write goes through AOS's REST API
  * instead of the shared database, so that AOP's audit listener fires and
  * records the change in the partner's tracking history. Only for payloads made
@@ -305,18 +320,53 @@ export async function updatePartnerViaAOS({
   client: Client;
   aos: AOSConfig;
 }) {
-  if (!data) return null;
-
-  if (!(data?.id && data?.version)) return null;
+  /* Both are compared to null rather than tested for truth: a record AOS
+   * created and nobody has saved since carries version 0, and dropping such a
+   * write would leave the caller reporting a success it never performed. */
+  if (data?.id == null || data?.version == null) return null;
 
   const saved = await aosClient(aos).save<{id: number | string}>(
     PARTNER_MODEL,
-    toAOSPayload(data as Record<string, unknown>),
+    toAOSPayload(data as Record<string, unknown>, PARTNER_MAPPING),
   );
 
   return client.aOSPartner
     .findOne({
       where: {id: {eq: String(saved.id)}},
+      select: {id: true},
+    })
+    .then(clone);
+}
+
+/* The activation the tracked write could not perform: a plain database update,
+ * on a version read now rather than one read before the AOS call. AOS may have
+ * committed the flag and lost its response (a timeout, a 502) — it then also
+ * bumped the version, an update on the stale one would fail optimistic locking,
+ * and the caller would be told the registration failed on an account that is
+ * in fact activated. */
+async function activateInDatabase({
+  partnerId,
+  client,
+}: {
+  partnerId: ID;
+  client: Client;
+}) {
+  const partner = await client.aOSPartner.findOne({
+    where: {id: partnerId},
+    select: {id: true, version: true, isActivatedOnPortal: true},
+  });
+
+  if (!partner) return null;
+
+  if (partner.isActivatedOnPortal) return clone({id: partner.id});
+
+  return client.aOSPartner
+    .update({
+      data: {
+        id: partner.id,
+        version: partner.version,
+        isActivatedOnPortal: true,
+      },
       select: {id: true},
     })
     .then(clone);
@@ -340,6 +390,14 @@ export async function activateOnPortal({
   client: Client;
   aos: AOSConfig | null;
 }) {
+  if (!aos) {
+    console.warn(
+      `activateOnPortal: no AOS configuration for this tenant, activating ` +
+        `partner ${partnerId} without a tracking entry`,
+    );
+    return activateInDatabase({partnerId, client});
+  }
+
   const partner = await client.aOSPartner.findOne({
     where: {id: partnerId},
     select: {id: true, version: true},
@@ -347,23 +405,27 @@ export async function activateOnPortal({
 
   if (!partner) return null;
 
-  const data = {
-    id: partner.id,
-    version: partner.version,
-    isActivatedOnPortal: true,
-  };
-
-  const untracked = () =>
-    client.aOSPartner.update({data, select: {id: true}}).then(clone);
-
-  if (!aos) {
-    return untracked();
-  }
-
   try {
-    return await updatePartnerViaAOS({data, client, aos});
+    return await updatePartnerViaAOS({
+      data: {
+        id: partner.id,
+        version: partner.version,
+        isActivatedOnPortal: true,
+      },
+      client,
+      aos,
+    });
   } catch (err) {
-    return untracked();
+    const concurrent = err instanceof AOSError && err.isConcurrentUpdate;
+
+    console.error(
+      `activateOnPortal: the tracked write failed for partner ${partnerId}` +
+        `${concurrent ? ' (the record changed meanwhile)' : ''}, activating ` +
+        `it without a tracking entry:`,
+      err,
+    );
+
+    return activateInDatabase({partnerId, client});
   }
 }
 

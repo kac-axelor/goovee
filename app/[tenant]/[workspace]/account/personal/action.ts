@@ -20,6 +20,7 @@ import {UserType} from '@/auth/types';
 import {generateOTP} from '@/otp/actions';
 import {findOne, isValid, markUsed} from '@/otp/orm';
 import {Scope} from '@/otp/constants';
+import {AOSError} from '@/service';
 import {accessMessage} from '@/lib/core/access/denial';
 import {ensureAccess} from '@/lib/core/access/ensure-access';
 import {withMattermostEmailSync} from '@/lib/core/mattermost';
@@ -348,6 +349,19 @@ export async function update(data: UpdatePersonal) {
       message: await t('Settings updated successfully.'),
     };
   } catch (err) {
+    console.error('Update settings error >>>', err);
+
+    /* An optimistic-lock failure is the one AOS refusal the contact can act on:
+       the partner changed under them — from the back office, or from another
+       tab — and reloading the page is the fix. */
+    if (err instanceof AOSError && err.isConcurrentUpdate) {
+      return error(
+        await t(
+          'Your profile was changed elsewhere. Reload the page and try again.',
+        ),
+      );
+    }
+
     return error(await t('Error updating settings. Try again.'));
   }
 }

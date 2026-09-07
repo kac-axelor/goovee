@@ -22,6 +22,7 @@ import {
   deletePartnerAddress,
   assignDefaultAddress,
 } from '@/orm/address';
+import {AOSError} from '@/service';
 import {manager} from '@/tenant';
 import {
   CreateAddressSchema,
@@ -37,6 +38,23 @@ import {IdSchema} from '@/utils/validators';
 
 // ---- LOCAL IMPORT ---- //
 import {getQuotationRecord} from '@/app/[tenant]/[workspace]/account/addresses/common/utils';
+
+/* An optimistic-lock failure is the one AOS refusal the contact can act on: the
+   address changed under them — from the back office, or from another tab — and
+   reloading the page is the fix. Every other failure keeps the caller's own
+   wording. */
+async function addressWriteError(error: unknown, fallback: string) {
+  if (error instanceof AOSError && error.isConcurrentUpdate) {
+    return {
+      error: true as const,
+      message: await t(
+        'This address was changed elsewhere. Reload the page and try again.',
+      ),
+    };
+  }
+
+  return {error: true as const, message: fallback};
+}
 
 export async function createAddress(data: CreateAddress) {
   const validation = CreateAddressSchema.safeParse(data);
@@ -71,25 +89,22 @@ export async function createAddress(data: CreateAddress) {
   const userId = getPartnerId(session?.user);
 
   try {
-    /* createPartnerAddress does multiple writes (address record + partner fiscal
-       update), so we wrap in a transaction to keep them atomic. */
-    const partnerAddress = await client
-      .$transaction(txClient =>
-        createPartnerAddress(
-          userId,
-          {address, isDeliveryAddr, isInvoicingAddr, isDefaultAddr},
-          txClient,
-        ),
-      )
-      .then(clone);
+    /* createPartnerAddress writes the address through AOS's REST API, which
+       commits in AOS's own transaction: a database transaction here would not
+       cover it, and rolling back would leave the address behind. What stays
+       outside the write, and what a partial failure leaves, is documented
+       there. */
+    const partnerAddress = await createPartnerAddress(
+      userId,
+      {address, isDeliveryAddr, isInvoicingAddr, isDefaultAddr},
+      client,
+      tenant.config.aos,
+    ).then(clone);
 
     return {success: true, data: partnerAddress};
   } catch (error) {
     console.error('Create address error >>>', error);
-    return {
-      error: true,
-      message: await t('Error creating address'),
-    };
+    return addressWriteError(error, await t('Error creating address'));
   }
 }
 
@@ -126,32 +141,26 @@ export async function updateAddress(data: UpdateAddress) {
   const userId = getPartnerId(session?.user);
 
   try {
-    /* updatePartnerAddress does multiple writes (address record + partner fiscal
-       update), so we wrap in a transaction to keep them atomic. */
-    const partnerAddress = await client
-      .$transaction(txClient =>
-        updatePartnerAddress(
-          userId,
-          {
-            id,
-            version,
-            address,
-            isDeliveryAddr,
-            isInvoicingAddr,
-            isDefaultAddr,
-          },
-          txClient,
-        ),
-      )
-      .then(clone);
+    /* See createAddress: the address write commits in AOS, outside any
+       database transaction this action could open. */
+    const partnerAddress = await updatePartnerAddress(
+      userId,
+      {
+        id,
+        version,
+        address,
+        isDeliveryAddr,
+        isInvoicingAddr,
+        isDefaultAddr,
+      },
+      client,
+      tenant.config.aos,
+    ).then(clone);
 
     return {success: true, data: partnerAddress};
   } catch (error) {
     console.error('Update address error >>>', error);
-    return {
-      error: true,
-      message: await t('Error updating address'),
-    };
+    return addressWriteError(error, await t('Error updating address'));
   }
 }
 

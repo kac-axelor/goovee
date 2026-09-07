@@ -3,21 +3,60 @@ import type {Client} from '@/goovee/.generated/client';
 import {PartnerAddress, Partner, ID, Address} from '@/types';
 import type {SelectOptions, UpdateArgs, CreateArgs} from '@goovee/orm';
 
-import {aosClient, toAOSPayload, type AOSConfig} from '@/service';
+import {
+  aosClient,
+  toAOSPayload,
+  type AOSConfig,
+  type AOSFieldMapping,
+} from '@/service';
 
+const ADDRESS_MODEL = 'com.axelor.apps.base.db.Address';
 const PARTNER_ADDRESS_MODEL = 'com.axelor.apps.base.db.PartnerAddress';
+
+/* Goovee spells the five address lines `addressl2`..`addressl6`; axelor-base
+ * declares them with a capital L, and dropping the rename makes AOS ignore them
+ * without a word. `fullName` and `formattedFullName` are recomputed by
+ * AddressBaseRepository.save(), through AddressService.computeFullName and
+ * AddressTemplateService. */
+const ADDRESS_MAPPING: AOSFieldMapping = {
+  renames: {
+    addressl2: 'addressL2',
+    addressl3: 'addressL3',
+    addressl4: 'addressL4',
+    addressl5: 'addressL5',
+    addressl6: 'addressL6',
+  },
+  computed: ['fullName', 'formattedFullName'],
+};
 
 /* Partner address writes go through AOS's REST API rather than the shared
  * database, so that AOP's audit listener fires and records the change in the
  * record's tracking history.
  *
- * AOS recomputes fields on save (Address.fullName) and bumps the version more
- * than once, so what the callers expect is rebuilt by re-reading through the
- * ORM instead of being derived from the request. That re-read happens inside
- * the caller's transaction while AOS committed the row in its own: it works
- * because the ORM opens transactions at PostgreSQL's default READ COMMITTED
- * level, where each statement sees the latest committed data. A stricter
- * isolation level would make the re-read come back empty. */
+ * The address and its link to the partner are two saves because AOS runs only
+ * the request model's repository: nested inside a PartnerAddress write, the
+ * address would never see AddressBaseRepository.save() — which is what computes
+ * its fullName and formattedFullName and checks the fields the country's
+ * address template requires — and would be stored with a null fullName. Saved
+ * as its own request, it gets all three.
+ *
+ * AOS recomputes fields on save and bumps the version more than once, so what
+ * the callers expect is rebuilt by re-reading through the ORM instead of being
+ * derived from the request. */
+async function saveAddressToAOS(
+  data: Record<string, unknown>,
+  aos: AOSConfig,
+): Promise<ID> {
+  const saved = await aosClient(aos).save<{id: number | string}>(
+    ADDRESS_MODEL,
+    toAOSPayload(data, ADDRESS_MAPPING),
+  );
+
+  return String(saved.id);
+}
+
+/* PartnerAddress carries the partner link and the type flags — nothing AOS
+ * spells differently or recomputes — so it needs no mapping of its own. */
 async function savePartnerAddressToAOS(
   data: Record<string, unknown>,
   aos: AOSConfig,
@@ -28,6 +67,42 @@ async function savePartnerAddressToAOS(
   );
 
   return String(saved.id);
+}
+
+/* The address fields the portal owns, shaped for a ws/rest save. fullName and
+ * formattedFullName travel with them so the payload stays a faithful projection
+ * of the form; ADDRESS_MAPPING is the single place that decides AOS recomputes
+ * them. */
+function toAddressData(address: Partial<Address>) {
+  return {
+    addressl2: address.addressl2,
+    addressl3: address.addressl3,
+    addressl4: address.addressl4,
+    addressl5: address.addressl5,
+    addressl6: address.addressl6,
+    firstName: address.firstName,
+    lastName: address.lastName,
+    companyName: address.companyName,
+    fullName: address.fullName,
+    formattedFullName: address.formattedFullName,
+    streetName: address.streetName,
+    zip: address.zip,
+    townName: address.townName,
+    countrySubDivision: address.countrySubDivision,
+    subDepartment: address.subDepartment,
+    country: {
+      select: {
+        id: address.country?.id,
+      },
+    },
+    city: address.city?.id
+      ? {
+          select: {
+            id: address.city.id,
+          },
+        }
+      : undefined,
+  };
 }
 
 const addressFields = {
@@ -95,7 +170,9 @@ export async function createPartnerAddress(
 ) {
   if (!partnerId) return null;
 
-  const addressId = await savePartnerAddressToAOS(
+  const addressId = await saveAddressToAOS(toAddressData(values.address), aos);
+
+  const partnerAddressId = await savePartnerAddressToAOS(
     {
       partner: {
         select: {
@@ -103,34 +180,8 @@ export async function createPartnerAddress(
         },
       },
       address: {
-        create: {
-          addressl2: values.address.addressl2,
-          addressl3: values.address.addressl3,
-          addressl4: values.address.addressl4,
-          addressl5: values.address.addressl5,
-          addressl6: values.address.addressl6,
-          firstName: values.address.firstName,
-          lastName: values.address.lastName,
-          companyName: values.address.companyName,
-          fullName: values.address.fullName,
-          formattedFullName: values.address.formattedFullName,
-          streetName: values.address.streetName,
-          zip: values.address.zip,
-          townName: values.address.townName,
-          countrySubDivision: values.address.countrySubDivision,
-          subDepartment: values.address.subDepartment,
-          country: {
-            select: {
-              id: values.address.country?.id,
-            },
-          },
-          city: values.address.city?.id
-            ? {
-                select: {
-                  id: values.address.city.id,
-                },
-              }
-            : undefined,
+        select: {
+          id: addressId,
         },
       },
       isInvoicingAddr: values.isInvoicingAddr,
@@ -141,14 +192,16 @@ export async function createPartnerAddress(
   );
 
   const address = await client.aOSPartnerAddress.findOne({
-    where: {id: {eq: addressId}},
+    where: {id: {eq: partnerAddressId}},
     select: {id: true},
   });
 
-  /* Runs after the address is saved, and deliberately outside its write: an
-   * HTTP call cannot take part in a database transaction. Should this fail the
-   * address still exists with a stale fiscal position, which the next address
-   * save recomputes. */
+  /* The two saves above and this alignment are three commits, not one: an HTTP
+   * call cannot take part in a database transaction, and AOS commits each save
+   * in its own. Should the link fail, the address stays unattached to any
+   * partner and the caller reports the failure; should this fail, the address
+   * exists with a stale fiscal position, which the next address save
+   * recomputes. */
   if (values.isDeliveryAddr && values.address.country?.id) {
     await updatePartnerFiscal({
       partnerId,
@@ -187,48 +240,20 @@ export async function updatePartnerAddress(
 
   if (!partnerAddress) return null;
 
+  await saveAddressToAOS(
+    {
+      id: values.address.id,
+      version: values.address.version,
+      ...toAddressData(values.address),
+    },
+    aos,
+  );
+
+  /* The link to the partner does not change; only the type flags do. */
   const savedId = await savePartnerAddressToAOS(
     {
       id: values.id,
       version: partnerAddress.version,
-      partner: {
-        select: {
-          id: partnerId,
-        },
-      },
-      address: {
-        update: {
-          id: values.address.id,
-          version: values.address.version,
-          addressl2: values.address.addressl2,
-          addressl3: values.address.addressl3,
-          addressl4: values.address.addressl4,
-          addressl5: values.address.addressl5,
-          addressl6: values.address.addressl6,
-          firstName: values.address.firstName,
-          lastName: values.address.lastName,
-          companyName: values.address.companyName,
-          fullName: values.address.fullName,
-          formattedFullName: values.address.formattedFullName,
-          streetName: values.address.streetName,
-          zip: values.address.zip,
-          townName: values.address.townName,
-          countrySubDivision: values.address.countrySubDivision,
-          subDepartment: values.address.subDepartment,
-          country: {
-            select: {
-              id: values.address.country?.id,
-            },
-          },
-          city: values.address.city?.id
-            ? {
-                select: {
-                  id: values.address.city.id,
-                },
-              }
-            : undefined,
-        },
-      },
       isInvoicingAddr: values.isInvoicingAddr,
       isDeliveryAddr: values.isDeliveryAddr,
       isDefaultAddr: values.isDefaultAddr,
@@ -241,8 +266,8 @@ export async function updatePartnerAddress(
     select: {id: true, isDeliveryAddr: true, isDefaultAddr: true},
   });
 
-  /* See createPartnerAddress: the fiscal alignment runs after the address is
-   * saved and outside its write. */
+  /* See createPartnerAddress: each save commits on its own, and the fiscal
+   * alignment runs after them, outside any transaction. */
   if (values.isDeliveryAddr && values.address.country?.id) {
     await updatePartnerFiscal({
       partnerId,
