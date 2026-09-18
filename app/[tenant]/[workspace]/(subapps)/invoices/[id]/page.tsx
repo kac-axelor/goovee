@@ -12,6 +12,8 @@ import {currentWorkspace} from '@/url/current';
 import {PartnerKey} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {canSettleStripeBankTransfer} from '@/payment/stripe';
+import {offeredGateways} from '@/payment/offer';
+import {mintSubmitToken} from '@/payment/submit-token';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -73,6 +75,11 @@ async function Invoice({
         allowStripeBankTransfer={canSettleStripeBankTransfer(
           access.tenant.config,
         )}
+        gateways={offeredGateways({
+          paymentOptions: config.paymentOptionSet,
+          tenantConfig: access.tenant.config,
+        })}
+        submitToken={mintSubmitToken()}
       />
     );
   }
@@ -115,6 +122,11 @@ async function Invoice({
       allowStripeBankTransfer={canSettleStripeBankTransfer(
         access.tenant.config,
       )}
+      gateways={offeredGateways({
+        paymentOptions: config.paymentOptionSet,
+        tenantConfig: access.tenant.config,
+      })}
+      submitToken={mintSubmitToken()}
     />
   );
 }

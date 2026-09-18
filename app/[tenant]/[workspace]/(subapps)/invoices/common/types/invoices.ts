@@ -1,6 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import type {Cloned} from '@/types/util';
 import type {PaymentUpdateStatus} from '@/payment/sse';
+import type {Gateway} from '@/payment/domain/types';
 import {BankAccountType} from '@/payment/stripe/types';
 import {HubPispLocalInstrument} from '@/payment/hubpisp/constants';
 
@@ -193,4 +194,8 @@ export type TotalProps = {
   token?: string;
   onPaymentUpdate?: (status: PaymentUpdateStatus) => void;
   allowStripeBankTransfer: boolean;
+  /** The gateways this tenant and workspace offer, decided on the server. */
+  gateways: Gateway[];
+  /** Minted when the page rendered; a second press finds the same payment. */
+  submitToken: string;
 };

@@ -1,0 +1,6 @@
+{
+  "title": "Record every payment as a ledger of provider events",
+  "type": "feature",
+  "description": "A payment is now a record in the back office from the moment the buyer presses a payment button: what is being paid for, by whom, for how much, and every event the provider reported about it. The outcome is shown on one result page at `/{workspace}/payments/{reference}` that survives a refresh, a closed tab and a forwarded link. The browser return and the provider's webhook both settle through the same keyed ledger, so a payment confirmed after the tab was closed is still recorded, and the ERP projection is queued in the same transaction as the capture and can be retried from the payment record.",
+  "scope": ["core", "invoices"]
+}

@@ -19,6 +19,7 @@ import {
   PAYMENT_UPDATE_STATUS,
 } from '@/payment/sse/constants';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
+import type {Gateway} from '@/payment/domain/types';
 
 // ---- LOCAL IMPORTS ---- //
 import {Invoice, Total} from '@/subapps/invoices/common/ui/components';
@@ -35,6 +36,8 @@ interface ContentProps {
   config: InvoicesConfig | Cloned<InvoicesConfig>;
   token?: string;
   allowStripeBankTransfer: boolean;
+  gateways: Gateway[];
+  submitToken: string;
 }
 
 function getInvoiceStatusKey(invoice: Cloned<InvoiceType>): StatusKey {
@@ -72,6 +75,8 @@ export default function Content({
   config,
   token,
   allowStripeBankTransfer,
+  gateways,
+  submitToken,
 }: ContentProps) {
   const {id, invoiceId, dueDate, invoiceDate, isUnpaid} = invoice;
 
@@ -185,6 +190,8 @@ export default function Content({
               token={token}
               onPaymentUpdate={handlePaymentUpdate}
               allowStripeBankTransfer={allowStripeBankTransfer}
+              gateways={gateways}
+              submitToken={submitToken}
             />
           </div>
         </div>

@@ -1,0 +1,45 @@
+{
+  "name": "AOSPortalPaymentJob",
+  "table": "portal_portal_payment_job",
+  "synchronize": false,
+  "fields": [
+    {
+      "type": "ManyToOne",
+      "name": "payment",
+      "target": "AOSPortalPayment",
+      "required": true
+    },
+    {
+      "type": "String",
+      "name": "kind",
+      "required": true
+    },
+    {
+      "type": "DateTime",
+      "name": "nextAttemptOn",
+      "required": true
+    },
+    {
+      "type": "DateTime",
+      "name": "escalateOn",
+      "required": true
+    },
+    {
+      "type": "Int",
+      "name": "attempts"
+    },
+    {
+      "type": "String",
+      "name": "classification"
+    },
+    {
+      "type": "String",
+      "name": "lastError"
+    }
+  ],
+  "uniques": [
+    {
+      "columns": ["payment", "kind"]
+    }
+  ]
+}

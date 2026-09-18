@@ -1,0 +1,142 @@
+{
+  "name": "AOSPortalPayment",
+  "table": "portal_portal_payment",
+  "synchronize": false,
+  "fields": [
+    {
+      "type": "String",
+      "name": "reference",
+      "required": true,
+      "unique": true
+    },
+    {
+      "type": "String",
+      "name": "submitToken",
+      "unique": true
+    },
+    {
+      "type": "String",
+      "name": "source",
+      "required": true
+    },
+    {
+      "type": "ManyToOne",
+      "name": "portalWorkspace",
+      "target": "AOSPortalWorkspace",
+      "required": true
+    },
+    {
+      "type": "String",
+      "name": "subjectLabel"
+    },
+    {
+      "type": "String",
+      "name": "payer"
+    },
+    {
+      "type": "BigInt",
+      "name": "amount",
+      "required": true
+    },
+    {
+      "type": "BigInt",
+      "name": "capturedAmount"
+    },
+    {
+      "type": "BigInt",
+      "name": "refundedAmount"
+    },
+    {
+      "type": "String",
+      "name": "currencyCode",
+      "required": true
+    },
+    {
+      "type": "Int",
+      "name": "currencyScale",
+      "required": true
+    },
+    {
+      "type": "ManyToOne",
+      "name": "paymentMode",
+      "target": "AOSPaymentMode"
+    },
+    {
+      "type": "String",
+      "name": "status",
+      "required": true
+    },
+    {
+      "type": "DateTime",
+      "name": "capturedOn"
+    },
+    {
+      "type": "String",
+      "name": "gateway"
+    },
+    {
+      "type": "String",
+      "name": "providerRef"
+    },
+    {
+      "type": "String",
+      "name": "deliveryStatus"
+    },
+    {
+      "type": "String",
+      "name": "deliveryReason"
+    },
+    {
+      "type": "String",
+      "name": "lastError"
+    },
+    {
+      "type": "ManyToOne",
+      "name": "invoice",
+      "target": "AOSInvoice"
+    },
+    {
+      "type": "ManyToOne",
+      "name": "registration",
+      "target": "AOSRegistration"
+    },
+    {
+      "type": "ManyToOne",
+      "name": "marketplaceProductOrder",
+      "target": "AOSMarketplaceProductOrder"
+    },
+    {
+      "type": "ManyToOne",
+      "name": "projectedInvoice",
+      "target": "AOSInvoice"
+    },
+    {
+      "type": "ManyToOne",
+      "name": "projectedSaleOrder",
+      "target": "AOSOrder"
+    },
+    {
+      "type": "ManyToOne",
+      "name": "projectedInvoicePayment",
+      "target": "AOSInvoicePayment"
+    },
+    {
+      "type": "OneToMany",
+      "name": "sessionList",
+      "target": "AOSPortalPaymentSession",
+      "mappedBy": "payment"
+    },
+    {
+      "type": "OneToMany",
+      "name": "eventList",
+      "target": "AOSPortalPaymentEvent",
+      "mappedBy": "payment"
+    },
+    {
+      "type": "OneToMany",
+      "name": "jobList",
+      "target": "AOSPortalPaymentJob",
+      "mappedBy": "payment"
+    }
+  ]
+}

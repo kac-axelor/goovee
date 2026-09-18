@@ -61,8 +61,8 @@ export function Total({
   invoice,
   invoiceType,
   token,
-  onPaymentUpdate,
-  allowStripeBankTransfer,
+  gateways,
+  submitToken,
 }: TotalProps) {
   const {
     inTaxTotal,
@@ -359,18 +359,11 @@ export function Total({
             </div>
             <Separator className="bg-ink-100" />
             <InvoicePayments
-              config={config}
               invoice={invoice}
               amount={currentAmount}
-              paymentType={paymentType}
-              resetPaymentType={resetPaymentType}
-              resetForm={resetForm}
               token={token}
-              allowStripeBankTransfer={allowStripeBankTransfer}
-              onPaymentUpdate={status => {
-                setPaymentType(null);
-                onPaymentUpdate?.(status);
-              }}
+              gateways={gateways}
+              submitToken={submitToken}
             />
           </div>
         </>
