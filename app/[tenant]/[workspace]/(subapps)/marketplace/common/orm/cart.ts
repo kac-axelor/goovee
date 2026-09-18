@@ -12,7 +12,7 @@ export async function findCartProducts({
   productIds,
 }: {
   client: Client;
-  workspace: Workspace;
+  workspace: Pick<Workspace, 'id'>;
   mainPartnerId: string;
   productIds: string[];
 }) {
@@ -50,7 +50,7 @@ export async function findCartProductsAvailability({
   productIds,
 }: {
   client: Client;
-  workspace: Workspace;
+  workspace: Pick<Workspace, 'id'>;
   mainPartnerId: string;
   productIds: string[];
 }) {

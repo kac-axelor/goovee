@@ -47,6 +47,8 @@ export type DeliveredPayment = {
   money: Money;
   payer: string | null;
   workspaceId: string;
+  /** The ERP payment mode the chosen gateway maps to, frozen at T1. */
+  paymentModeId: string | null;
 };
 
 /**
@@ -59,6 +61,13 @@ export interface PaymentSourceHandler<TIntent = unknown> {
 
   /** The shape of the client's intent. Only references; the server prices. */
   intentSchema: z.ZodType<TIntent>;
+
+  /**
+   * Whether a gateway may only be offered when the workspace maps it to an ERP
+   * payment mode. Sources whose projection has no fallback mode set this, so
+   * the refusal happens before any money is taken.
+   */
+  requiresPaymentMode?: boolean;
 
   /** Authorises the caller for the subject and prices it. Runs before T1, outside any transaction. */
   prepare(args: {

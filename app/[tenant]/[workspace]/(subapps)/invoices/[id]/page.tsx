@@ -12,6 +12,7 @@ import {currentWorkspace} from '@/url/current';
 import {PartnerKey} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {canSettleStripeBankTransfer} from '@/payment/stripe';
+import {PAYMENT_SOURCE} from '@/payment/domain/types';
 import {offeredGateways} from '@/payment/offer';
 import {mintSubmitToken} from '@/payment/submit-token';
 
@@ -76,6 +77,7 @@ async function Invoice({
           access.tenant.config,
         )}
         gateways={offeredGateways({
+          source: PAYMENT_SOURCE.invoices,
           paymentOptions: config.paymentOptionSet,
           tenantConfig: access.tenant.config,
         })}
@@ -123,6 +125,7 @@ async function Invoice({
         access.tenant.config,
       )}
       gateways={offeredGateways({
+        source: PAYMENT_SOURCE.invoices,
         paymentOptions: config.paymentOptionSet,
         tenantConfig: access.tenant.config,
       })}

@@ -3,10 +3,11 @@ import 'server-only';
 import type {PaymentConfig} from '@/orm/workspace';
 import type {TenantConfig} from '@/tenant';
 import {PaymentOption} from '@/types';
-import {isPaymentOptionAvailable} from '@/utils/payment';
+import {getPaymentModeId, isPaymentOptionAvailable} from '@/utils/payment';
 import {HUBPISP_OPTIONS} from './adapters/hubpisp';
 import {listAdapters, paymentOptionFor} from './adapters/registry';
-import {GATEWAY, type Gateway} from './domain/types';
+import {GATEWAY, type Gateway, type PaymentSource} from './domain/types';
+import {getSourceHandler} from './sources/registry';
 
 /** One button: a gateway, and for a gateway that comes in variants, which one. */
 export type OfferedGateway = {
@@ -37,20 +38,26 @@ function hubPispOptions(
  * component never reads tenant configuration.
  */
 export function offeredGateways({
+  source,
   paymentOptions,
   tenantConfig,
 }: {
+  source: PaymentSource;
   paymentOptions: PaymentConfig['paymentOptionSet'] | undefined;
   tenantConfig: TenantConfig;
 }): OfferedGateway[] {
+  /* A source with no fallback payment mode is not offered a method the
+   * workspace maps to none; the server refuses it on press too. */
+  const requirePaymentMode = !!getSourceHandler(source).requiresPaymentMode;
   return listAdapters()
-    .filter(
-      adapter =>
-        isPaymentOptionAvailable(
-          paymentOptions,
-          paymentOptionFor(adapter.gateway),
-        ) && adapter.isConfigured(tenantConfig),
-    )
+    .filter(adapter => {
+      const option = paymentOptionFor(adapter.gateway);
+      return (
+        isPaymentOptionAvailable(paymentOptions, option) &&
+        adapter.isConfigured(tenantConfig) &&
+        (!requirePaymentMode || !!getPaymentModeId(paymentOptions, option))
+      );
+    })
     .flatMap((adapter): OfferedGateway[] => {
       if (adapter.gateway === GATEWAY.hubpisp) {
         return hubPispOptions(paymentOptions).map(option => ({

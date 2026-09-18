@@ -58,6 +58,7 @@ type LockedPayment = {
   deliveryStatus: string | null;
   payer: string | null;
   workspaceId: string;
+  paymentModeId: string | null;
   invoice: string | null;
   registration: string | null;
   marketplaceProductOrder: string | null;
@@ -217,6 +218,7 @@ export async function settlePayment({
           },
           payer: payment.payer,
           workspaceId: payment.workspaceId,
+          paymentModeId: payment.paymentModeId,
         },
         snapshot,
         txClient,
@@ -307,6 +309,7 @@ async function lockPayment(
       deliveryStatus: true,
       payer: true,
       portalWorkspace: {id: true},
+      paymentMode: {id: true},
       invoice: {id: true},
       registration: {id: true},
       marketplaceProductOrder: {id: true},
@@ -329,6 +332,7 @@ async function lockPayment(
     deliveryStatus: payment.deliveryStatus,
     payer: payment.payer,
     workspaceId: payment.portalWorkspace.id,
+    paymentModeId: payment.paymentMode?.id ?? null,
     invoice: payment.invoice?.id ?? null,
     registration: payment.registration?.id ?? null,
     marketplaceProductOrder: payment.marketplaceProductOrder?.id ?? null,

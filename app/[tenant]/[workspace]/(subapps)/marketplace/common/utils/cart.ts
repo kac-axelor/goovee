@@ -185,7 +185,7 @@ export async function recheckCartAvailability({
   productIds,
 }: {
   client: Client;
-  workspace: Workspace;
+  workspace: Pick<Workspace, 'id'>;
   mainPartnerId: string;
   productIds: string[];
 }) {

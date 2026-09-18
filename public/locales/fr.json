@@ -206,6 +206,7 @@
   "Cannot update preference. Try again.": "Impossible de mettre à jour la préférence. Réessayez.",
   "Card Number": "Numéro de carte",
   "Cart": "Panier",
+  "Cart: {0} item(s)": "Panier : {0} article(s)",
   "Catalogue": "Catalogue",
   "Catalogue, orders, support and events on a single portal": "Catalogue, commandes, assistance et événements sur un seul portail",
   "Categories": "Catégories",

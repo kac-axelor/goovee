@@ -80,6 +80,21 @@ export async function startPayment({
       message: await t('This payment method is not available'),
     };
   }
+  /* For a source with no fallback mode, a method with no ERP payment mode
+   * would take the money and park every projection for a decision; better
+   * refused before anything is charged. */
+  if (
+    handler.requiresPaymentMode &&
+    !getPaymentModeId(prepared.data.paymentOptions, paymentOptionFor(gateway))
+  ) {
+    console.warn(
+      `Payment method ${gateway} offered without a payment mode; refusing to start`,
+    );
+    return {
+      error: true,
+      message: await t('This payment method is not available'),
+    };
+  }
   if (prepared.data.money.amount <= 0) {
     return {
       error: true,

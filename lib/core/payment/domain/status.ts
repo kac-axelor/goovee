@@ -46,7 +46,10 @@ export function deriveStatus({
   /* Within one session a provider reports the money it holds so far: a
    * partial funding says how much has arrived, the capture that follows says
    * the whole amount. Those are snapshots of one balance and the highest one
-   * is the truth. Across sessions the balances add up. */
+   * is the truth, which is also what makes a redelivered or late-arriving
+   * event harmless: it can never add to what an earlier snapshot already
+   * said. Across sessions the balances add up, so a payment split over two
+   * providers still reaches its amount. */
   const capturedBySession = new Map<string, number>();
   let refundedAmount = 0;
   let disputed = false;
