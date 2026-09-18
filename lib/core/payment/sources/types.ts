@@ -6,6 +6,7 @@ import type {PaymentConfig} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
 import type {ActionResponse} from '@/types/action';
 import type {Money, PaymentSource} from '../domain/types';
+import type {BillingDetails} from '../adapters/types';
 
 /** The ERP rows a payment is for. Exactly one is set once delivery has succeeded. */
 export type SubjectLinks = {
@@ -32,6 +33,8 @@ export type PreparedIntent = {
   /** Subject rows that exist before delivery, such as the invoice being paid. */
   subject: SubjectLinks;
   snapshot: IntentSnapshot;
+  /** Where known; some providers ask for it. */
+  billing?: BillingDetails;
 };
 
 export type DeliveryResult =

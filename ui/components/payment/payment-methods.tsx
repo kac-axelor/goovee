@@ -1,11 +1,17 @@
 'use client';
 
-import {useState} from 'react';
+import {useRef, useState} from 'react';
+import {
+  PayPalOneTimePaymentButton,
+  PayPalProvider,
+} from '@paypal/react-paypal-js/sdk-v6';
 
 // ---- CORE IMPORTS ---- //
-import {i18n} from '@/locale';
-import {Button} from '@/ui/components';
+import {i18n, l10n} from '@/locale';
+import {transformLocale} from '@/locale/utils';
+import {Button, Portal, Spinner} from '@/ui/components';
 import {useToast} from '@/ui/hooks';
+import {useEnvironment} from '@/environment';
 import {
   GATEWAY,
   type Gateway,
@@ -13,6 +19,7 @@ import {
 } from '@/payment/domain/types';
 import {startPaymentAction} from '@/payment/actions';
 import type {StartResult} from '@/payment/start';
+import styles from './payment-methods.module.scss';
 
 type GatewayPresentation = {
   /** Written as literal calls so the keys stay visible to the extractor. */
@@ -47,12 +54,14 @@ const PRESENTATION: Record<Gateway, GatewayPresentation> = {
   },
 };
 
+type Handoff = StartResult['handoff'];
+
 /**
  * Performs the handoff the server answered with. A button starts a payment
  * and nothing else: everything after this belongs to a route or a page,
  * because the browser may never come back to where it left.
  */
-function performHandoff(handoff: StartResult['handoff']): boolean {
+function performHandoff(handoff: Handoff): boolean {
   switch (handoff.kind) {
     case 'redirect':
     case 'page':
@@ -78,6 +87,103 @@ function performHandoff(handoff: StartResult['handoff']): boolean {
   }
 }
 
+type StartArgs = {
+  source: PaymentSource;
+  intent: unknown;
+  submitToken: string;
+};
+
+type Starter = (gateway: Gateway) => Promise<Handoff | null>;
+
+/**
+ * PayPal approves the order in its own window and never redirects the browser
+ * itself, so its button is the SDK's: the order is created when the buyer
+ * presses it and, once approved, the browser is sent to the same return route
+ * every other gateway uses, which captures and settles.
+ */
+function PaypalButton({disabled, start}: {disabled?: boolean; start: Starter}) {
+  const env = useEnvironment();
+  const {toast} = useToast();
+  const [completing, setCompleting] = useState(false);
+  const handoff = useRef<Extract<Handoff, {kind: 'sdk'}> | null>(null);
+
+  const createOrder = async (): Promise<{orderId: string}> => {
+    const result = await start(GATEWAY.paypal);
+    /* Already paid under this checkout: show the result rather than a second
+     * PayPal window. The SDK is told to stop by the rejection that follows. */
+    if (result?.kind === 'page') {
+      setCompleting(true);
+      window.location.assign(result.url);
+    }
+    if (!result || result.kind !== 'sdk') {
+      throw new Error('PayPal order was not created');
+    }
+    handoff.current = result;
+    return {orderId: result.orderId};
+  };
+
+  /* Both ways out of PayPal's window go through the return route, which asks
+   * PayPal what became of the order: an approval is captured, an abandon is
+   * recorded as cancelled, and the result page shows either. */
+  const complete = (orderId: string, cancelled: boolean) => {
+    const current = handoff.current;
+    if (!current || current.orderId !== orderId) {
+      toast({
+        variant: 'destructive',
+        title: i18n.t('The payment could not be completed. Please try again.'),
+      });
+      return;
+    }
+    setCompleting(true);
+    const completeUrl = new URL(current.completeUrl);
+    completeUrl.searchParams.set('token', orderId);
+    if (cancelled) {
+      completeUrl.searchParams.set('outcome', 'cancel');
+    }
+    window.location.assign(completeUrl.toString());
+  };
+
+  const onApprove = async ({orderId}: {orderId: string}): Promise<void> => {
+    complete(orderId, false);
+  };
+
+  const onCancel = ({orderId}: {orderId?: string}): void => {
+    const cancelled = orderId ?? handoff.current?.orderId;
+    if (cancelled) {
+      complete(cancelled, true);
+    }
+  };
+
+  const onError = (): void => {
+    toast({
+      variant: 'destructive',
+      title: i18n.t('The payment could not be completed. Please try again.'),
+    });
+  };
+
+  return (
+    <PayPalProvider
+      clientId={env.paypal?.clientId ?? ''}
+      components={['paypal-payments']}
+      locale={transformLocale(l10n.getLocale()) || undefined}
+      pageType="checkout">
+      <div className={`w-full ${styles.paypal}`}>
+        <PayPalOneTimePaymentButton
+          disabled={disabled}
+          presentationMode="auto"
+          createOrder={createOrder}
+          onApprove={onApprove}
+          onCancel={onCancel}
+          onError={onError}
+        />
+      </div>
+      <Portal>
+        <Spinner show={completing} fullscreen />
+      </Portal>
+    </PayPalProvider>
+  );
+}
+
 /**
  * One button per gateway the server offers. The intent is opaque here: the
  * component sends `{source, intent, submitToken}` and the server prices it.
@@ -89,11 +195,8 @@ export function PaymentMethods({
   submitToken,
   disabled,
   onValidate,
-}: {
+}: StartArgs & {
   gateways: Gateway[];
-  source: PaymentSource;
-  intent: unknown;
-  submitToken: string;
   disabled?: boolean;
   /** The caller's pre-flight: an address chosen, an amount above zero. */
   onValidate?: (gateway: Gateway) => Promise<boolean> | boolean;
@@ -105,12 +208,12 @@ export function PaymentMethods({
     return null;
   }
 
-  const start = async (gateway: Gateway) => {
-    if (busy) return;
+  /* Validates, starts the payment on the server and returns the handoff, or
+   * null after showing why not. Shared by the plain buttons and the SDK one. */
+  const start: Starter = async gateway => {
     if (onValidate && !(await onValidate(gateway))) {
-      return;
+      return null;
     }
-    setBusy(gateway);
     try {
       const result = await startPaymentAction({
         gateway,
@@ -120,19 +223,29 @@ export function PaymentMethods({
       });
       if (result.error) {
         toast({variant: 'destructive', title: result.message});
-        return;
+        return null;
       }
-      if (!performHandoff(result.data.handoff)) {
-        toast({
-          variant: 'destructive',
-          title: i18n.t('This payment method is not available yet'),
-        });
-      }
+      return result.data.handoff;
     } catch {
       toast({
         variant: 'destructive',
         title: i18n.t('The payment could not be started. Please try again.'),
       });
+      return null;
+    }
+  };
+
+  const press = async (gateway: Gateway) => {
+    if (busy) return;
+    setBusy(gateway);
+    try {
+      const handoff = await start(gateway);
+      if (handoff && !performHandoff(handoff)) {
+        toast({
+          variant: 'destructive',
+          title: i18n.t('This payment method is not available yet'),
+        });
+      }
     } finally {
       setBusy(null);
     }
@@ -141,6 +254,15 @@ export function PaymentMethods({
   return (
     <div className="flex flex-col gap-3">
       {gateways.map(gateway => {
+        if (gateway === GATEWAY.paypal) {
+          return (
+            <PaypalButton
+              key={gateway}
+              disabled={disabled || busy !== null}
+              start={start}
+            />
+          );
+        }
         const presentation = PRESENTATION[gateway];
         return (
           <Button
@@ -148,7 +270,7 @@ export function PaymentMethods({
             type="button"
             className={`h-[50px] w-full text-lg font-medium ${presentation.className}`}
             disabled={disabled || busy !== null}
-            onClick={() => start(gateway)}>
+            onClick={() => press(gateway)}>
             {busy === gateway ? i18n.t('Redirecting…') : presentation.label()}
           </Button>
         );

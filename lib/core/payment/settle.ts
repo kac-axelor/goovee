@@ -2,7 +2,7 @@ import 'server-only';
 
 import type {Client} from '@/goovee/.generated/client';
 import type {Tenant} from '@/tenant';
-import {minorUnitsOf} from './domain/money';
+import {minorUnitsOf, scaleOfCurrency} from './domain/money';
 import type {GatewaySignal} from './domain/signal';
 import {
   deriveStatus,
@@ -13,6 +13,7 @@ import {
   DELIVERY_STATUS,
   EVENT_TYPE,
   JOB_KIND,
+  OBSERVED_VIA,
   PAYMENT_STATUS,
   SESSION_STATUS,
   type EventType,
@@ -142,6 +143,19 @@ export async function settlePayment({
     );
 
     if (!Array.isArray(inserted) || inserted.length === 0) {
+      /* The webhook's word on a capture the browser recorded first. Nothing
+       * about the money changes, but the event is now confirmed by the
+       * provider's own transport, which is what the webhook health view
+       * counts. */
+      if (signal.observedVia === OBSERVED_VIA.webhook) {
+        await txClient.$raw(
+          `UPDATE portal_portal_payment_event
+             SET confirmed_on = now(), updated_on = now()
+           WHERE gateway = $1 AND event_key = $2 AND confirmed_on IS NULL`,
+          signal.gateway,
+          eventKey,
+        );
+      }
       return {outcome: 'duplicate', reference: payment.reference};
     }
 
@@ -150,11 +164,23 @@ export async function settlePayment({
       await recordCorrelationRefs(txClient, session.id, signal);
     }
 
+    /* An event in another currency, or converted at another scale than the
+     * payment's, is recorded but never summed: minor units only add up when
+     * they are minor units of the same thing. */
     const currencyMismatch =
       signal.currencyCode != null &&
-      signal.currencyCode.toUpperCase() !== payment.currencyCode.toUpperCase();
+      !isCountable(
+        signal.currencyCode,
+        payment.currencyCode,
+        payment.currencyScale,
+      );
 
-    const ledger = await loadLedger(txClient, payment.id, payment.currencyCode);
+    const ledger = await loadLedger(
+      txClient,
+      payment.id,
+      payment.currencyCode,
+      payment.currencyScale,
+    );
     const latestSessionStatus = await latestSession(txClient, payment.id);
     const derived = deriveStatus({
       amount: payment.amount,
@@ -226,7 +252,7 @@ export async function settlePayment({
         ...(deliveryStatus && {deliveryStatus}),
         ...(deliveryReason && {deliveryReason}),
         ...(currencyMismatch && {
-          lastError: `Provider reported ${signal.currencyCode} for a payment in ${payment.currencyCode}; the event is recorded but not counted`,
+          lastError: `Provider reported ${signal.currencyCode} for a payment in ${payment.currencyCode} at scale ${payment.currencyScale}; the event is recorded but not counted`,
         }),
         ...(subject.invoice &&
           !payment.invoice && {invoice: {select: {id: subject.invoice}}}),
@@ -394,10 +420,29 @@ async function recordCorrelationRefs(
   }
 }
 
+/* An event without a currency was reported in the payment's own currency by
+ * a provider that echoes none (the Verifone family). One with a currency
+ * counts only when it is the payment's and the provider edge converted it at
+ * the scale the payment was frozen at. */
+function isCountable(
+  eventCurrency: string | null,
+  paymentCurrency: string,
+  paymentScale: number,
+): boolean {
+  if (!eventCurrency) {
+    return true;
+  }
+  return (
+    eventCurrency.toUpperCase() === paymentCurrency.toUpperCase() &&
+    scaleOfCurrency(eventCurrency) === paymentScale
+  );
+}
+
 async function loadLedger(
   txClient: Client,
   paymentId: string,
   currencyCode: string,
+  currencyScale: number,
 ): Promise<LedgerEntry[]> {
   const events = await txClient.aOSPortalPaymentEvent.find({
     where: {payment: {id: paymentId}},
@@ -406,9 +451,7 @@ async function loadLedger(
   return events.map(event => ({
     type: event.type as EventType,
     amount: minorUnitsOf(event.amount),
-    countable:
-      !event.currencyCode ||
-      event.currencyCode.toUpperCase() === currencyCode.toUpperCase(),
+    countable: isCountable(event.currencyCode, currencyCode, currencyScale),
   }));
 }
 

@@ -33,22 +33,28 @@ export async function handleNotification({
     return new NextResponse('Not Found', {status: 404});
   }
 
-  let body: string;
-  try {
-    body = await readTextWithin(request, MAX_NOTIFICATION_BYTES);
-  } catch (error) {
-    if (error instanceof RequestBodyTooLarge) {
-      return new NextResponse('Payload Too Large', {status: 413});
-    }
-    throw error;
-  }
-
   const adapter = getAdapter(gateway);
-  const bounded = new Request(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body,
-  });
+
+  /* A notification with a body is read within a size limit and handed on
+   * with that body; one without, the Verifone family's GET with everything in
+   * the query, goes to the adapter as it arrived. */
+  let bounded = request;
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    let body: string;
+    try {
+      body = await readTextWithin(request, MAX_NOTIFICATION_BYTES);
+    } catch (error) {
+      if (error instanceof RequestBodyTooLarge) {
+        return new NextResponse('Payload Too Large', {status: 413});
+      }
+      throw error;
+    }
+    bounded = new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body,
+    });
+  }
 
   let signals;
   try {

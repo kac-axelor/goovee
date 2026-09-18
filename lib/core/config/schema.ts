@@ -435,6 +435,13 @@ const paymentsSchema = z
           .boolean()
           .describe('true for live payments; defaults to sandbox.')
           .optional(),
+        webhookId: z
+          .string()
+          .min(1)
+          .describe(
+            'Id of the webhook registered for this tenant in the PayPal developer dashboard. PayPal signs each notification, and the signature is checked against this id. Without it, PayPal notifications are refused and a payment is recorded only when the buyer comes back to the site.',
+          )
+          .optional(),
       })
       .describe(
         `PayPal merchant account. The browser needs the client id as well, under ${name([TENANTS_KEY, '<id>', 'public', 'paypal', 'clientId'])}.`,

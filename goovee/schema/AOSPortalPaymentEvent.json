@@ -48,6 +48,10 @@
       "required": true
     },
     {
+      "type": "DateTime",
+      "name": "confirmedOn"
+    },
+    {
       "type": "String",
       "name": "providerRef"
     },

@@ -168,6 +168,7 @@ export async function startPayment({
         payer: prepared.data.payer,
         label: prepared.data.subjectLabel,
         returnUrl: urls.forExternal(`/api/payments/return/${gateway}`),
+        billing: prepared.data.billing,
       },
       {tenantId: tenant.id, config: tenant.config},
     );

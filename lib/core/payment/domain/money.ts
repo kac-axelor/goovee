@@ -32,6 +32,47 @@ export function toMinorUnits(value: string | number, scale: number): number {
   return sign === '-' ? -minor : minor;
 }
 
+/* ISO 4217 currencies whose minor unit is not the usual hundredth. Providers
+ * that report decimal strings are converted with this at their edge; the
+ * payment's own scale, frozen from the ERP at T1, decides how the ledger sums. */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'BIF',
+  'CLP',
+  'DJF',
+  'GNF',
+  'ISK',
+  'JPY',
+  'KMF',
+  'KRW',
+  'PYG',
+  'RWF',
+  'UGX',
+  'UYI',
+  'VND',
+  'VUV',
+  'XAF',
+  'XOF',
+  'XPF',
+]);
+
+const THREE_DECIMAL_CURRENCIES = new Set([
+  'BHD',
+  'IQD',
+  'JOD',
+  'KWD',
+  'LYD',
+  'OMR',
+  'TND',
+]);
+
+/** The number of decimals a currency has under ISO 4217. */
+export function scaleOfCurrency(code: string): number {
+  const upper = code.toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(upper)) return 0;
+  if (THREE_DECIMAL_CURRENCIES.has(upper)) return 3;
+  return 2;
+}
+
 /** The decimal string for an amount in minor units: 1050 with scale 2 is "10.50". */
 export function fromMinorUnits(minor: number, scale: number): string {
   const sign = minor < 0 ? '-' : '';

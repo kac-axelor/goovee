@@ -22,12 +22,24 @@ export type GatewayCapabilities = {
 export type Handoff =
   | {kind: 'redirect'; url: string}
   | {kind: 'form-post'; url: string; fields: Record<string, string>}
-  | {kind: 'sdk'; orderId: string}
+  /** The provider's in-page SDK approves the order; the button then sends the browser to `completeUrl` with the order id appended as `token`. */
+  | {kind: 'sdk'; orderId: string; completeUrl: string}
   | {kind: 'instructions'; details: Record<string, string>};
 
 export type GatewayContext = {
   tenantId: string;
   config: TenantConfig;
+};
+
+/** What some providers want to know about the payer's billing address. */
+export type BillingDetails = {
+  firstName?: string;
+  lastName?: string;
+  addressLine1?: string;
+  zipCode?: string;
+  city?: string;
+  /** ISO 3166-1 numeric. */
+  countryCode?: string;
 };
 
 export type SessionInput = {
@@ -40,6 +52,7 @@ export type SessionInput = {
   label: string;
   /** Absolute address of the return route for this gateway. */
   returnUrl: string;
+  billing?: BillingDetails;
 };
 
 export type CreatedSession = {

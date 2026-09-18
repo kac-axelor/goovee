@@ -6,10 +6,16 @@ import {PaymentOption} from '@/types';
 import {GATEWAY, type Gateway} from '../domain/types';
 import type {GatewayAdapter} from './types';
 import {stripeCardAdapter} from './stripe-card';
+import {paypalAdapter} from './paypal';
+import {payboxAdapter} from './paybox';
+import {up2payAdapter} from './up2pay';
 
 /* Adding a provider is one adapter and one entry here. */
 const adapters: Partial<Record<Gateway, GatewayAdapter>> = {
   [GATEWAY.stripeCard]: stripeCardAdapter,
+  [GATEWAY.paypal]: paypalAdapter,
+  [GATEWAY.paybox]: payboxAdapter,
+  [GATEWAY.up2pay]: up2payAdapter,
 };
 
 export const GatewaySchema = z.enum(
