@@ -53,6 +53,22 @@ export type SessionInput = {
   /** Absolute address of the return route for this gateway. */
   returnUrl: string;
   billing?: BillingDetails;
+  /** A variant the gateway offers and the buyer chose, such as an instant or a standard transfer. */
+  option?: string;
+};
+
+/** What a payer still has to do for a payment that is awaiting their bank. */
+export type AwaitingInstructions = {
+  /** The reference the payer must quote with the transfer. */
+  reference?: string;
+  /** Decimal string of what is still expected, in the payment's currency. */
+  amountRemaining?: string;
+  accountHolder?: string;
+  iban?: string;
+  bic?: string;
+  bankName?: string;
+  routingNumber?: string;
+  accountNumber?: string;
 };
 
 export type CreatedSession = {
@@ -110,4 +126,14 @@ export interface GatewayAdapter {
     sessionRef: string,
     context: GatewayContext,
   ): Promise<GatewaySignal>;
+
+  /**
+   * What the payer still has to do while the payment awaits their bank: the
+   * account to transfer to and the reference to quote. Only for gateways
+   * whose handoff is an instruction rather than a page of the provider's.
+   */
+  describeAwaiting?(
+    sessionRef: string,
+    context: GatewayContext,
+  ): Promise<AwaitingInstructions | null>;
 }

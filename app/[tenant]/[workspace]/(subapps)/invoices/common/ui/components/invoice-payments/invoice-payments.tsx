@@ -4,7 +4,8 @@
 import {i18n} from '@/locale';
 import {useToast} from '@/ui/hooks';
 import {PaymentMethods} from '@/ui/components/payment/payment-methods';
-import {PAYMENT_SOURCE, type Gateway} from '@/payment/domain/types';
+import {PAYMENT_SOURCE} from '@/payment/domain/types';
+import type {OfferedGateway} from '@/payment/offer';
 
 // ---- LOCAL IMPORTS ---- //
 import {Invoice} from '@/subapps/invoices/common/types/invoices';
@@ -24,7 +25,7 @@ export function InvoicePayments({
   invoice: Cloned<Invoice>;
   amount: string;
   token?: string;
-  gateways: Gateway[];
+  gateways: OfferedGateway[];
   submitToken: string;
 }) {
   const {toast} = useToast();

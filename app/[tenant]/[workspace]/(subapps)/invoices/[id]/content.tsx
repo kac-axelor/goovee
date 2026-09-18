@@ -19,7 +19,7 @@ import {
   PAYMENT_UPDATE_STATUS,
 } from '@/payment/sse/constants';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
-import type {Gateway} from '@/payment/domain/types';
+import type {OfferedGateway} from '@/payment/offer';
 
 // ---- LOCAL IMPORTS ---- //
 import {Invoice, Total} from '@/subapps/invoices/common/ui/components';
@@ -36,7 +36,7 @@ interface ContentProps {
   config: InvoicesConfig | Cloned<InvoicesConfig>;
   token?: string;
   allowStripeBankTransfer: boolean;
-  gateways: Gateway[];
+  gateways: OfferedGateway[];
   submitToken: string;
 }
 

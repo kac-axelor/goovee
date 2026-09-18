@@ -4,7 +4,7 @@ import {createHmac, timingSafeEqual} from 'node:crypto';
 import type {ResponseCookies} from 'next/dist/compiled/@edge-runtime/cookies';
 import type {ReadonlyRequestCookies} from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 
-import type {Tenant} from '@/tenant';
+import type {Tenant, TenantConfig} from '@/tenant';
 
 /*
  * Who may see a payment: the browser that came back from the provider, which
@@ -29,6 +29,55 @@ function sign(tenant: Tenant, reference: string, expiresAt: number): string {
   return createHmac('sha256', tenant.config.sessionSecret)
     .update(`payment:${reference}:${expiresAt}`)
     .digest('hex');
+}
+
+/*
+ * A grant for a return leg that carries no provider fact of its own, such as
+ * the address a bank sends the browser back to. Put on the return address at
+ * session creation, known only to the provider and the payer's browser, and
+ * checked before the route treats the reference as attested.
+ */
+/* `<expiry>.<hex signature>`, like the cookie: a report address that leaks
+ * later, from a log or a history, stops minting cookies when the grant runs
+ * out. */
+const GRANT_VALUE = /^(\d{1,16})\.([0-9a-f]{64})$/;
+
+function signGrant(
+  config: TenantConfig,
+  reference: string,
+  expiresAt: number,
+): string {
+  return createHmac('sha256', config.sessionSecret)
+    .update(`return:${reference}:${expiresAt}`)
+    .digest('hex');
+}
+
+export function signReturnGrant(
+  config: TenantConfig,
+  reference: string,
+  lifetimeSeconds: number,
+): string {
+  const expiresAt = Math.floor(Date.now() / 1000) + lifetimeSeconds;
+  return `${expiresAt}.${signGrant(config, reference, expiresAt)}`;
+}
+
+export function verifyReturnGrant(
+  config: TenantConfig,
+  reference: string,
+  grant: string | null,
+): boolean {
+  const match = grant ? GRANT_VALUE.exec(grant) : null;
+  if (!match) {
+    return false;
+  }
+  const expiresAt = Number(match[1]);
+  if (expiresAt * 1000 < Date.now()) {
+    return false;
+  }
+  return timingSafeEqual(
+    Buffer.from(match[2], 'hex'),
+    Buffer.from(signGrant(config, reference, expiresAt), 'hex'),
+  );
 }
 
 export function setPaymentCookie(

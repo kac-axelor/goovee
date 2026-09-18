@@ -450,6 +450,13 @@ const paymentsSchema = z
     stripe: z
       .strictObject({
         clientSecret: z.string().min(1),
+        bankTransferCountry: z
+          .string()
+          .length(2)
+          .describe(
+            'Two-letter country whose bank account Stripe presents for EUR bank transfers; defaults to FR.',
+          )
+          .optional(),
         webhookSecret: z
           .string()
           .describe(

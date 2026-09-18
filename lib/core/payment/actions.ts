@@ -16,6 +16,8 @@ const StartPaymentSchema = z.object({
   source: PaymentSourceSchema,
   submitToken: z.string().min(16).max(128),
   intent: z.unknown(),
+  /** A variant of the gateway, such as an instant or a standard transfer. */
+  option: z.string().min(1).max(32).optional(),
 });
 
 export type StartPaymentInput = z.input<typeof StartPaymentSchema>;

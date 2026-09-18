@@ -12,6 +12,10 @@ export type LedgerEntry = {
   amount: number;
   /** False for an event recorded in a currency other than the payment's. */
   countable: boolean;
+  /** The session the event belongs to; null for an event no session claims. */
+  sessionId: string | null;
+  /** Names the event when no session does. */
+  eventKey: string;
 };
 
 export type DerivedStatus = {
@@ -39,7 +43,11 @@ export function deriveStatus({
   ledger: LedgerEntry[];
   latestSessionStatus: SessionStatus | null;
 }): DerivedStatus {
-  let capturedAmount = 0;
+  /* Within one session a provider reports the money it holds so far: a
+   * partial funding says how much has arrived, the capture that follows says
+   * the whole amount. Those are snapshots of one balance and the highest one
+   * is the truth. Across sessions the balances add up. */
+  const capturedBySession = new Map<string, number>();
   let refundedAmount = 0;
   let disputed = false;
 
@@ -49,9 +57,14 @@ export function deriveStatus({
     }
     switch (entry.type) {
       case EVENT_TYPE.captured:
-      case EVENT_TYPE.partiallyCaptured:
-        capturedAmount += entry.amount;
+      case EVENT_TYPE.partiallyCaptured: {
+        const key = entry.sessionId ?? `event:${entry.eventKey}`;
+        capturedBySession.set(
+          key,
+          Math.max(capturedBySession.get(key) ?? 0, entry.amount),
+        );
         break;
+      }
       case EVENT_TYPE.refunded:
         refundedAmount += entry.amount;
         break;
@@ -61,6 +74,11 @@ export function deriveStatus({
       default:
         break;
     }
+  }
+
+  let capturedAmount = 0;
+  for (const captured of capturedBySession.values()) {
+    capturedAmount += captured;
   }
 
   if (disputed) {

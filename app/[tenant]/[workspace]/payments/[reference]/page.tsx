@@ -34,7 +34,9 @@ export default async function Page(props: {
   const tenant = await manager.getTenant(scope.tenantId);
   if (!tenant) notFound();
 
-  const view = await findPaymentView(tenant.client, parsed.reference);
+  const view = await findPaymentView(tenant, parsed.reference, {
+    withInstructions: true,
+  });
   /* A payment made under another workspace is not shown under this one. */
   if (!view || view.workspaceUrl !== scope.key()) notFound();
 

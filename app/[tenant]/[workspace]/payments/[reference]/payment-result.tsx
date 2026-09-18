@@ -135,6 +135,16 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
         ),
       };
     default:
+      if (view.instructions) {
+        return {
+          tone: 'pending',
+          heading: i18n.t('Waiting for your bank'),
+          body: i18n.t(
+            'Transfer {0} to the account below, quoting the payment reference. We will email you once it has arrived.',
+            amount,
+          ),
+        };
+      }
       return {
         tone: 'pending',
         heading: i18n.t('Waiting for confirmation'),
@@ -146,6 +156,46 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
           : i18n.t('Confirming your payment of {0}…', amount),
       };
   }
+}
+
+function Instructions({view}: {view: PaymentView}) {
+  const details = view.instructions;
+  if (!details) {
+    return null;
+  }
+  const rows: [string, string | undefined][] = [
+    [i18n.t('Account holder'), details.accountHolder],
+    [i18n.t('IBAN'), details.iban],
+    [i18n.t('BIC'), details.bic],
+    [i18n.t('Bank'), details.bankName],
+    [i18n.t('Routing number'), details.routingNumber],
+    [i18n.t('Account number'), details.accountNumber],
+    [i18n.t('Payment reference'), details.reference],
+    [
+      i18n.t('Amount remaining'),
+      details.amountRemaining
+        ? formatMoney(
+            Math.round(
+              Number(details.amountRemaining) * 10 ** view.currencyScale,
+            ),
+            view.currencyCode,
+            view.currencyScale,
+          )
+        : undefined,
+    ],
+  ];
+  return (
+    <dl className="mt-6 grid grid-cols-1 gap-2 rounded-md border border-ink-200 bg-white p-4 text-sm sm:grid-cols-2">
+      {rows
+        .filter(([, value]) => Boolean(value))
+        .map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-ink-500">{label}</dt>
+            <dd className="font-mono">{value}</dd>
+          </div>
+        ))}
+    </dl>
+  );
 }
 
 const TONE_CLASSES: Record<Presentation['tone'], string> = {
@@ -250,6 +300,7 @@ export function PaymentResult({
             </div>
           )}
         </dl>
+        <Instructions view={view} />
         <div className="mt-6 flex flex-wrap gap-3">
           {onwardHref && (
             <Button onClick={() => router.push(onwardHref)}>

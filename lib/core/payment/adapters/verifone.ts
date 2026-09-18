@@ -124,6 +124,19 @@ export function verifyVerifoneSignature(
   }
 }
 
+/*
+ * A percent-encoded unreserved character (RFC 3986 §2.3) is the same
+ * character. Verifone signs such characters bare, `~` among them, and a URL
+ * layer on the way to us may encode them; reading them back bare compares
+ * what Verifone signed.
+ */
+function normaliseUnreserved(value: string): string {
+  return value.replace(
+    /%(7E|2D|2E|5F|3[0-9]|4[1-9A-F]|5[0-9A]|6[1-9A-F]|7[0-9A])/gi,
+    encoded => String.fromCharCode(parseInt(encoded.slice(1), 16)),
+  );
+}
+
 function decodeField(value: string): string | null {
   try {
     return decodeURIComponent(value.replace(/\+/g, '%20'));
@@ -160,7 +173,7 @@ export function signedPairs(rawQuery: string): {
     if (decodeField(value) === null) {
       return {pairs: [], signature: null};
     }
-    pairs.push([name, value]);
+    pairs.push([name, normaliseUnreserved(value)]);
   }
   return {pairs, signature};
 }

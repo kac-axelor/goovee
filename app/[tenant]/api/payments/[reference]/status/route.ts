@@ -25,7 +25,7 @@ export async function GET(
     return new NextResponse('Not Found', {status: 404});
   }
 
-  const view = await findPaymentView(tenant.client, parsed.reference);
+  const view = await findPaymentView(tenant, parsed.reference);
   if (!view) {
     return new NextResponse('Not Found', {status: 404});
   }

@@ -48,12 +48,15 @@ export async function startPayment({
   source,
   submitToken,
   intent,
+  option,
 }: {
   tenant: Tenant;
   gateway: Gateway;
   source: PaymentSource;
   submitToken: string;
   intent: unknown;
+  /** A variant of the gateway the buyer chose, where the gateway offers any. */
+  option?: string;
 }): ActionResponse<StartResult> {
   const handler = getSourceHandler(source);
   const parsedIntent = handler.intentSchema.safeParse(intent);
@@ -169,6 +172,7 @@ export async function startPayment({
         label: prepared.data.subjectLabel,
         returnUrl: urls.forExternal(`/api/payments/return/${gateway}`),
         billing: prepared.data.billing,
+        option,
       },
       {tenantId: tenant.id, config: tenant.config},
     );

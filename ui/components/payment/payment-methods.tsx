@@ -18,12 +18,13 @@ import {
   type PaymentSource,
 } from '@/payment/domain/types';
 import {startPaymentAction} from '@/payment/actions';
+import type {OfferedGateway} from '@/payment/offer';
 import type {StartResult} from '@/payment/start';
 import styles from './payment-methods.module.scss';
 
 type GatewayPresentation = {
   /** Written as literal calls so the keys stay visible to the extractor. */
-  label: () => string;
+  label: (option?: string) => string;
   className: string;
 };
 
@@ -49,7 +50,10 @@ const PRESENTATION: Record<Gateway, GatewayPresentation> = {
     className: 'bg-[#00a651]',
   },
   [GATEWAY.hubpisp]: {
-    label: () => i18n.t('Pay from your bank'),
+    label: option =>
+      option === 'instant'
+        ? i18n.t('Pay from your bank (instant transfer)')
+        : i18n.t('Pay from your bank (standard transfer)'),
     className: 'bg-[#1d4ed8]',
   },
 };
@@ -93,7 +97,7 @@ type StartArgs = {
   submitToken: string;
 };
 
-type Starter = (gateway: Gateway) => Promise<Handoff | null>;
+type Starter = (offered: OfferedGateway) => Promise<Handoff | null>;
 
 /**
  * PayPal approves the order in its own window and never redirects the browser
@@ -108,7 +112,7 @@ function PaypalButton({disabled, start}: {disabled?: boolean; start: Starter}) {
   const handoff = useRef<Extract<Handoff, {kind: 'sdk'}> | null>(null);
 
   const createOrder = async (): Promise<{orderId: string}> => {
-    const result = await start(GATEWAY.paypal);
+    const result = await start({gateway: GATEWAY.paypal});
     /* Already paid under this checkout: show the result rather than a second
      * PayPal window. The SDK is told to stop by the rejection that follows. */
     if (result?.kind === 'page') {
@@ -184,6 +188,12 @@ function PaypalButton({disabled, start}: {disabled?: boolean; start: Starter}) {
   );
 }
 
+function keyOf(offered: OfferedGateway): string {
+  return offered.option
+    ? `${offered.gateway}:${offered.option}`
+    : offered.gateway;
+}
+
 /**
  * One button per gateway the server offers. The intent is opaque here: the
  * component sends `{source, intent, submitToken}` and the server prices it.
@@ -196,13 +206,13 @@ export function PaymentMethods({
   disabled,
   onValidate,
 }: StartArgs & {
-  gateways: Gateway[];
+  gateways: OfferedGateway[];
   disabled?: boolean;
   /** The caller's pre-flight: an address chosen, an amount above zero. */
   onValidate?: (gateway: Gateway) => Promise<boolean> | boolean;
 }) {
   const {toast} = useToast();
-  const [busy, setBusy] = useState<Gateway | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   if (gateways.length === 0) {
     return null;
@@ -210,13 +220,14 @@ export function PaymentMethods({
 
   /* Validates, starts the payment on the server and returns the handoff, or
    * null after showing why not. Shared by the plain buttons and the SDK one. */
-  const start: Starter = async gateway => {
-    if (onValidate && !(await onValidate(gateway))) {
+  const start: Starter = async offered => {
+    if (onValidate && !(await onValidate(offered.gateway))) {
       return null;
     }
     try {
       const result = await startPaymentAction({
-        gateway,
+        gateway: offered.gateway,
+        option: offered.option,
         source,
         intent,
         submitToken,
@@ -235,11 +246,11 @@ export function PaymentMethods({
     }
   };
 
-  const press = async (gateway: Gateway) => {
+  const press = async (offered: OfferedGateway) => {
     if (busy) return;
-    setBusy(gateway);
+    setBusy(keyOf(offered));
     try {
-      const handoff = await start(gateway);
+      const handoff = await start(offered);
       if (handoff && !performHandoff(handoff)) {
         toast({
           variant: 'destructive',
@@ -253,25 +264,28 @@ export function PaymentMethods({
 
   return (
     <div className="flex flex-col gap-3">
-      {gateways.map(gateway => {
-        if (gateway === GATEWAY.paypal) {
+      {gateways.map(offered => {
+        const key = keyOf(offered);
+        if (offered.gateway === GATEWAY.paypal) {
           return (
             <PaypalButton
-              key={gateway}
+              key={key}
               disabled={disabled || busy !== null}
               start={start}
             />
           );
         }
-        const presentation = PRESENTATION[gateway];
+        const presentation = PRESENTATION[offered.gateway];
         return (
           <Button
-            key={gateway}
+            key={key}
             type="button"
             className={`h-[50px] w-full text-lg font-medium ${presentation.className}`}
             disabled={disabled || busy !== null}
-            onClick={() => press(gateway)}>
-            {busy === gateway ? i18n.t('Redirecting…') : presentation.label()}
+            onClick={() => press(offered)}>
+            {busy === key
+              ? i18n.t('Redirecting…')
+              : presentation.label(offered.option)}
           </Button>
         );
       })}

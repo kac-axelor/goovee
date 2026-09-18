@@ -446,12 +446,20 @@ async function loadLedger(
 ): Promise<LedgerEntry[]> {
   const events = await txClient.aOSPortalPaymentEvent.find({
     where: {payment: {id: paymentId}},
-    select: {type: true, amount: true, currencyCode: true},
+    select: {
+      type: true,
+      amount: true,
+      currencyCode: true,
+      eventKey: true,
+      session: {id: true},
+    },
   });
   return events.map(event => ({
     type: event.type as EventType,
     amount: minorUnitsOf(event.amount),
     countable: isCountable(event.currencyCode, currencyCode, currencyScale),
+    sessionId: event.session?.id ?? null,
+    eventKey: event.eventKey,
   }));
 }
 

@@ -1,10 +1,13 @@
 import 'server-only';
 
-import Stripe from 'stripe';
-
-import type {TenantConfig} from '@/tenant';
-import {GATEWAY, EVENT_TYPE, OBSERVED_VIA} from '../domain/types';
-import {pendingSignal, type GatewaySignal} from '../domain/signal';
+import {EVENT_TYPE, GATEWAY, OBSERVED_VIA} from '../domain/types';
+import {
+  getStripe,
+  readStripeEvent,
+  retrieveSession,
+  signalForSession,
+  signalsForStripeEvent,
+} from './stripe-events';
 import type {
   CreatedSession,
   GatewayAdapter,
@@ -12,168 +15,7 @@ import type {
   SessionInput,
 } from './types';
 
-/* Clients are cached per secret so tenants sharing an account share a client,
- * and the SDK's connection pooling is preserved. */
-const clients = new Map<string, Stripe>();
-
-export function getStripe(config: TenantConfig): Stripe {
-  const secret = config.payments?.stripe?.clientSecret;
-  if (!secret) {
-    throw new Error('Stripe is not configured');
-  }
-  let client = clients.get(secret);
-  if (!client) {
-    client = new Stripe(secret);
-    clients.set(secret, client);
-  }
-  return client;
-}
-
-/** How long a webhook body may be before it is refused unread. */
-export const STRIPE_WEBHOOK_BODY_LIMIT = 1024 * 1024;
-
-/** The Stripe events the card adapter turns into signals. Others are acknowledged and ignored. */
-const HANDLED_EVENTS = new Set<Stripe.Event.Type>([
-  'checkout.session.completed',
-  'checkout.session.async_payment_succeeded',
-  'checkout.session.expired',
-  'payment_intent.succeeded',
-]);
-
-function idOf(value: string | {id: string} | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-  return typeof value === 'string' ? value : value.id;
-}
-
-/** The reference a session was created with, or null for a session that is not one of ours. */
-function referenceOfSession(session: Stripe.Checkout.Session): string | null {
-  return session.metadata?.reference ?? session.client_reference_id ?? null;
-}
-
-/**
- * The signal for a Checkout Session, whichever leg observed it. Keyed on the
- * PaymentIntent so the return leg and `payment_intent.succeeded` name one
- * capture.
- */
-function signalForSession(
-  session: Stripe.Checkout.Session,
-  observedVia: GatewaySignal['observedVia'],
-  payload: unknown,
-): GatewaySignal {
-  const reference = referenceOfSession(session);
-  if (!reference) {
-    throw new Error(`Stripe session ${session.id} carries no reference`);
-  }
-  const resolution = {by: 'reference', reference} as const;
-  const paymentIntentId = idOf(session.payment_intent);
-
-  if (session.payment_status === 'paid' && paymentIntentId) {
-    const paymentIntent =
-      typeof session.payment_intent === 'object'
-        ? session.payment_intent
-        : null;
-    const chargeId = idOf(paymentIntent?.latest_charge);
-    return {
-      gateway: GATEWAY.stripeCard,
-      resolution,
-      type: EVENT_TYPE.captured,
-      eventKey: `capture:${paymentIntentId}`,
-      amount: session.amount_total ?? paymentIntent?.amount_received ?? null,
-      currencyCode:
-        (session.currency ?? paymentIntent?.currency ?? '').toUpperCase() ||
-        null,
-      providerRef: paymentIntentId,
-      sessionRef: session.id,
-      correlationRefs: [session.id, paymentIntentId, chargeId].filter(
-        (ref): ref is string => Boolean(ref),
-      ),
-      reason: null,
-      observedVia,
-      observedOn: new Date(),
-      payload,
-    };
-  }
-
-  if (session.status === 'expired') {
-    return {
-      gateway: GATEWAY.stripeCard,
-      resolution,
-      type: EVENT_TYPE.expired,
-      eventKey: `expire:${session.id}`,
-      amount: null,
-      currencyCode: null,
-      providerRef: null,
-      sessionRef: session.id,
-      correlationRefs: [session.id],
-      reason: null,
-      observedVia,
-      observedOn: new Date(),
-      payload,
-    };
-  }
-
-  return pendingSignal({
-    gateway: GATEWAY.stripeCard,
-    resolution,
-    sessionRef: session.id,
-    observedVia,
-    payload,
-  });
-}
-
-/*
- * A PaymentIntent event does not name its Checkout Session, and the two
- * webhooks about one capture may arrive in either order. The session is looked
- * up so the capture is attached to the session that paid, not to whichever
- * one was opened last.
- */
-async function signalForPaymentIntent(
-  stripe: Stripe,
-  paymentIntent: Stripe.PaymentIntent,
-  payload: unknown,
-): Promise<GatewaySignal | null> {
-  const reference = paymentIntent.metadata?.reference;
-  const gateway = paymentIntent.metadata?.gateway ?? GATEWAY.stripeCard;
-  if (
-    !reference ||
-    gateway !== GATEWAY.stripeCard ||
-    paymentIntent.status !== 'succeeded'
-  ) {
-    return null;
-  }
-  const sessions = await stripe.checkout.sessions.list({
-    payment_intent: paymentIntent.id,
-    limit: 1,
-  });
-  const sessionId = sessions.data[0]?.id ?? null;
-  return {
-    gateway: GATEWAY.stripeCard,
-    resolution: {by: 'reference', reference},
-    type: EVENT_TYPE.captured,
-    eventKey: `capture:${paymentIntent.id}`,
-    amount: paymentIntent.amount_received,
-    currencyCode: paymentIntent.currency.toUpperCase(),
-    providerRef: paymentIntent.id,
-    sessionRef: sessionId,
-    correlationRefs: [
-      sessionId,
-      paymentIntent.id,
-      idOf(paymentIntent.latest_charge),
-    ].filter((ref): ref is string => Boolean(ref)),
-    reason: null,
-    observedVia: OBSERVED_VIA.webhook,
-    observedOn: new Date(),
-    payload,
-  };
-}
-
-async function retrieveSession(stripe: Stripe, sessionId: string) {
-  return stripe.checkout.sessions.retrieve(sessionId, {
-    expand: ['payment_intent'],
-  });
-}
+export {getStripe} from './stripe-events';
 
 export const stripeCardAdapter: GatewayAdapter = {
   gateway: GATEWAY.stripeCard,
@@ -205,6 +47,11 @@ export const stripeCardAdapter: GatewayAdapter = {
      * by URLSearchParams, so it is appended by hand. */
     const successUrl = `${returnUrl.toString()}&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${returnUrl.toString()}&session_id={CHECKOUT_SESSION_ID}&outcome=cancel`;
+    const metadata = {
+      reference: input.reference,
+      tenant_id: context.tenantId,
+      gateway: GATEWAY.stripeCard,
+    };
 
     const session = await stripe.checkout.sessions.create(
       {
@@ -212,18 +59,8 @@ export const stripeCardAdapter: GatewayAdapter = {
         submit_type: 'pay',
         client_reference_id: input.reference,
         customer_email: input.payer,
-        metadata: {
-          reference: input.reference,
-          tenant_id: context.tenantId,
-          gateway: GATEWAY.stripeCard,
-        },
-        payment_intent_data: {
-          metadata: {
-            reference: input.reference,
-            tenant_id: context.tenantId,
-            gateway: GATEWAY.stripeCard,
-          },
-        },
+        metadata,
+        payment_intent_data: {metadata},
         line_items: [
           {
             quantity: 1,
@@ -277,14 +114,22 @@ export const stripeCardAdapter: GatewayAdapter = {
       });
     }
 
-    const signal = signalForSession(session, OBSERVED_VIA.return, {
-      source: 'return',
-      sessionId,
-      outcome: cancelled ? 'cancel' : 'success',
-      status: session.status,
-      paymentStatus: session.payment_status,
-      ...(reference && {reference}),
-    });
+    const signal = signalForSession(
+      session,
+      context.tenantId,
+      OBSERVED_VIA.return,
+      {
+        source: 'return',
+        sessionId,
+        outcome: cancelled ? 'cancel' : 'success',
+        status: session.status,
+        paymentStatus: session.payment_status,
+        ...(reference && {reference}),
+      },
+    );
+    if (!signal) {
+      throw new Error(`Stripe session ${sessionId} is not one of ours`);
+    }
 
     if (cancelled && signal.type === EVENT_TYPE.expired) {
       return {
@@ -296,60 +141,35 @@ export const stripeCardAdapter: GatewayAdapter = {
     return signal;
   },
 
+  /* Reads every Stripe event, for both Stripe gateways: the account has one
+   * endpoint per tenant and the parser sorts the objects by the gateway
+   * recorded on them. */
   async parseNotification(request, context) {
-    const secret = context.config.payments?.stripe?.webhookSecret;
-    if (!secret) {
-      throw new Error('Stripe webhook secret is not configured');
-    }
-    const signature = request.headers.get('stripe-signature');
-    if (!signature) {
-      throw new Error('Stripe webhook is not signed');
-    }
-    const body = await request.text();
-    const stripe = getStripe(context.config);
-    const event = stripe.webhooks.constructEvent(body, signature, secret);
-
-    if (!HANDLED_EVENTS.has(event.type)) {
-      return [];
-    }
-
-    const payload = {source: 'webhook', eventId: event.id, type: event.type};
-
-    switch (event.type) {
-      case 'checkout.session.completed':
-      case 'checkout.session.async_payment_succeeded':
-      case 'checkout.session.expired': {
-        /* The event's session is not expanded; the PaymentIntent it names is
-         * needed for the event key and the charge for the correlation refs. A
-         * verified session that is not one of ours, from another flow on a
-         * shared account, is acknowledged rather than refused. */
-        const session = await retrieveSession(stripe, event.data.object.id);
-        if (!referenceOfSession(session)) {
-          return [];
-        }
-        return [signalForSession(session, OBSERVED_VIA.webhook, payload)];
-      }
-      case 'payment_intent.succeeded': {
-        const signal = await signalForPaymentIntent(
-          stripe,
-          event.data.object,
-          payload,
-        );
-        return signal ? [signal] : [];
-      }
-      default:
-        return [];
-    }
+    const event = await readStripeEvent(request, context.config);
+    return signalsForStripeEvent(
+      getStripe(context.config),
+      event,
+      context.tenantId,
+    );
   },
 
   async fetchStatus(sessionRef, context) {
     const stripe = getStripe(context.config);
     const session = await retrieveSession(stripe, sessionRef);
-    return signalForSession(session, OBSERVED_VIA.reconcile, {
-      source: 'reconcile',
-      sessionId: sessionRef,
-      status: session.status,
-      paymentStatus: session.payment_status,
-    });
+    const signal = signalForSession(
+      session,
+      context.tenantId,
+      OBSERVED_VIA.reconcile,
+      {
+        source: 'reconcile',
+        sessionId: sessionRef,
+        status: session.status,
+        paymentStatus: session.payment_status,
+      },
+    );
+    if (!signal) {
+      throw new Error(`Stripe session ${sessionRef} is not one of ours`);
+    }
+    return signal;
   },
 };

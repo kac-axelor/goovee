@@ -1,6 +1,8 @@
 import 'server-only';
 
-import type {Client} from '@/goovee/.generated/client';
+import type {Tenant} from '@/tenant';
+import {getAdapter} from './adapters/registry';
+import type {AwaitingInstructions} from './adapters/types';
 import {minorUnitsOf} from './domain/money';
 import {isTerminal} from './domain/status';
 import {
@@ -33,14 +35,18 @@ export type PaymentView = {
   settled: boolean;
   /** Workspace sub-path to what was bought, once it exists. */
   onwardLink: `/${string}` | null;
+  /** What the payer still has to do while the payment awaits their bank. Read on the page render only. */
+  instructions: AwaitingInstructions | null;
   createdOn: string | null;
   capturedOn: string | null;
 };
 
 export async function findPaymentView(
-  client: Client,
+  tenant: Tenant,
   reference: string,
+  {withInstructions = false}: {withInstructions?: boolean} = {},
 ): Promise<PaymentView | null> {
+  const {client} = tenant;
   const payment = await client.aOSPortalPayment.findOne({
     where: {reference},
     select: {
@@ -92,6 +98,38 @@ export async function findPaymentView(
     snapshot,
   });
 
+  /* Asked of the provider, so only where the page is rendered and only while
+   * the payer still has something to do; the poll endpoint leaves it out. */
+  let instructions: AwaitingInstructions | null = null;
+  const awaiting =
+    status === PAYMENT_STATUS.awaiting ||
+    status === PAYMENT_STATUS.partiallyCaptured;
+  if (withInstructions && awaiting && payment.gateway) {
+    const adapter = getAdapter(payment.gateway as Gateway);
+    if (adapter.describeAwaiting) {
+      const sessions = await client.aOSPortalPaymentSession.find({
+        where: {payment: {id: payment.id}, gateway: payment.gateway},
+        select: {sessionRef: true},
+        orderBy: {id: 'DESC'},
+        take: 1,
+      });
+      const sessionRef = sessions[0]?.sessionRef;
+      if (sessionRef) {
+        try {
+          instructions = await adapter.describeAwaiting(sessionRef, {
+            tenantId: tenant.id,
+            config: tenant.config,
+          });
+        } catch (error) {
+          console.warn(
+            `Payment ${payment.reference}: instructions could not be read`,
+            error,
+          );
+        }
+      }
+    }
+  }
+
   return {
     reference: payment.reference,
     status,
@@ -107,6 +145,7 @@ export async function findPaymentView(
     deliveryStatus: payment.deliveryStatus,
     projected,
     settled: isTerminal(status) && (!captured || projected || !delivered),
+    instructions,
     onwardLink,
     createdOn: payment.createdOn?.toISOString() ?? null,
     capturedOn: payment.capturedOn?.toISOString() ?? null,
