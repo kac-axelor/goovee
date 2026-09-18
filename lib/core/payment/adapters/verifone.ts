@@ -133,26 +133,23 @@ function decodeField(value: string): string | null {
 }
 
 /**
- * The part of a raw query string Verifone signed: from the first PBX_RETOUR
- * field up to, not including, `&sign=`. Our own query, such as the outcome
- * marker on a return address, comes before it and is not covered.
+ * The raw query string Verifone signed: everything before `&sign=`. Verifone
+ * appends its fields to whatever address it was given and signs the whole
+ * query it then sends, so our own parameters on a return address are covered
+ * too, and the IPN address, which carries none of ours, follows the same rule.
  *
  * Returns the raw pairs so a gateway can re-encode the values the way it
  * signs them. A query that cannot be decoded is reported as unsigned.
  */
-export function signedPairs(
-  rawQuery: string,
-  firstField: string,
-): {pairs: [string, string][]; signature: string | null} {
+export function signedPairs(rawQuery: string): {
+  pairs: [string, string][];
+  signature: string | null;
+} {
   const query = rawQuery.startsWith('?') ? rawQuery.slice(1) : rawQuery;
   const parts = query.split('&').filter(Boolean);
-  const start = parts.findIndex(part => part.startsWith(`${firstField}=`));
-  if (start < 0) {
-    return {pairs: [], signature: null};
-  }
   const pairs: [string, string][] = [];
   let signature: string | null = null;
-  for (const part of parts.slice(start)) {
+  for (const part of parts) {
     const separator = part.indexOf('=');
     const name = separator < 0 ? part : part.slice(0, separator);
     const value = separator < 0 ? '' : part.slice(separator + 1);
@@ -168,12 +165,16 @@ export function signedPairs(
   return {pairs, signature};
 }
 
-/** The decoded value of a returned field, from the raw pairs. */
+/**
+ * The decoded value of a returned field, from the raw pairs. The last
+ * occurrence wins: Verifone's fields come after any of ours on the same
+ * address, so a name we happen to use as well never shadows theirs.
+ */
 export function fieldValue(
   pairs: [string, string][],
   name: string,
 ): string | null {
-  const pair = pairs.find(([candidate]) => candidate === name);
+  const pair = [...pairs].reverse().find(([candidate]) => candidate === name);
   return pair ? decodeField(pair[1]) : null;
 }
 
@@ -212,6 +213,13 @@ export type ReturnOutcome = 'success' | 'wait' | 'refuse' | 'cancel';
 export function withOutcome(returnUrl: string, outcome: ReturnOutcome): string {
   const url = new URL(returnUrl);
   url.searchParams.set(OUTCOME_PARAM, outcome);
+  return url.toString();
+}
+
+/** The reference on a return address, for the route to show a page for when the signed fields cannot be read. */
+export function withReference(returnUrl: string, reference: string): string {
+  const url = new URL(returnUrl);
+  url.searchParams.set('ref', reference);
   return url.toString();
 }
 

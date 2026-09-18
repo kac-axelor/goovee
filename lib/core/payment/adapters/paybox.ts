@@ -29,6 +29,7 @@ import {
   signedPairs,
   verifyVerifoneSignature,
   withOutcome,
+  withReference,
 } from './verifone';
 
 type PayboxConfig = NonNullable<
@@ -60,7 +61,7 @@ function signalFromQuery(
   observedVia: ObservedVia,
   outcome: string | null,
 ): GatewaySignal {
-  const {pairs, signature} = signedPairs(rawQuery, 'montant');
+  const {pairs, signature} = signedPairs(rawQuery);
   const message = pairs.map(([name, value]) => `${name}=${value}`).join('&');
   if (!signature || !message) {
     throw new Error('Paybox response carries no signed fields');
@@ -85,6 +86,9 @@ function signalFromQuery(
   const transaction = fieldValue(pairs, 'transaction');
   const authorisation = fieldValue(pairs, 'auto');
   const code = fieldValue(pairs, 'error');
+  if (!code) {
+    throw new Error('Paybox response carries no result code');
+  }
   const resolution = {by: 'reference', reference} as const;
   const payload = {
     source: observedVia,
@@ -165,6 +169,9 @@ export const payboxAdapter: GatewayAdapter = {
     context: GatewayContext,
   ): Promise<CreatedSession> {
     const paybox = payboxConfig(context.config);
+    /* The reference on the return address is the fallback the route shows a
+     * page for when the signed fields cannot be read; it grants nothing. */
+    const returnUrl = withReference(input.returnUrl, input.reference);
     const fields: Record<string, string> = {
       PBX_SITE: paybox.site,
       PBX_RANG: paybox.rang,
@@ -176,10 +183,10 @@ export const payboxAdapter: GatewayAdapter = {
       PBX_RETOUR: RETOUR,
       PBX_HASH: 'SHA512',
       PBX_TIME: new Date().toISOString(),
-      PBX_EFFECTUE: withOutcome(input.returnUrl, 'success'),
-      PBX_ATTENTE: withOutcome(input.returnUrl, 'wait'),
-      PBX_REFUSE: withOutcome(input.returnUrl, 'refuse'),
-      PBX_ANNULE: withOutcome(input.returnUrl, 'cancel'),
+      PBX_EFFECTUE: withOutcome(returnUrl, 'success'),
+      PBX_ATTENTE: withOutcome(returnUrl, 'wait'),
+      PBX_REFUSE: withOutcome(returnUrl, 'refuse'),
+      PBX_ANNULE: withOutcome(returnUrl, 'cancel'),
       PBX_REPONDRE_A: tenantURLs(context.tenantId).forExternal(
         '/api/webhooks/paybox',
       ),

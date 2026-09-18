@@ -28,6 +28,7 @@ import {
   signedPairs,
   verifyVerifoneSignature,
   withOutcome,
+  withReference,
 } from './verifone';
 
 type Up2payConfig = NonNullable<
@@ -44,9 +45,10 @@ function up2payConfig(config: TenantConfig): Up2payConfig {
 
 /**
  * The fields Up2Pay sends back, in this order, on the return and on the IPN
- * registered in its back office. `sign` must stay last.
+ * registered in its back office. `sign` must stay last. The command is named
+ * `reference` rather than `ref`, which our own return address carries.
  */
-const RETOUR = 'montant:M;ref:R;auto:A;trans:S;erreur:E;sign:K';
+const RETOUR = 'montant:M;reference:R;auto:A;trans:S;erreur:E;sign:K';
 
 const SESSION_LIFETIME_MS = 15 * 60 * 1000;
 
@@ -85,8 +87,8 @@ function xmlEscape(value: string): string {
 
 /** Whether an IPN names a payment of ours at all. Used before any database is touched. */
 export function isOurUp2payNotification(request: Request): boolean {
-  const ref = new URL(request.url).searchParams.get('ref');
-  return parseCommand(ref) !== null;
+  const command = new URL(request.url).searchParams.get('reference');
+  return parseCommand(command) !== null;
 }
 
 function signalFromQuery(
@@ -94,7 +96,7 @@ function signalFromQuery(
   observedVia: ObservedVia,
   outcome: string | null,
 ): GatewaySignal {
-  const {pairs, signature} = signedPairs(rawQuery, 'montant');
+  const {pairs, signature} = signedPairs(rawQuery);
   const message = pairs
     .map(
       ([name, value]) =>
@@ -114,7 +116,7 @@ function signalFromQuery(
     throw new Error('Up2Pay response signature is invalid');
   }
 
-  const command = parseCommand(fieldValue(pairs, 'ref'));
+  const command = parseCommand(fieldValue(pairs, 'reference'));
   if (!command) {
     throw new Error('Up2Pay response names no reference of ours');
   }
@@ -124,6 +126,9 @@ function signalFromQuery(
   const transaction = fieldValue(pairs, 'trans');
   const authorisation = fieldValue(pairs, 'auto');
   const code = fieldValue(pairs, 'erreur');
+  if (!code) {
+    throw new Error('Up2Pay response carries no result code');
+  }
   const resolution = {by: 'reference', reference} as const;
   const payload = {
     source: observedVia,
@@ -200,6 +205,7 @@ export const up2payAdapter: GatewayAdapter = {
   ): Promise<CreatedSession> {
     const up2pay = up2payConfig(context.config);
     const billing = input.billing ?? {};
+    const returnUrl = withReference(input.returnUrl, input.reference);
     const shoppingCart =
       '<?xml version="1.0" encoding="utf-8"?><shoppingcart><total><totalQuantity>1</totalQuantity></total></shoppingcart>';
     const billingXml =
@@ -226,14 +232,23 @@ export const up2payAdapter: GatewayAdapter = {
       PBX_SOUHAITAUTHENT: '04',
       PBX_SHOPPINGCART: shoppingCart,
       PBX_BILLING: billingXml,
-      PBX_EFFECTUE: withOutcome(input.returnUrl, 'success'),
-      PBX_ANNULE: withOutcome(input.returnUrl, 'cancel'),
-      PBX_REFUSE: withOutcome(input.returnUrl, 'refuse'),
+      PBX_EFFECTUE: withOutcome(returnUrl, 'success'),
+      PBX_ANNULE: withOutcome(returnUrl, 'cancel'),
+      PBX_REFUSE: withOutcome(returnUrl, 'refuse'),
     };
     fields.PBX_HMAC = signFields(fields, up2pay.secret);
 
+    /* Sent as a GET address, not a form post: the platform answers its
+     * payment address with a redirect, which would turn a posted form into an
+     * empty GET. The HMAC covers the fields unencoded, as the platform reads
+     * them. */
+    const paymentUrl = new URL(up2pay.paybox);
+    paymentUrl.search = Object.entries(fields)
+      .map(([name, value]) => `${name}=${encodeURIComponent(value)}`)
+      .join('&');
+
     return {
-      handoff: {kind: 'form-post', url: up2pay.paybox, fields},
+      handoff: {kind: 'redirect', url: paymentUrl.toString()},
       sessionRef: input.idempotencyKey,
       expiresOn: new Date(Date.now() + SESSION_LIFETIME_MS),
       correlationRefs: [],
