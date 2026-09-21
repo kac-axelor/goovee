@@ -107,6 +107,11 @@
     },
     {
       "type": "ManyToOne",
+      "name": "shopOrderRequest",
+      "target": "AOSPortalOrderRequest"
+    },
+    {
+      "type": "ManyToOne",
       "name": "marketplaceProductOrder",
       "target": "AOSMarketplaceProductOrder"
     },

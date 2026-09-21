@@ -330,12 +330,16 @@ function paymentModeLink(prepared: PreparedIntent, gateway: Gateway) {
 }
 
 function subjectLinks(prepared: PreparedIntent) {
-  const {invoice, registration, marketplaceProductOrder} = prepared.subject;
+  const {invoice, registration, marketplaceProductOrder, shopOrderRequest} =
+    prepared.subject;
   return {
     ...(invoice && {invoice: {select: {id: invoice}}}),
     ...(registration && {registration: {select: {id: registration}}}),
     ...(marketplaceProductOrder && {
       marketplaceProductOrder: {select: {id: marketplaceProductOrder}},
+    }),
+    ...(shopOrderRequest && {
+      shopOrderRequest: {select: {id: shopOrderRequest}},
     }),
   };
 }

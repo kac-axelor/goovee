@@ -13,6 +13,7 @@ export type SubjectLinks = {
   invoice?: string;
   registration?: string;
   marketplaceProductOrder?: string;
+  shopOrderRequest?: string;
 };
 
 /** What the source needs to remember between the button press and delivery. Stored as JSON. */

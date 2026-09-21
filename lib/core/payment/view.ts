@@ -67,6 +67,7 @@ export async function findPaymentView(
       invoice: {id: true},
       registration: {id: true},
       marketplaceProductOrder: {id: true},
+      shopOrderRequest: {id: true},
       projectedInvoice: {id: true},
       projectedSaleOrder: {id: true},
       projectedInvoicePayment: {id: true},
@@ -94,6 +95,7 @@ export async function findPaymentView(
       invoice: payment.invoice?.id,
       registration: payment.registration?.id,
       marketplaceProductOrder: payment.marketplaceProductOrder?.id,
+      shopOrderRequest: payment.shopOrderRequest?.id,
     },
     snapshot,
   });

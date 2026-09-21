@@ -62,6 +62,7 @@ type LockedPayment = {
   invoice: string | null;
   registration: string | null;
   marketplaceProductOrder: string | null;
+  shopOrderRequest: string | null;
 };
 
 /**
@@ -268,6 +269,10 @@ export async function settlePayment({
               select: {id: subject.marketplaceProductOrder},
             },
           }),
+        ...(subject.shopOrderRequest &&
+          !payment.shopOrderRequest && {
+            shopOrderRequest: {select: {id: subject.shopOrderRequest}},
+          }),
       },
       select: {id: true},
     });
@@ -313,6 +318,7 @@ async function lockPayment(
       invoice: {id: true},
       registration: {id: true},
       marketplaceProductOrder: {id: true},
+      shopOrderRequest: {id: true},
     },
   });
   if (!payment) {
@@ -336,6 +342,7 @@ async function lockPayment(
     invoice: payment.invoice?.id ?? null,
     registration: payment.registration?.id ?? null,
     marketplaceProductOrder: payment.marketplaceProductOrder?.id ?? null,
+    shopOrderRequest: payment.shopOrderRequest?.id ?? null,
   };
 }
 
