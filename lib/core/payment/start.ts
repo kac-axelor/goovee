@@ -266,6 +266,7 @@ async function createPayment(
       submitToken,
       source,
       portalWorkspace: {select: {id: prepared.workspace.id}},
+      portalAppConfig: {select: {id: prepared.workspace.configId}},
       subjectLabel: prepared.subjectLabel,
       payer: prepared.payer,
       amount: String(prepared.money.amount),
@@ -302,6 +303,7 @@ async function reopenPayment(
     data: {
       id: payment.id,
       version: payment.version,
+      portalAppConfig: {select: {id: prepared.workspace.configId}},
       subjectLabel: prepared.subjectLabel,
       payer: prepared.payer,
       amount: String(prepared.money.amount),

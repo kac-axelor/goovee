@@ -19,13 +19,10 @@ import type {WorkspaceSubPath} from '@/url';
 import {getEventsConfig} from '@/subapps/events/common/orm/config';
 import {ensureAccess} from '@/access/ensure-access';
 import {accessMessage} from '@/access/denial';
-import {ID, PaymentOption} from '@/types';
+import {ID} from '@/types';
 import {ActionResponse} from '@/types/action';
 import type {Cloned} from '@/types/util';
 import {clone, scale} from '@/utils';
-import {markPaymentAsProcessed} from '@/payment/common/orm';
-import type {PaymentContext} from '@/payment/common/type';
-import {getPaymentModeId} from '@/utils/payment';
 
 // ---- LOCAL IMPORTS ---- //
 import {validateRegistration} from '@/subapps/events/common/actions/validation';
@@ -35,7 +32,6 @@ import {
   IsValidParticipantSchema,
   RegisterInput,
   RegisterSchema,
-  type RegistrationValues,
 } from './validators';
 import {
   findEvent,
@@ -57,10 +53,8 @@ import {
   canEmailBeRegistered,
   isAlreadyRegistered,
 } from '@/subapps/events/common/utils/registration';
-import {getPaymentInfo} from '@/subapps/events/common/utils/validate';
 import {notifyAll, notifyUser} from '@/pwa/utils';
 import {NotificationTag} from '@/pwa/tags';
-import {createInvoice} from '@/subapps/events/common/service';
 
 export async function register(
   props: RegisterInput,
@@ -88,28 +82,7 @@ export async function register(
   );
   if (!workspaceConfig) return error(await t('Invalid workspace'));
 
-  let paidAmount: number,
-    values: RegistrationValues,
-    context: PaymentContext | undefined,
-    paymentMode: PaymentOption | undefined;
-  if ('payment' in parsed.data) {
-    paymentMode = parsed.data.payment.mode;
-    const paymentInfo = await getPaymentInfo({
-      mode: paymentMode,
-      data: parsed.data.payment.data,
-      tenantId,
-      client,
-    });
-
-    if (paymentInfo.error) return paymentInfo;
-
-    values = paymentInfo.data.context.data;
-    paidAmount = paymentInfo.data.amount;
-    context = paymentInfo.data.context;
-  } else {
-    values = parsed.data.values;
-    paidAmount = 0;
-  }
+  const {values} = parsed.data;
 
   const validationResult = await validateRegistration({
     eventId,
@@ -135,69 +108,27 @@ export async function register(
   });
 
   if (!$event) return error(await t('Event not found!'));
-  const {priceScale} = $event;
-  const {total: expectedAmount} = getCalculatedTotalPrice(values, $event);
-  const expected = Number(scale(expectedAmount, priceScale));
 
-  if (paidAmount !== expected) {
-    return error(
-      await t(
-        'Paid amount {0} is not equal to expected amount {1}',
-        String(paidAmount),
-        String(expected),
-      ),
-    );
+  /* A priced registration is paid through the payment flow, which registers
+   * the participants when the capture lands; this action only takes the free
+   * ones. */
+  const {total} = getCalculatedTotalPrice(values, $event);
+  if (Number(scale(total, $event.priceScale)) > 0) {
+    return error(await t('This event requires a payment'));
   }
 
   let registration: Registration;
   try {
-    registration = await access.tenant.client.$transaction(async txClient => {
-      const reg = await registerParticipants({
-        eventId,
-        participants,
-        workspaceURL,
-        client: txClient,
-      });
-
-      if (context) {
-        await markPaymentAsProcessed({
-          contextId: context.id,
-          version: context.version,
-          client: txClient,
-        });
-      }
-
-      return reg;
+    registration = await registerParticipants({
+      eventId,
+      participants,
+      workspaceURL,
+      client,
     });
   } catch (err) {
     return error(
       err instanceof Error ? err.message : await t('Registration failed'),
     );
-  }
-
-  /* createInvoice makes an HTTP call to AOS and must run after the transaction
-     commits — AOS queries the registration by ID, so calling it inside the
-     transaction would make the row invisible to AOS (read committed isolation).
-     Errors are logged but do not fail the registration. */
-  if (paidAmount > 0) {
-    const paymentModeId = getPaymentModeId(
-      workspaceConfig?.paymentOptionSet,
-      paymentMode!,
-    );
-
-    after(async () => {
-      const res = await createInvoice({
-        workspace: access.workspace,
-        config,
-        registrationId: registration.id,
-        currencyCode: $event.currency?.code ?? '',
-        paymentModeId,
-      });
-
-      if (res.error) {
-        console.error('Invoice creation failed:', res.message);
-      }
-    });
   }
 
   let userParticipants = registration.participantList?.filter(

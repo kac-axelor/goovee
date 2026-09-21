@@ -1,0 +1,208 @@
+import 'server-only';
+
+import {z} from 'zod';
+
+import {ensureAccess} from '@/access/ensure-access';
+import {accessMessage} from '@/access/denial';
+import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
+import {t} from '@/locale/server';
+import {findGooveeUserByEmail} from '@/orm/partner';
+import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
+import {PAYMENT_SOURCE} from '@/payment/domain/types';
+import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {IdSchema} from '@/utils/validators';
+import {scale} from '@/utils';
+
+import {validateRegistration} from '../actions/validation';
+import {
+  RegistrationValuesSchema,
+  type RegistrationValues,
+} from '../actions/validators';
+import {getEventsConfig} from '../orm/config';
+import {findEvent} from '../orm/event';
+import {registerParticipants} from '../orm/registration';
+import {getCalculatedTotalPrice} from '../utils/payments';
+
+const EventIntentSchema = z.object({
+  eventId: IdSchema,
+  values: RegistrationValuesSchema,
+});
+
+type EventIntent = z.infer<typeof EventIntentSchema>;
+
+/* What delivery needs to register the participants the way the form asked:
+ * the values as submitted, who submitted them (a guest when null) and the
+ * configuration and workspace the registration rules are read from. */
+type EventSnapshot = {
+  eventId: string;
+  eventSlug: string;
+  values: RegistrationValues;
+  registeredBy: {id: string} | null;
+  workspaceUrl: string;
+  configId: string;
+};
+
+/**
+ * Registering for a paid event. The registration does not exist before the
+ * capture: delivery re-checks the event's rules and writes the registration
+ * and its participants, and the ERP invoices it when it projects.
+ */
+export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
+  source: PAYMENT_SOURCE.events,
+
+  intentSchema: EventIntentSchema,
+
+  async prepare({intent}) {
+    const access = await ensureAccess({
+      code: SUBAPP_CODES.events,
+      allowGuest: true,
+    });
+    if (!access.ok) {
+      return {error: true, message: await accessMessage(access.reason)};
+    }
+    const {user} = access;
+    const {client, config: tenantConfig} = access.tenant;
+
+    const config = await getEventsConfig(access.workspace.config.id, client);
+    if (!config) {
+      return {error: true, message: await t('Invalid workspace')};
+    }
+    if (!config.allowOnlinePaymentForEcommerce) {
+      return {error: true, message: await t('Online payment is not available')};
+    }
+    if (!config.paymentOptionSet?.length) {
+      return {
+        error: true,
+        message: await t('Payment options are not configured'),
+      };
+    }
+
+    const validation = await validateRegistration({
+      eventId: intent.eventId,
+      values: intent.values,
+      workspaceURL: access.workspace.url,
+      config,
+      user,
+      client,
+    });
+    if (validation.error) {
+      return validation;
+    }
+
+    const event = await findEvent({
+      id: intent.eventId,
+      user,
+      client,
+      config: tenantConfig,
+      workspace: access.workspace,
+    });
+    if (!event) {
+      return {error: true, message: await t('Invalid event')};
+    }
+
+    const {total} = getCalculatedTotalPrice(intent.values, event);
+    const amount = Number(scale(total, event.priceScale));
+    if (!amount || amount <= 0) {
+      return {
+        error: true,
+        message: await t('Total price must be greater than 0'),
+      };
+    }
+
+    /* A signed-in payer pays with their account's address; a guest with the one
+     * they typed, which is also where the confirmation goes. */
+    const payer = user
+      ? (await findGooveeUserByEmail(user.email, client))?.emailAddress?.address
+      : intent.values.emailAddress;
+    if (!payer) {
+      return {error: true, message: await t('Email is required for payment')};
+    }
+
+    const currency = await resolveCurrency(client, event.currency?.code);
+    const snapshot: EventSnapshot = {
+      eventId: event.id,
+      eventSlug: event.slug ?? '',
+      values: intent.values,
+      registeredBy: user ? {id: user.id} : null,
+      workspaceUrl: access.workspace.url,
+      configId: access.workspace.config.id,
+    };
+
+    return {
+      success: true,
+      data: {
+        money: {
+          amount: toMinorUnits(amount, currency.scale),
+          currencyCode: currency.code,
+          currencyScale: currency.scale,
+        },
+        payer,
+        subjectLabel: `${await t('Event')}: ${event.eventTitle ?? event.id}`,
+        paymentOptions: config.paymentOptionSet,
+        billing: {
+          firstName: intent.values.name,
+          lastName: intent.values.surname,
+        },
+        workspace: {
+          id: access.workspace.id,
+          url: access.workspace.url,
+          configId: access.workspace.config.id,
+        },
+        subject: {},
+        snapshot,
+      },
+    };
+  },
+
+  async deliver({snapshot, txClient}) {
+    const {eventId, values, registeredBy, workspaceUrl, configId} =
+      snapshot as Partial<EventSnapshot>;
+    if (!eventId || !values || !workspaceUrl || !configId) {
+      return {
+        delivered: false,
+        reason: 'The registration snapshot names no event or no participants',
+      };
+    }
+
+    const config = await getEventsConfig(configId, txClient);
+    if (!config) {
+      return {
+        delivered: false,
+        reason: 'The app configuration the registration was made under is gone',
+      };
+    }
+
+    /* The event may have filled up or closed, or a participant may have
+     * registered by another route, between the button press and the capture.
+     * Money captured for a registration that can no longer be honoured is a
+     * human's to decide. */
+    const validation = await validateRegistration({
+      eventId,
+      values,
+      workspaceURL: workspaceUrl,
+      config,
+      user: registeredBy ?? undefined,
+      client: txClient,
+    });
+    if (validation.error) {
+      return {delivered: false, reason: validation.message};
+    }
+
+    const registration = await registerParticipants({
+      eventId,
+      participants: validation.data.participants,
+      workspaceURL: workspaceUrl,
+      client: txClient,
+    });
+
+    return {delivered: true, subject: {registration: registration.id}};
+  },
+
+  onwardLink({snapshot}) {
+    const slug = (snapshot as Partial<EventSnapshot>).eventSlug;
+    if (!slug) {
+      return `/${SUBAPP_CODES.events}`;
+    }
+    return `/${SUBAPP_CODES.events}/${slug}/${SUBAPP_PAGE.register}/${SUBAPP_PAGE.confirmation}`;
+  },
+};

@@ -26,6 +26,11 @@
       "required": true
     },
     {
+      "type": "ManyToOne",
+      "name": "portalAppConfig",
+      "target": "AOSPortalAppConfig"
+    },
+    {
       "type": "String",
       "name": "subjectLabel"
     },

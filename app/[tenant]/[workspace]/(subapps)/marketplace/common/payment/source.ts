@@ -119,7 +119,11 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
           payer,
           subjectLabel: await t('Cart: {0} item(s)', String(cart.items.length)),
           paymentOptions: config.paymentOptionSet,
-          workspace: {id: access.workspace.id, url: access.workspace.url},
+          workspace: {
+            id: access.workspace.id,
+            url: access.workspace.url,
+            configId: access.workspace.config.id,
+          },
           subject: {},
           snapshot,
         },

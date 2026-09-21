@@ -4,6 +4,7 @@ import {z} from 'zod';
 
 import {invoicesPaymentSource} from '@/subapps/invoices/common/payment/source';
 import {marketplacePaymentSource} from '@/subapps/marketplace/common/payment/source';
+import {eventsPaymentSource} from '@/subapps/events/common/payment/source';
 import {PAYMENT_SOURCE, type PaymentSource} from '../domain/types';
 import type {PaymentSourceHandler} from './types';
 
@@ -14,6 +15,8 @@ const handlers: Partial<Record<PaymentSource, PaymentSourceHandler<unknown>>> =
       invoicesPaymentSource as PaymentSourceHandler<unknown>,
     [PAYMENT_SOURCE.marketplace]:
       marketplacePaymentSource as PaymentSourceHandler<unknown>,
+    [PAYMENT_SOURCE.events]:
+      eventsPaymentSource as PaymentSourceHandler<unknown>,
   };
 
 export const PaymentSourceSchema = z.enum(

@@ -111,7 +111,7 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
           city: $invoice.address?.city?.name ?? undefined,
           countryCode: $invoice.address?.country?.numericCode ?? undefined,
         },
-        workspace: {id: workspace.id, url: workspace.url},
+        workspace: {id: workspace.id, url: workspace.url, configId: config.id},
         subject: {invoice: $invoice.id},
         snapshot,
       },

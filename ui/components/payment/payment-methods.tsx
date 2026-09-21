@@ -91,9 +91,12 @@ function performHandoff(handoff: Handoff): boolean {
   }
 }
 
+/** What is being paid for, or a function that reads it at press time, such as from a form. */
+type IntentInput = Record<string, unknown> | (() => Record<string, unknown>);
+
 type StartArgs = {
   source: PaymentSource;
-  intent: unknown;
+  intent: IntentInput;
   submitToken: string;
 };
 
@@ -229,7 +232,7 @@ export function PaymentMethods({
         gateway: offered.gateway,
         option: offered.option,
         source,
-        intent,
+        intent: typeof intent === 'function' ? intent() : intent,
         submitToken,
       });
       if (result.error) {

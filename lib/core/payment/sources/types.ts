@@ -29,7 +29,8 @@ export type PreparedIntent = {
   subjectLabel: string;
   /** The workspace's online payment methods; decides which gateways may be offered and which ERP payment mode each maps to. */
   paymentOptions: PaymentConfig['paymentOptionSet'];
-  workspace: {id: string; url: string};
+  /** The workspace and the app configuration the checkout ran under; the ERP builds its records from the latter. */
+  workspace: {id: string; url: string; configId: string};
   /** Subject rows that exist before delivery, such as the invoice being paid. */
   subject: SubjectLinks;
   snapshot: IntentSnapshot;
