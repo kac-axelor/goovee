@@ -378,6 +378,66 @@ export async function settlePayment({
   });
 }
 
+/**
+ * Closes sessions no provider will ever tell us about as "no answer": a
+ * provider that cannot be asked and sent nothing long past the time it would
+ * have, or a start whose handoff never reached the payer. Writes no event —
+ * the provider said nothing — only the sessions' outcome, the payment's
+ * status as it then derives, and the end of its reconcile row.
+ *
+ * Not an ending the provider's word must respect: a notification that comes
+ * after this settles the session like any other (updateSession treats "no
+ * answer" as still open), with delivery, projection and confirmation.
+ */
+export async function closeUnanswered({
+  tenant,
+  paymentId,
+  sessionIds,
+}: {
+  tenant: Tenant;
+  paymentId: string;
+  sessionIds: string[];
+}): Promise<void> {
+  if (!sessionIds.length) {
+    return;
+  }
+  await tenant.client.$transaction(async txClient => {
+    const payment = await lockPayment(txClient, paymentId);
+    /* Only sessions still waiting: one the provider answered since the job
+     * read it keeps that answer. */
+    await txClient.$raw(
+      `UPDATE portal_portal_payment_session
+          SET status = $3, version = version + 1, updated_on = now()
+        WHERE payment = $1 AND id = ANY($2::bigint[]) AND status = ANY($4::text[])`,
+      paymentId,
+      sessionIds,
+      SESSION_STATUS.unconfirmed,
+      [SESSION_STATUS.initiated, SESSION_STATUS.awaiting],
+    );
+    const derived = deriveStatus({
+      amount: payment.amount,
+      ledger: await loadLedger(
+        txClient,
+        payment.id,
+        payment.currencyCode,
+        payment.currencyScale,
+      ),
+      latestSessionStatus: await latestSession(txClient, payment.id),
+    });
+    if (derived.status !== payment.status) {
+      await txClient.aOSPortalPayment.update({
+        data: {
+          id: payment.id,
+          version: payment.version,
+          status: derived.status,
+        },
+        select: {id: true},
+      });
+    }
+    await dropReconcileIfSettled(txClient, payment.id, derived.status);
+  });
+}
+
 /*
  * The row lock serialises settles on one payment. Without it two different
  * events, a partial funding and its remainder, could both sum the ledger under
@@ -486,9 +546,12 @@ async function updateSession(
   /* A session keeps its first outcome. The buyer's cancel and Stripe's later
    * "expired" for the same session are one ending, and a capture is never
    * undone by a session notice that arrives after it. */
+  /* Our own "no answer" is no outcome of the provider's: its word, however
+   * late, replaces it. */
   const open =
     session.status === SESSION_STATUS.initiated ||
-    session.status === SESSION_STATUS.awaiting;
+    session.status === SESSION_STATUS.awaiting ||
+    session.status === SESSION_STATUS.unconfirmed;
   const status = open ? sessionStatusFor(eventType) : null;
   const sessionRef =
     signal.sessionRef && !session.sessionRef ? signal.sessionRef : undefined;

@@ -13,7 +13,7 @@ import type {JobOutcome} from './jobs';
 import {triggerProjection} from './project';
 import {fromMinorUnits, scaleOfCurrency} from './domain/money';
 import {recheckAfter, reconcileSchedule} from './reconcile-schedule';
-import {settlePayment} from './settle';
+import {closeUnanswered, settlePayment} from './settle';
 
 /*
  * The `reconcile` job: a backstop for a payment its provider never told us
@@ -25,10 +25,11 @@ import {settlePayment} from './settle';
  *
  * A provider that can be asked is asked, and what it attests is settled like
  * any other event. One that cannot — Paybox, Up2Pay — is never guessed at: it
- * waits for its IPN, and past a long timeout the payment goes to a person. A
- * Stripe bank transfer may be paid a week later and is awaiting all along, so
- * it is asked daily and goes to a person only by age; nothing here ever
- * expires one.
+ * waits a week for its IPN, then is closed as "no answer", which is not
+ * expired or cancelled and lists the payment for finance to check; a late IPN
+ * still settles it. A Stripe bank transfer may be paid a week later and is
+ * awaiting all along, so it is asked daily and goes to a person only by age;
+ * nothing here ever expires one.
  */
 
 type OpenSession = {
@@ -108,6 +109,7 @@ export async function reconcilePayment({
   const now = Date.now();
   const decisions: string[] = [];
   const failures: unknown[] = [];
+  const unanswered: string[] = [];
   let lookAgainAt: number | null = null;
   /* The soonest deadline among the sessions still waiting, so the row's own
    * escalation date says when a person will next be needed. */
@@ -134,16 +136,22 @@ export async function reconcilePayment({
     const adapter = getAdapter(session.gateway);
 
     if (!adapter.capabilities.queryable || !session.sessionRef) {
-      if (pastDeadline) {
-        decisions.push(
-          unconfirmable(
-            payment.reference,
-            session,
-            adapter.capabilities.queryable,
-          ),
-        );
-      } else {
+      if (!pastDeadline) {
         lookAgain(decideAt.getTime(), decideAt);
+      } else if (
+        adapter.capabilities.queryable &&
+        session.gateway === GATEWAY.stripeBankTransfer
+      ) {
+        /* The one start that can move money before the payer does anything:
+         * confirming the transfer applies the customer's cash balance at
+         * once. With no handle to ask Stripe by, a person looks it up. */
+        decisions.push(neverHandled(payment.reference, session));
+      } else {
+        /* A form-post provider that sent no IPN in a week, or a start whose
+         * handoff never reached the payer — nothing to pay with, since the
+         * handle is recorded before the handoff is returned. Closed as no
+         * answer, for finance to check, never as expired. */
+        unanswered.push(session.id);
       }
       continue;
     }
@@ -199,6 +207,13 @@ export async function reconcilePayment({
     }
   }
 
+  /* Closed first, so a payment with one session gone quiet and another still
+   * waiting has the quiet one out of the way whatever the other comes to.
+   * Once no session is left open this also ends the row. */
+  if (unanswered.length) {
+    await closeUnanswered({tenant, paymentId, sessionIds: unanswered});
+  }
+
   if (decisions.length) {
     return {needsDecision: decisions.join('\n')};
   }
@@ -216,16 +231,6 @@ export async function reconcilePayment({
   }
 }
 
-/* A provider that can never be asked is told apart from one that could have
- * been, had its session been given a handle: the form-post providers never
- * give one, so for them a missing handle is no sign of a failed start. */
-function unconfirmable(
-  reference: string,
-  session: OpenSession,
-  queryable: boolean,
-): string {
-  if (!queryable) {
-    return `Payment ${reference}: ${session.gateway} cannot be asked what became of it and sent no notification; look it up in the provider's back office by the reference, then record an out-of-band capture or cancel`;
-  }
-  return `Payment ${reference}: the ${session.gateway} session was never given a provider handle${session.failureReason ? ` (${session.failureReason})` : ''}; look the payment up in the provider's back office by its reference, then record an out-of-band capture or cancel`;
+function neverHandled(reference: string, session: OpenSession): string {
+  return `Payment ${reference}: the ${session.gateway} session was never given a provider handle${session.failureReason ? ` (${session.failureReason})` : ''}, and starting it may already have applied the customer's cash balance; look the payment up in the provider's dashboard by its reference, then record an out-of-band capture or cancel`;
 }

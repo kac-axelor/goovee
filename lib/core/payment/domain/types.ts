@@ -31,6 +31,12 @@ export const PAYMENT_STATUS = {
   expired: 'expired',
   refunded: 'refunded',
   chargedBack: 'charged_back',
+  /**
+   * No answer from a provider that cannot be asked, long past the time it
+   * would have sent one. Not expired and not cancelled: we do not know that it
+   * was not paid, and a late notification still settles it.
+   */
+  unconfirmed: 'unconfirmed',
 } as const;
 
 export type PaymentStatus =
@@ -43,6 +49,8 @@ export const SESSION_STATUS = {
   refused: 'refused',
   cancelled: 'cancelled',
   expired: 'expired',
+  /** Closed by us for want of an answer; the provider's own word still replaces it. */
+  unconfirmed: 'unconfirmed',
 } as const;
 
 export type SessionStatus =

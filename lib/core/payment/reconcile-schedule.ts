@@ -32,8 +32,27 @@ const DECIDE_AFTER_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const HUBPISP_DECIDE_AFTER_EXPIRY_MS = 5 * 24 * 60 * 60 * 1000;
 /** A bank transfer still awaiting this long after it was started goes to a person. */
 const TRANSFER_DECIDE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
+/*
+ * How long past its expiry a Paybox or Up2Pay session waits for its IPN
+ * before it is closed as "no answer". Verifone calls the IPN server to server
+ * as the payer validates and does not retry a failed call — it mails the
+ * merchant a warning instead (Paybox System integration manual 8.3, §5.3) —
+ * so a card payment's IPN comes within minutes or not at all. Only a method
+ * awaiting validation (code 99999: PayPal, Oney, iDeal through Paybox) is
+ * called again, "quelques heures à quelques jours" later (§5.2). A week covers
+ * those with room to spare, and a late IPN still settles the payment.
+ */
+const NO_ANSWER_AFTER_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type ReconcileSchedule = {firstCheck: Date; decideAt: Date};
+
+function decideAfterExpiry(gateway: Gateway): number {
+  if (gateway === GATEWAY.hubpisp) return HUBPISP_DECIDE_AFTER_EXPIRY_MS;
+  if (gateway === GATEWAY.paybox || gateway === GATEWAY.up2pay) {
+    return NO_ANSWER_AFTER_EXPIRY_MS;
+  }
+  return DECIDE_AFTER_EXPIRY_MS;
+}
 
 /** How long before a provider that still says pending is asked again. */
 export function recheckAfter(gateway: Gateway): number {
@@ -62,12 +81,7 @@ export function reconcileSchedule({
     expiresOn?.getTime() ?? startedOn.getTime() + UNSTARTED_WAIT_MS;
   return {
     firstCheck: new Date(payableUntil + FIRST_CHECK_GRACE_MS),
-    decideAt: new Date(
-      payableUntil +
-        (gateway === GATEWAY.hubpisp
-          ? HUBPISP_DECIDE_AFTER_EXPIRY_MS
-          : DECIDE_AFTER_EXPIRY_MS),
-    ),
+    decideAt: new Date(payableUntil + decideAfterExpiry(gateway)),
   };
 }
 

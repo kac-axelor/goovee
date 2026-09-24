@@ -105,6 +105,17 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
           'The payment was not completed in time. Nothing has been charged.',
         ),
       };
+    case PAYMENT_STATUS.unconfirmed:
+      /* No answer from the provider is no sign the payer was not charged, so
+       * it reads as still waiting, never as failed or cancelled. */
+      return {
+        tone: 'pending',
+        heading: i18n.t('Waiting for confirmation'),
+        body: i18n.t(
+          'We have not heard back from your payment provider yet. We will email you once the payment of {0} is confirmed.',
+          amount,
+        ),
+      };
     case PAYMENT_STATUS.refunded:
       return {
         tone: 'neutral',

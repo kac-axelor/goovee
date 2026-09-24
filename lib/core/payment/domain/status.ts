@@ -118,6 +118,8 @@ function statusFromSession(status: SessionStatus | null): PaymentStatus {
       return PAYMENT_STATUS.cancelled;
     case SESSION_STATUS.expired:
       return PAYMENT_STATUS.expired;
+    case SESSION_STATUS.unconfirmed:
+      return PAYMENT_STATUS.unconfirmed;
     case SESSION_STATUS.captured:
       /* A captured session with nothing countable in the ledger is a capture in
        * another currency; the payment stays where the session found it. */
@@ -161,14 +163,19 @@ export function overCapturedBy(
   return Math.max(capturedAmount - refundedAmount - amount, 0);
 }
 
-/** A payment in one of these states can be retried on a new session. */
+/**
+ * A payment in one of these states can be retried on a new session. One with
+ * no answer is, like one still awaiting: the earlier session's notification
+ * still settles it should it come.
+ */
 export function canRetry(status: PaymentStatus): boolean {
   return (
     status === PAYMENT_STATUS.initiated ||
     status === PAYMENT_STATUS.awaiting ||
     status === PAYMENT_STATUS.refused ||
     status === PAYMENT_STATUS.cancelled ||
-    status === PAYMENT_STATUS.expired
+    status === PAYMENT_STATUS.expired ||
+    status === PAYMENT_STATUS.unconfirmed
   );
 }
 
