@@ -6,6 +6,7 @@ import {DEFAULT_LOCALE} from '@/locale/contants';
 import {getTranslation} from '@/locale/server';
 import {notifyAll} from '@/pwa/utils';
 import {NotificationTag} from '@/pwa/tags';
+import {isSameEmail} from '@/payment/domain/email';
 import type {Tenant} from '@/tenant';
 import {tenantURLs} from '@/url/scope';
 
@@ -41,6 +42,13 @@ function isRegistrant(contact: NoticeContact, registrant: Registrant) {
  * The mail goes first. With `requireMail`, a registration none of whose mails
  * could be sent throws before anything is pushed, so the caller's retry sends
  * the push once, with the mail, rather than once per attempt.
+ *
+ * A paid registration's amount and reference go only in the payer's own
+ * mail. A payer who registered other people and not themselves is in no
+ * participant's mail, so `onPayerNotParticipant` runs for them once the
+ * registration mails are out and before the push: a registration none of
+ * whose mails could be sent throws before the payer is told anything, so a
+ * retry does not tell them again.
  */
 export async function announceRegistration({
   registrationId,
@@ -48,6 +56,8 @@ export async function announceRegistration({
   tenant,
   workspaceURL,
   requireMail = false,
+  payment,
+  onPayerNotParticipant,
 }: {
   registrationId: string;
   registrant: Registrant;
@@ -55,6 +65,10 @@ export async function announceRegistration({
   workspaceURL: string;
   /** Throw, and push nothing, when every participant's mail failed. */
   requireMail?: boolean;
+  /** A paid registration's payment, shown in its payer's mail; absent for a free one. */
+  payment?: {amount: string; reference: string; payer: string | null};
+  /** Tells a payer who is none of the participants what they paid. */
+  onPayerNotParticipant?: () => Promise<void>;
 }): Promise<void> {
   const notice = await findRegistrationNotice({
     id: registrationId,
@@ -69,17 +83,42 @@ export async function announceRegistration({
   }
   const eventPath = `/${SUBAPP_CODES.events}/${event.slug}` as const;
 
+  /* In the mail's own language: the registration mail is written in the
+   * default one, so its added lines are too. */
+  const translate = getTranslation.bind(null, {
+    locale: DEFAULT_LOCALE,
+    tenant: tenant.id,
+  });
+  const receipt =
+    payment?.payer != null
+      ? {
+          payer: payment.payer,
+          lines: [
+            [await translate('Amount'), payment.amount],
+            [await translate('Payment reference'), payment.reference],
+          ] as const,
+        }
+      : undefined;
+
   const {sent, failed} = await sendRegistrationMail({
     notice,
     eventLink: tenantURLs(tenant.id)
       .workspaceByKey(workspaceURL)
       .forExternal(eventPath),
     config: tenant.config,
+    receipt,
   });
   if (requireMail && failed && !sent) {
     throw new Error(
       `None of the ${failed} registration mails for registration ${registrationId} could be sent`,
     );
+  }
+
+  const payerIsParticipant = (notice.participantList ?? []).some(participant =>
+    isSameEmail(participant.emailAddress, payment?.payer),
+  );
+  if (payment && !payerIsParticipant) {
+    await onPayerNotParticipant?.();
   }
 
   const recipients = (notice.participantList ?? []).flatMap(participant =>

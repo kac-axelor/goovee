@@ -1,6 +1,7 @@
 // ---- CORE IMPORTS ---- //
 import {dayjs} from '@/locale/dayjs';
 import NotificationManager, {NotificationType} from '@/notification';
+import {isSameEmail} from '@/payment/domain/email';
 import {escapeHtml, html} from '@/utils/template-string';
 import type {TenantConfig} from '@/tenant';
 
@@ -28,10 +29,16 @@ function formatEventDate(value: string | Date | null): string {
   return dayjs(value).tz('Europe/Paris').format('YYYY-MM-DD HH:mm Z');
 }
 
+/** Lines a paid registration's mail adds under the event's details, as label and value, already translated. */
+export type RegistrationReceipt = ReadonlyArray<
+  readonly [label: string, value: string]
+>;
+
 export function mailTemplate({
   event,
   eventLink,
   participant,
+  receipt,
 }: {
   event: MailEvent;
   /* Absolute, and beside the event rather than in it: this lands in an inbox,
@@ -39,6 +46,9 @@ export function mailTemplate({
    * attribute of the event. */
   eventLink: string;
   participant: MailParticipant;
+  /* For a paid registration: what was paid and the payment's reference. A
+   * guest has no account to look them up in, so the mail carries them. */
+  receipt?: RegistrationReceipt;
 }) {
   const {eventAllDay, eventStartDateTime, eventEndDateTime, eventDescription} =
     event;
@@ -66,6 +76,17 @@ export function mailTemplate({
         )
         .join('')
     : null;
+
+  const receiptDetails = receipt?.length
+    ? html`<p>
+          ${receipt
+            .map(
+              ([label, value]) => html`<strong>${escapeHtml(label)}:</strong>
+                ${escapeHtml(value)}`,
+            )
+            .join('<br />')}
+        </p>`
+    : '';
 
   return html`
     <!doctype html>
@@ -137,6 +158,7 @@ export function mailTemplate({
               ${dateDetails}<br />
               ${eventPlace ? `<strong>Location:</strong> ${eventPlace}` : ''}
             </p>
+            ${receiptDetails}
             ${subscriptionDetails
               ? `<p class="facilities-title"><strong>Facilities:</strong></p>
                   <ul class="facility-list">${subscriptionDetails}</ul>`
@@ -171,10 +193,17 @@ export async function sendRegistrationMail({
   notice,
   eventLink,
   config,
+  receipt,
 }: {
   notice: RegistrationNotice;
   eventLink: string;
   config: TenantConfig;
+  /**
+   * Only for a paid registration, and only in the mail to the participant
+   * who paid; everyone else's mail, and a free registration's, is as it
+   * always was.
+   */
+  receipt?: {lines: RegistrationReceipt; payer: string};
 }): Promise<{sent: number; failed: number}> {
   const {event} = notice;
   const participants = (notice.participantList ?? []).filter(
@@ -201,7 +230,15 @@ export async function sendRegistrationMail({
     async participant => ({
       to: participant.emailAddress,
       subject,
-      html: mailTemplate({event, eventLink, participant}),
+      html: mailTemplate({
+        event,
+        eventLink,
+        participant,
+        receipt:
+          receipt && isSameEmail(participant.emailAddress, receipt.payer)
+            ? receipt.lines
+            : undefined,
+      }),
       icalEvent: {
         method: 'REQUEST',
         content: ics,

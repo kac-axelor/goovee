@@ -5,6 +5,7 @@ import type {ResponseCookies} from 'next/dist/compiled/@edge-runtime/cookies';
 import type {ReadonlyRequestCookies} from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 
 import type {Tenant, TenantConfig} from '@/tenant';
+import {isSameEmail} from './domain/email';
 
 /*
  * Who may see a payment: the browser that came back from the provider, which
@@ -137,7 +138,5 @@ export function canViewPayment({
   if (hasPaymentCookie(cookies, tenant, reference)) {
     return true;
   }
-  return Boolean(
-    userEmail && payer && userEmail.toLowerCase() === payer.toLowerCase(),
-  );
+  return isSameEmail(userEmail, payer);
 }

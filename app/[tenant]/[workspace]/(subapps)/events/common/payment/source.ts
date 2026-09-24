@@ -7,6 +7,13 @@ import {accessMessage} from '@/access/denial';
 import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
 import {t} from '@/locale/server';
 import {findGooveeUserByEmail} from '@/orm/partner';
+import {
+  formatAmount,
+  payerLocale,
+  sendPaymentConfirmation,
+  translatorFor,
+  workspaceLink,
+} from '@/payment/confirmation';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
@@ -205,10 +212,10 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
   },
 
   /* What a free registration tells its participants, now that the paid one
-   * has been captured and written: the push and the registration mail. The
-   * ERP's own template mail, where the workspace set one, still follows the
-   * projection. */
-  async notify({subject, snapshot, tenant}) {
+   * has been captured and written: the push and the registration mail, the
+   * payer's own carrying what was paid. The ERP's own template mail, where the
+   * workspace set one, still follows the projection. */
+  async notify({payment, subject, snapshot, tenant}) {
     const registrationId = subject.registration;
     const {registeredBy, workspaceUrl} = snapshot as Partial<EventSnapshot>;
     if (!registrationId || !workspaceUrl) {
@@ -222,6 +229,27 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
       tenant,
       workspaceURL: workspaceUrl,
       requireMail: true,
+      payment: {
+        amount: formatAmount(payment),
+        reference: payment.reference,
+        payer: payment.payer,
+      },
+      /* A signed-in payer who registered only other people gets no
+       * registration mail, so the payment's own confirmation tells them. */
+      onPayerNotParticipant: async () => {
+        const translate = translatorFor({
+          tenant,
+          locale: await payerLocale(tenant, payment.payer),
+        });
+        const link = eventsPaymentSource.onwardLink({subject, snapshot});
+        await sendPaymentConfirmation({
+          tenant,
+          payment,
+          title: await translate('Payment received'),
+          link: link && workspaceLink(tenant, payment.workspaceUrl, link),
+          translate,
+        });
+      },
     });
   },
 
