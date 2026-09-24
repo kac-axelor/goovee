@@ -9,7 +9,8 @@ Follow this runbook when upgrading:
 
 It needs the axelor-portal module that the release compatibility matrix pairs
 with this release. Perform the steps in order, per tenant where a step says so.
-Steps 1 to 4 come before the new portal serves traffic.
+Steps 1 to 4 come before the new portal serves traffic; step 7 is optional and
+comes last.
 [CONFIGURATION.md](../CONFIGURATION.md) describes every setting written here.
 
 ---
@@ -17,11 +18,11 @@ Steps 1 to 4 come before the new portal serves traffic.
 ## 1. Settle the payments still in flight
 
 The previous release tracked a payment in progress as a payment context. This
-release does not follow them up: no clock resumes one, and a provider's
-notification for one is recorded as unmatched or refused. A card checkout still
-open may finish when its buyer returns, but nothing looks at it after that.
-While the previous release is still running, run this against each tenant's
-database:
+release completes none of them: the addresses the previous release gave its
+payments, under `/<tenant>/api/payment/`, are gone, a buyer returning from one
+is not recorded, and a provider's notification for one is recorded as unmatched
+or refused. While the previous release is still running, run this against each
+tenant's database:
 
 ```sql
 SELECT
@@ -60,6 +61,11 @@ ORDER BY
 ```
 
 ## 3. Migrate each tenant's schema
+
+Stop the previous portal first. Its shop and marketplace checkouts call two AOS
+endpoints this release removes, `ws/portal/orders/order` and
+`ws/portal/marketplace/order`, so a checkout taken between the AOS upgrade and
+the portal's would be charged and never become an order.
 
 AOS runs no DDL on a named tenant: schema updates and module loading at startup
 reach the default database only. So bring each tenant's database up to date by
@@ -104,7 +110,10 @@ The tables the module adds:
   shop purchases the ERP builds its sale orders from.
 
 No existing table gains a column. The portal creates one table of its own,
-`portal_payment_intent`, when it starts.
+`portal_payment_intent`, when it starts. Two things the previous release wrote
+are left as they are, unused: the `portal_payment_context` table, which step 1
+reads, and the `payment_context_id` column of `portal_marketplace_product_order`,
+which a 2.3.x database carries. Step 7 says when they can go.
 
 Then check each tenant:
 
@@ -340,6 +349,21 @@ A payer who presses a payment button on a page loaded before the deploy starts
 a new payment rather than resuming the one begun there; the earlier one's
 provider session, if still open, expires on its own, and an invoice's open
 transfer is withdrawn once the invoice is paid.
+
+## 7. Remove the previous release's payment records (optional)
+
+Once every tenant runs this release, nothing reads `portal_payment_context` or
+`portal_marketplace_product_order.payment_context_id`. The table holds what the
+previous release recorded about each payment it took — the provider, the payer
+and the priced purchase — so keep it while finance may need to trace one of
+those. To remove both, per tenant:
+
+```sql
+ALTER TABLE portal_marketplace_product_order
+DROP COLUMN IF EXISTS payment_context_id;
+
+DROP TABLE IF EXISTS portal_payment_context;
+```
 
 ---
 
