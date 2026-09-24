@@ -186,6 +186,7 @@ export const up2payAdapter: GatewayAdapter = {
     reportsDisputes: false,
     resolvesBy: 'reference',
     idempotency: 'reference',
+    amountAs: 'minor-units',
   },
 
   isConfigured(config) {

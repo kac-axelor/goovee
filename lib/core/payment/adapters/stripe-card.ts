@@ -29,6 +29,7 @@ export const stripeCardAdapter: GatewayAdapter = {
     reportsDisputes: true,
     resolvesBy: 'reference',
     idempotency: 'provider-key',
+    amountAs: 'minor-units',
   },
 
   isConfigured(config) {

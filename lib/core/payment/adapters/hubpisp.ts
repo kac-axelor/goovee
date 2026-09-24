@@ -496,6 +496,7 @@ export const hubpispAdapter: GatewayAdapter = {
     reportsDisputes: false,
     resolvesBy: 'reference',
     idempotency: 'reference',
+    amountAs: 'decimal',
   },
 
   isConfigured(config) {

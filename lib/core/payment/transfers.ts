@@ -7,6 +7,7 @@ import type {CancelResult} from './adapters/types';
 import {minorUnitsOf} from './domain/money';
 import {
   TRANSFER_GATEWAYS,
+  isWithdrawn,
   withdrawalRequest,
   type WithdrawalRequest,
 } from './domain/transfers';
@@ -37,7 +38,12 @@ export type OpenTransferSession = {
   reference: string;
   payer: string | null;
   workspaceUrl: string;
-  /** Minor units of the payment's currency. */
+  /**
+   * What the session asked its provider for, in minor units of its currency.
+   * Null for a session opened before sessions recorded it.
+   */
+  asked: number | null;
+  /** What the session is measured against: what it asked, or for an older session its payment's amount. */
   amount: number;
   /** What the session has received so far, in the same units. */
   received: number;
@@ -63,6 +69,9 @@ export async function findOpenTransferSessions({
       sessionRef: true,
       gateway: true,
       status: true,
+      amount: true,
+      currencyCode: true,
+      currencyScale: true,
       createdOn: true,
       payment: {
         reference: true,
@@ -91,13 +100,17 @@ export async function findOpenTransferSessions({
 
   return sessions.flatMap((session): OpenTransferSession[] => {
     const {payment} = session;
-    const amount = minorUnitsOf(payment.amount);
+    /* A session opened before sessions recorded their amount falls back to
+     * its payment's, which is what it was then measured against. */
+    const asked = session.amount == null ? null : minorUnitsOf(session.amount);
+    const amount = asked ?? minorUnitsOf(payment.amount);
+    const currencyCode = session.currencyCode ?? payment.currencyCode;
+    const currencyScale = session.currencyScale ?? payment.currencyScale;
     const received = captures
       .filter(
         capture =>
           capture.session?.id === session.id &&
-          (!capture.currencyCode ||
-            capture.currencyCode === payment.currencyCode),
+          (!capture.currencyCode || capture.currencyCode === currencyCode),
       )
       .reduce(
         (highest, capture) =>
@@ -123,10 +136,11 @@ export async function findOpenTransferSessions({
         reference: payment.reference,
         payer: payment.payer,
         workspaceUrl: payment.portalWorkspace.url ?? '',
+        asked,
         amount,
         received,
-        currencyCode: payment.currencyCode,
-        currencyScale: payment.currencyScale,
+        currencyCode,
+        currencyScale,
       },
     ];
   });
@@ -217,9 +231,9 @@ export type WithdrawalReport = Record<CancelResult['outcome'], number>;
  * provider. Every outcome is recorded the way the provider's own event would
  * record it, so the event arriving later changes nothing.
  *
- * Each open, unfunded transfer is put to the provider with the invoice's
- * request, and the provider's own figure for what it asks decides: the ledger
- * does not keep what each session asks for.
+ * Which transfers go is decided on what each session asked for; the
+ * provider's own figure is checked again at the moment of withdrawal, and has
+ * the last word.
  */
 export async function withdrawUnneededTransfers({
   tenant,
@@ -269,9 +283,16 @@ export async function withdrawUnneededTransfers({
   /* Each transfer is its own call: one the provider cannot answer for must not
    * keep the others open. The job fails afterwards if any did, so it runs
    * again, and what was withdrawn this time reads back as ended. */
+  /* The session's own amount decides which transfers are put to the
+   * provider; the provider's live figure is checked again before anything is
+   * withdrawn. A session with no amount of its own is left to that check. */
   const request = withdrawalRequest(owed.remaining);
+  const toWithdraw = sessions.filter(
+    session => session.asked === null || isWithdrawn(request, session.asked),
+  );
+  report.kept += sessions.length - toWithdraw.length;
   const results = await Promise.allSettled(
-    sessions.map(session => withdraw({tenant, session, request})),
+    toWithdraw.map(session => withdraw({tenant, session, request})),
   );
   const failures: unknown[] = [];
   for (const result of results) {
@@ -284,7 +305,7 @@ export async function withdrawUnneededTransfers({
   if (failures.length) {
     throw new AggregateError(
       failures,
-      `${failures.length} of ${sessions.length} transfers on invoice ${invoiceId} could not be checked`,
+      `${failures.length} of ${toWithdraw.length} transfers on invoice ${invoiceId} could not be checked`,
     );
   }
   return report;

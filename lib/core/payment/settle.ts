@@ -2,10 +2,11 @@ import 'server-only';
 
 import type {Client} from '@/goovee/.generated/client';
 import type {Tenant} from '@/tenant';
-import {minorUnitsOf, scaleOfCurrency} from './domain/money';
+import {fromMinorUnits, minorUnitsOf, scaleOfCurrency} from './domain/money';
 import type {GatewaySignal} from './domain/signal';
 import {
   deriveStatus,
+  overCapturedBy,
   sessionStatusFor,
   type LedgerEntry,
 } from './domain/status';
@@ -64,6 +65,7 @@ type LockedPayment = {
   currencyScale: number;
   status: PaymentStatus;
   deliveryStatus: string | null;
+  lastError: string | null;
   payer: string | null;
   workspaceId: string;
   paymentModeId: string | null;
@@ -133,9 +135,9 @@ export async function settlePayment({
     const inserted = await txClient.$raw(
       `INSERT INTO portal_portal_payment_event
          (id, version, created_on, payment, session, gateway, event_key, type, amount,
-          currency_code, observed_via, observed_on, provider_ref, reason, payload)
+          currency_code, currency_scale, observed_via, observed_on, provider_ref, reason, payload)
        VALUES (nextval('portal_portal_payment_event_seq'), 0, now(), $1, $2, $3, $4, $5, $6,
-               $7, $8, $9, $10, $11, $12)
+               $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (gateway, event_key) DO NOTHING
        RETURNING id`,
       payment.id,
@@ -145,6 +147,9 @@ export async function settlePayment({
       eventType,
       signal.amount,
       signal.currencyCode,
+      signal.currencyCode
+        ? scaleOfCurrency(signal.currencyCode)
+        : payment.currencyScale,
       signal.observedVia,
       signal.observedOn,
       signal.providerRef,
@@ -269,6 +274,28 @@ export async function settlePayment({
       transferCheckQueued = true;
     }
 
+    /* More kept than the payment was for: two of its sessions both took the
+     * money. Said here, when the event is recorded, because a capture that
+     * lands after the payment was projected reaches nothing else — the
+     * projection has already run and will not run again. A refund of the
+     * excess settles it, so the decision goes with it. */
+    const excess = overCapturedBy(derived, payment.amount);
+    const overCaptureMessage =
+      excess > 0
+        ? `Holds ${fromMinorUnits(derived.capturedAmount - derived.refundedAmount, payment.currencyScale)} ${payment.currencyCode} after refunds, ${fromMinorUnits(excess, payment.currencyScale)} more than the ${fromMinorUnits(payment.amount, payment.currencyScale)} the payment was for; refund or place the excess`
+        : null;
+    const resolvedMessage = overCaptureMessage
+      ? null
+      : await dropDecision(txClient, payment.id, JOB_KIND.overCaptured);
+    if (overCaptureMessage) {
+      await parkForDecision(
+        txClient,
+        payment.id,
+        JOB_KIND.overCaptured,
+        overCaptureMessage,
+      );
+    }
+
     await txClient.aOSPortalPayment.update({
       data: {
         id: payment.id,
@@ -284,6 +311,9 @@ export async function settlePayment({
         ...(currencyMismatch && {
           lastError: `Provider reported ${signal.currencyCode} for a payment in ${payment.currencyCode} at scale ${payment.currencyScale}; the event is recorded but not counted`,
         }),
+        ...(overCaptureMessage && {lastError: overCaptureMessage}),
+        ...(resolvedMessage &&
+          resolvedMessage === payment.lastError && {lastError: null}),
         ...(subject.invoice &&
           !payment.invoice && {invoice: {select: {id: subject.invoice}}}),
         ...(subject.registration &&
@@ -341,6 +371,7 @@ async function lockPayment(
       currencyScale: true,
       status: true,
       deliveryStatus: true,
+      lastError: true,
       payer: true,
       portalWorkspace: {id: true},
       paymentMode: {id: true},
@@ -365,6 +396,7 @@ async function lockPayment(
     currencyScale: payment.currencyScale,
     status: payment.status as PaymentStatus,
     deliveryStatus: payment.deliveryStatus,
+    lastError: payment.lastError,
     payer: payment.payer,
     workspaceId: payment.portalWorkspace.id,
     paymentModeId: payment.paymentMode?.id ?? null,
@@ -541,6 +573,52 @@ async function upsertJob(
   );
 }
 
+/* A job no one runs, written parked for a decision and due for attention at
+ * once, so the payment is listed as needing a human until one clears it. */
+async function parkForDecision(
+  txClient: Client,
+  paymentId: string,
+  kind: string,
+  reason: string,
+): Promise<void> {
+  await txClient.$raw(
+    `INSERT INTO portal_portal_payment_job
+       (id, version, created_on, payment, kind, next_attempt_on, escalate_on, attempts,
+        classification, last_error)
+     VALUES (nextval('portal_portal_payment_job_seq'), 0, now(), $1, $2, now(), now(), 0,
+             'needs_decision', $3)
+     ON CONFLICT (payment, kind) DO UPDATE
+       SET escalate_on = now(), classification = 'needs_decision', last_error = EXCLUDED.last_error,
+           updated_on = now(), version = COALESCE(portal_portal_payment_job.version, 0) + 1`,
+    paymentId,
+    kind,
+    reason,
+  );
+}
+
+/** Removes a parked decision that no longer applies; returns the reason it carried, or null if there was none. */
+async function dropDecision(
+  txClient: Client,
+  paymentId: string,
+  kind: string,
+): Promise<string | null> {
+  const deleted = await txClient.$raw(
+    `DELETE FROM portal_portal_payment_job WHERE payment = $1 AND kind = $2
+     RETURNING last_error`,
+    paymentId,
+    kind,
+  );
+  /* The driver answers a DELETE with [rows, rowCount]. */
+  const rows =
+    Array.isArray(deleted) && Array.isArray(deleted[0]) ? deleted[0] : deleted;
+  const row: unknown = Array.isArray(rows) ? rows[0] : null;
+  if (typeof row !== 'object' || row === null) {
+    return null;
+  }
+  const {last_error} = row as Record<string, unknown>;
+  return typeof last_error === 'string' ? last_error : null;
+}
+
 async function recordUnmatched({
   signal,
   client,
@@ -561,9 +639,9 @@ async function recordUnmatched({
   await client.$raw(
     `INSERT INTO portal_portal_payment_unmatched_event
        (id, version, created_on, gateway, event_key, correlation_ref, type, amount, currency_code,
-        observed_via, observed_on, provider_ref, payload, status)
+        currency_scale, observed_via, observed_on, provider_ref, payload, status)
      VALUES (nextval('portal_portal_payment_unmatched_event_seq'), 0, now(), $1, $2, $3, $4, $5, $6,
-             $7, $8, $9, $10, 'open')
+             $7, $8, $9, $10, $11, 'open')
      ON CONFLICT (gateway, event_key) DO NOTHING`,
     signal.gateway,
     signal.eventKey,
@@ -571,6 +649,7 @@ async function recordUnmatched({
     signal.type,
     signal.amount,
     signal.currencyCode,
+    signal.currencyCode ? scaleOfCurrency(signal.currencyCode) : null,
     signal.observedVia,
     signal.observedOn,
     signal.providerRef,

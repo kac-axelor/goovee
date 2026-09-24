@@ -144,6 +144,23 @@ export function sessionStatusFor(type: EventType): SessionStatus | null {
   }
 }
 
+/**
+ * What is kept beyond the amount due, captures less refunds, in the payment's
+ * minor units: two sessions of one payment that both took the money. The
+ * status still reads captured, because the amount due was received; the excess
+ * is a human's to refund or place, so the projection stops on it rather than
+ * recording it against the purchase. Refunding the excess brings it to zero.
+ */
+export function overCapturedBy(
+  {
+    capturedAmount,
+    refundedAmount,
+  }: {capturedAmount: number; refundedAmount: number},
+  amount: number,
+): number {
+  return Math.max(capturedAmount - refundedAmount - amount, 0);
+}
+
 /** A payment in one of these states can be retried on a new session. */
 export function canRetry(status: PaymentStatus): boolean {
   return (

@@ -151,6 +151,7 @@ export const payboxAdapter: GatewayAdapter = {
     reportsDisputes: false,
     resolvesBy: 'reference',
     idempotency: 'reference',
+    amountAs: 'minor-units',
   },
 
   isConfigured(config) {

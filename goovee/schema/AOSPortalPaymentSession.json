@@ -21,6 +21,18 @@
       "unique": true
     },
     {
+      "type": "BigInt",
+      "name": "amount"
+    },
+    {
+      "type": "String",
+      "name": "currencyCode"
+    },
+    {
+      "type": "Int",
+      "name": "currencyScale"
+    },
+    {
       "type": "String",
       "name": "sessionRef"
     },

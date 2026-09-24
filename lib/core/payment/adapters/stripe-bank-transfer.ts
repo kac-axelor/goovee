@@ -48,8 +48,10 @@ function transferTypeFor(
   }
 }
 
-/* The instructions do not change for the life of an intent; one retrieve per
- * intent per process serves every render of its page. */
+/* Where to wire the money does not change for the life of an intent, so one
+ * retrieve per intent per process serves every render of its page. What is
+ * still expected does change, with every partial funding: readers take the
+ * lower of this figure and the ledger's. */
 const INSTRUCTIONS_TTL_MS = 60 * 60 * 1000;
 const instructionsCache = new Map<
   string,
@@ -146,6 +148,7 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
     reportsDisputes: false,
     resolvesBy: 'reference',
     idempotency: 'provider-key',
+    amountAs: 'minor-units',
   },
 
   /* Without the signing secret nothing would ever confirm a transfer, and the

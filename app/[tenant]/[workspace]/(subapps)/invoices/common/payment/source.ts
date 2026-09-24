@@ -77,7 +77,7 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
     if (validated.error) {
       return validated;
     }
-    const {$amount, $invoice} = validated.data;
+    const {$amount, $invoice, isPartialPayment} = validated.data;
 
     const payer = intent.token
       ? $invoice.partner?.emailAddress?.address
@@ -113,7 +113,14 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
           currencyScale: currency.scale,
         },
         payer,
-        subjectLabel: `${await t('Invoice')} ${$invoice.invoiceId ?? $invoice.id}`,
+        /* Says a part is paid when it is, so a completed payment of part of
+         * the invoice never reads as the invoice paid. */
+        subjectLabel: isPartialPayment
+          ? await t(
+              'Part payment of invoice {0}',
+              String($invoice.invoiceId ?? $invoice.id),
+            )
+          : await t('Invoice {0}', String($invoice.invoiceId ?? $invoice.id)),
         paymentOptions: config.paymentOptionSet,
         billing: {
           firstName: $invoice.partner?.firstName ?? undefined,

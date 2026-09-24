@@ -76,6 +76,12 @@ export const JOB_KIND = {
   reconcile: 'reconcile',
   /** After money lands on an invoice, withdraw the transfers it no longer needs. */
   cancelTransfers: 'cancel_transfers',
+  /**
+   * More was captured than the payment was for. Not run by anyone: it is
+   * written already parked for a decision, so the payment needs attention
+   * until a human refunds or places the excess.
+   */
+  overCaptured: 'over_captured',
 } as const;
 
 export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];

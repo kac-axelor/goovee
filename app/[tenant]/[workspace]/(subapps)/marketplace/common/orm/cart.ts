@@ -26,6 +26,9 @@ export async function findCartProducts({
         currentVersion: {id: true, statusSelect: true},
         ...priceSelectFields,
       },
+      /* A fixed order, so the same cart always reads the same: a payment is
+       * found again by what it was priced at, items in order included. */
+      orderBy: {id: 'ASC'},
     }),
     findOwnedProductIds({
       productIds,

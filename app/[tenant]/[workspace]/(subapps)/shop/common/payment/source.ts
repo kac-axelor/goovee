@@ -228,10 +228,15 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
           currencyScale: currency.scale,
         },
         payer,
-        subjectLabel: await t(
-          'Cart: {0} item(s)',
-          String(pricedCart.items.length),
-        ),
+        /* An advance is named as one, so its completed payment never reads as
+         * the order paid; the rest is owed on the order's invoice. */
+        subjectLabel:
+          paidAmount === chargedTotal
+            ? await t('Cart: {0} item(s)', String(pricedCart.items.length))
+            : await t(
+                'Advance on cart: {0} item(s)',
+                String(pricedCart.items.length),
+              ),
         paymentOptions: config.paymentOptionSet,
         workspace: {
           id: workspace.id,

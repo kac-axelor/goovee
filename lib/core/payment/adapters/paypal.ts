@@ -514,6 +514,7 @@ export const paypalAdapter: GatewayAdapter = {
     reportsDisputes: true,
     resolvesBy: 'reference',
     idempotency: 'provider-key',
+    amountAs: 'decimal',
   },
 
   isConfigured(config) {

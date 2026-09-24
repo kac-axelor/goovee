@@ -10,6 +10,8 @@ import {t} from '@/locale/server';
 import type {ActionResponse} from '@/types/action';
 import {getAdapter, paymentOptionFor} from './adapters/registry';
 import type {Handoff} from './adapters/types';
+import {scaleOfCurrency} from './domain/money';
+import {purchaseKey} from './domain/purchase';
 import {mintReference} from './domain/reference';
 import {canRetry} from './domain/status';
 import {
@@ -39,8 +41,9 @@ export type StartResult = {
  * here naming it.
  *
  * The submit token is minted when the checkout renders. A second press with
- * the same token finds the same payment: a captured one is shown, an open one
- * gets a new session at the chosen gateway.
+ * the same token and the same priced purchase finds the same payment: a
+ * captured one is shown, an open one gets a new session at the chosen
+ * gateway. A press that prices to anything else is a new payment.
  */
 export async function startPayment({
   tenant,
@@ -109,10 +112,32 @@ export async function startPayment({
       message: await t('The amount must be greater than zero'),
     };
   }
+  /* A provider told the amount in the currency's own minor units reads ours
+   * correctly only where the ERP's scale for the currency is that one; any
+   * other would tell it a sum a hundred times off. */
+  const {currencyCode, currencyScale} = prepared.data.money;
+  if (
+    adapter.capabilities.amountAs === 'minor-units' &&
+    currencyScale !== scaleOfCurrency(currencyCode)
+  ) {
+    console.warn(
+      `${currencyCode} has scale ${currencyScale} in the ERP but ${scaleOfCurrency(currencyCode)} at the providers; refusing to start`,
+    );
+    return {
+      error: true,
+      message: await t('This payment method is not available'),
+    };
+  }
 
   const {client} = tenant;
+  const key = purchaseKey(submitToken, {
+    source,
+    money: prepared.data.money,
+    subject: prepared.data.subject,
+    snapshot: prepared.data.snapshot,
+  });
   const existing = await client.aOSPortalPayment.findOne({
-    where: {submitToken},
+    where: {submitToken: key},
     select: {
       reference: true,
       status: true,
@@ -147,6 +172,9 @@ export async function startPayment({
   const idempotencyKey = randomUUID();
   const {paymentId, reference, sessionId, sessionVersion} =
     await client.$transaction(async txClient => {
+      /* The same purchase pressed again keeps its payment untouched: the key
+       * says its money, subject and snapshot are what they were, so there is
+       * nothing to write over and no session still open to write under. */
       const payment = existing
         ? await reopenPayment(
             txClient,
@@ -158,18 +186,31 @@ export async function startPayment({
             txClient,
             tenant.id,
             source,
-            submitToken,
+            key,
             prepared.data,
             gateway,
           );
 
-      await writeSnapshot(txClient, payment.id, source, prepared.data.snapshot);
+      if (!existing) {
+        await writeSnapshot(
+          txClient,
+          payment.id,
+          source,
+          prepared.data.snapshot,
+        );
+      }
 
+      /* What this attempt asks the provider for, fixed with its key. It is
+       * the payment's amount by construction: every session of a payment asks
+       * for the whole amount due. */
       const session = await txClient.aOSPortalPaymentSession.create({
         data: {
           payment: {select: {id: payment.id}},
           gateway,
           idempotencyKey,
+          amount: String(prepared.data.money.amount),
+          currencyCode: prepared.data.money.currencyCode,
+          currencyScale: prepared.data.money.currencyScale,
           status: SESSION_STATUS.initiated,
         },
         select: {id: true, version: true},
@@ -292,8 +333,10 @@ async function createPayment(
   });
 }
 
-/* A retry keeps the payment and its reference; what the buyer may have changed
- * since, the partial amount say, is priced again and written over. */
+/* A retry of the same purchase keeps the payment, its reference and
+ * everything it was priced at; only what depends on the gateway pressed this
+ * time moves with the new session. A different purchase has a different key
+ * and never reaches here. */
 async function reopenPayment(
   txClient: Client,
   reference: string,
@@ -311,16 +354,9 @@ async function reopenPayment(
     data: {
       id: payment.id,
       version: payment.version,
-      portalAppConfig: {select: {id: prepared.workspace.configId}},
-      subjectLabel: prepared.subjectLabel,
-      payer: prepared.payer,
-      amount: String(prepared.money.amount),
-      currencyCode: prepared.money.currencyCode,
-      currencyScale: prepared.money.currencyScale,
       status: PAYMENT_STATUS.initiated,
       gateway,
       ...paymentModeLink(prepared, gateway),
-      ...subjectLinks(prepared),
     },
     select: {id: true},
   });

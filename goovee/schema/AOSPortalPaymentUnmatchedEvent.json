@@ -31,6 +31,10 @@
       "name": "currencyCode"
     },
     {
+      "type": "Int",
+      "name": "currencyScale"
+    },
+    {
       "type": "String",
       "name": "observedVia",
       "required": true
