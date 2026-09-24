@@ -84,6 +84,8 @@ export const JOB_KIND = {
   reconcile: 'reconcile',
   /** After money lands on an invoice, withdraw the transfers it no longer needs. */
   cancelTransfers: 'cancel_transfers',
+  /** Turn what a person entered by hand in the ERP into ledger events. */
+  applyRecorded: 'apply_recorded',
   /**
    * More was captured than the payment was for. Not run by anyone: it is
    * written already parked for a decision, so the payment needs attention

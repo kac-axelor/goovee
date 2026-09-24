@@ -6,6 +6,7 @@ import {DEFAULT_LOCALE} from '@/locale/contants';
 import {runInBackground} from '@/locale/server/background';
 import {notifyPayment} from './notify';
 import {reconcilePayment} from './reconcile';
+import {applyRecordedEvents} from './recorded';
 import {withdrawUnneededTransfers} from './transfers';
 
 /*
@@ -59,6 +60,9 @@ const HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   },
   [JOB_KIND.reconcile]: ({tenant, paymentId}) =>
     reconcilePayment({tenant, paymentId}),
+  [JOB_KIND.applyRecorded]: async ({tenant, paymentId}) => {
+    await applyRecordedEvents({tenant, paymentId});
+  },
 };
 
 const GOOVEE_KINDS = Object.keys(HANDLERS);
