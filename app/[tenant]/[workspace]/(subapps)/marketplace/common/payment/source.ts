@@ -51,15 +51,10 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
 
     requiresPaymentMode: true,
 
-    /* The gateways that settle while the buyer waits. A transfer that settles
+    /* Only gateways that settle while the buyer waits. A transfer that settles
      * days later would leave nothing to show for it in the meantime, and no
      * way back to the result but the purchase history. */
-    gateways: [
-      GATEWAY.stripeCard,
-      GATEWAY.paypal,
-      GATEWAY.paybox,
-      GATEWAY.up2pay,
-    ],
+    gateways: [GATEWAY.stripeCard, GATEWAY.paypal, GATEWAY.paybox],
 
     async prepare({intent}) {
       const access = await ensureAccess({code: SUBAPP_CODES.marketplace});

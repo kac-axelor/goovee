@@ -20,6 +20,9 @@ import {
 } from '@/ui/components';
 import {formatNumber} from '@/locale/formatters';
 import {useSearchParams} from '@/ui/hooks';
+import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
+import {PaymentOption} from '@/types';
+import {isPaymentOptionAvailable} from '@/utils/payment';
 import {cn} from '@/utils/css';
 
 // ---- LOCAL IMPORTS ---- //
@@ -86,6 +89,16 @@ export function Total({
     allowOnlinePayment &&
     canPayInvoice !== INVOICE_PAYMENT_OPTIONS.NO &&
     Boolean(paymentOptionSet?.length);
+
+  const {workspaceURL} = useWorkspace();
+  /* The same conditions the withdrawal is refused under, so the action is not
+   * offered where it would fail. */
+  const cancelScope =
+    allowOnlinePayment &&
+    canPayInvoice !== INVOICE_PAYMENT_OPTIONS.NO &&
+    isPaymentOptionAvailable(paymentOptionSet, PaymentOption.stripe)
+      ? {invoiceId: invoice.id, workspaceURL, token}
+      : null;
 
   const remainingAmountValue = parseFloat(amountRemaining?.value || '0');
 
@@ -202,7 +215,10 @@ export function Total({
         </ul>
       )}
 
-      <PendingTransfers transfers={pendingTransfers} />
+      <PendingTransfers
+        transfers={pendingTransfers}
+        cancelScope={cancelScope}
+      />
 
       {isUnpaid && (
         <div className="rounded-lg p-4 bg-status-overdue-bg/40 border border-status-overdue-bg flex flex-col gap-2">

@@ -88,15 +88,10 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
 
   intentSchema: ShopIntentSchema,
 
-  /* The gateways that settle while the buyer waits. The order is recorded only
+  /* Only gateways that settle while the buyer waits. The order is recorded only
    * once the money is captured, so a transfer that settled days later would
    * hold the cart's goods in limbo with nothing for the buyer to come back to. */
-  gateways: [
-    GATEWAY.stripeCard,
-    GATEWAY.paypal,
-    GATEWAY.paybox,
-    GATEWAY.up2pay,
-  ],
+  gateways: [GATEWAY.stripeCard, GATEWAY.paypal, GATEWAY.paybox],
 
   async prepare({intent}) {
     const access = await ensureAccess({

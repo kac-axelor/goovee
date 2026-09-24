@@ -1525,6 +1525,8 @@
   "These details will appear on your badge.": "Ces informations figureront sur votre badge.",
   "This action cannot be undone.": "Cette action ne peut pas être annulée.",
   "This app is not available": "Cette application n'est pas disponible",
+  "This bank transfer has already received money and can no longer be canceled.": "Ce virement bancaire a déjà reçu des fonds et ne peut plus être annulé.",
+  "This bank transfer is no longer pending.": "Ce virement bancaire n'est plus en attente.",
   "This bank transfer will be canceled and can no longer be completed. This action cannot be undone.": "Ce virement bancaire sera annulé et ne pourra plus être effectué. Cette action est irréversible.",
   "This document could not be shown. You can still download it.": "Ce document n'a pas pu être affiché. Vous pouvez toujours le télécharger.",
   "This email can not be registered to this event": "Cet email ne peut pas être inscrit à cet événement",

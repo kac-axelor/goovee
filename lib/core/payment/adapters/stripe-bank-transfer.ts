@@ -1,17 +1,24 @@
 import 'server-only';
 
+import {randomUUID} from 'node:crypto';
 import type Stripe from 'stripe';
 
 import {fromMinorUnits, scaleOfCurrency} from '../domain/money';
+import {isWithdrawn, type WithdrawalRequest} from '../domain/transfers';
 import {GATEWAY, OBSERVED_VIA, type ObservedVia} from '../domain/types';
 import {
+  gatewayOf,
   getStripe,
+  ourReference,
   readStripeEvent,
   signalForPaymentIntent,
   signalsForStripeEvent,
 } from './stripe-events';
+import type {GatewaySignal} from '../domain/signal';
 import type {
   AwaitingInstructions,
+  CancelReason,
+  CancelResult,
   CreatedSession,
   GatewayAdapter,
   GatewayContext,
@@ -94,6 +101,7 @@ function instructionsOf(
       typeof instructions.amount_remaining === 'number'
         ? fromMinorUnits(instructions.amount_remaining, scale)
         : undefined,
+    amount: fromMinorUnits(paymentIntent.amount, scale),
   };
   if (address?.type === 'iban' && address.iban) {
     result.iban = address.iban.iban;
@@ -244,4 +252,157 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
     });
     return value;
   },
+
+  async cancelAwaiting(sessionRef, request, context) {
+    const result = await cancelTransferIntent(
+      getStripe(context.config),
+      sessionRef,
+      request,
+      context.tenantId,
+    );
+    instructionsCache.delete(sessionRef);
+    return result;
+  },
 };
+
+/** What a bank-transfer intent's state allows. */
+export type TransferIntentState = 'cancelable' | 'funded' | 'ended';
+
+/* The only states Stripe documents as cancelable that a bank transfer can be
+ * in. `processing` is cancelable only in rare cases and means money is moving,
+ * so it is left alone with the rest. */
+const CANCELABLE_STATUSES: ReadonlySet<Stripe.PaymentIntent.Status> = new Set([
+  'requires_payment_method',
+  'requires_confirmation',
+  'requires_action',
+]);
+
+/**
+ * Whether a bank-transfer intent may be withdrawn. A transfer Stripe has
+ * applied any money to — a partial funding, or a cash balance it used at
+ * confirmation — is funded even while it still waits for the rest: Stripe
+ * would accept the cancel, and does not say what becomes of the money already
+ * applied. Any state not known to be safe counts as funded.
+ */
+export function classifyTransferIntent(
+  paymentIntent: Pick<
+    Stripe.PaymentIntent,
+    'status' | 'amount' | 'amount_received' | 'next_action'
+  >,
+): TransferIntentState {
+  if (paymentIntent.status === 'canceled') {
+    return 'ended';
+  }
+  if (
+    !CANCELABLE_STATUSES.has(paymentIntent.status) ||
+    hasReceivedMoney(paymentIntent)
+  ) {
+    return 'funded';
+  }
+  return 'cancelable';
+}
+
+/* Stripe shows money applied to an open transfer as what is left to send, not
+ * as money received, so both are read. */
+function hasReceivedMoney(
+  paymentIntent: Pick<
+    Stripe.PaymentIntent,
+    'amount' | 'amount_received' | 'next_action'
+  >,
+): boolean {
+  if (paymentIntent.amount_received > 0) {
+    return true;
+  }
+  const remaining =
+    paymentIntent.next_action?.display_bank_transfer_instructions
+      ?.amount_remaining;
+  return typeof remaining === 'number' && remaining < paymentIntent.amount;
+}
+
+/** The parts of the Stripe client a withdrawal uses, so it can be run against a stand-in. */
+export type TransferIntentClient = {
+  paymentIntents: Pick<Stripe['paymentIntents'], 'retrieve' | 'cancel'>;
+};
+
+/**
+ * Withdraws a bank-transfer intent unless it has received money, and reports
+ * the provider's own account of it either way. The intent is read immediately
+ * before the cancel, because Stripe offers no cancel that is conditional on
+ * the intent being unfunded. Money that reaches Stripe between the read and
+ * the cancel is the one case this cannot rule out, and a cancelled intent no
+ * longer says what was applied to it; Stripe keeps unapplied money in the
+ * customer's cash balance.
+ *
+ * What the transfer asks for is read from the intent, not the ledger: a later
+ * press on the same payment rewrites the payment's amount, while the intent
+ * still asks for what it was created with.
+ *
+ * A cancel that fails is not caught: the job runs again, and its read then
+ * finds the intent cancelled, funded or still open. The idempotency key is
+ * fresh on every call, because Stripe replays the first answer to a key for a
+ * day, failures included; repeating a cancel needs no key, since the read
+ * before it says whether one is needed.
+ */
+export async function cancelTransferIntent(
+  stripe: TransferIntentClient,
+  intentId: string,
+  request: WithdrawalRequest,
+  tenantId: string,
+): Promise<CancelResult> {
+  const before = await stripe.paymentIntents.retrieve(intentId);
+  /* Checked before anything is withdrawn: on a Stripe account shared between
+   * tenants, an intent that is not this tenant's bank transfer is not ours to
+   * cancel. */
+  if (
+    !ourReference(before.metadata, null, tenantId) ||
+    gatewayOf(before.metadata) !== GATEWAY.stripeBankTransfer
+  ) {
+    throw new Error(`Stripe intent ${intentId} is not one of ours`);
+  }
+  const state = classifyTransferIntent(before);
+  if (state !== 'cancelable') {
+    return {
+      outcome: state === 'ended' ? 'already-ended' : 'funded',
+      signal: transferSignal(before, tenantId, request.reason),
+    };
+  }
+  if (!isWithdrawn(request, before.amount)) {
+    return {
+      outcome: 'kept',
+      signal: transferSignal(before, tenantId, request.reason),
+    };
+  }
+
+  const cancelled = await stripe.paymentIntents.cancel(
+    intentId,
+    {cancellation_reason: request.reason},
+    {idempotencyKey: `cancel_pi_${intentId}_${randomUUID()}`},
+  );
+
+  return {
+    outcome: 'cancelled',
+    signal: transferSignal(cancelled, tenantId, request.reason),
+  };
+}
+
+function transferSignal(
+  paymentIntent: Stripe.PaymentIntent,
+  tenantId: string,
+  reason: CancelReason,
+): GatewaySignal {
+  const signal = signalForPaymentIntent(
+    paymentIntent,
+    tenantId,
+    OBSERVED_VIA.reconcile,
+    {
+      source: 'cancel',
+      reason,
+      intentId: paymentIntent.id,
+      status: paymentIntent.status,
+    },
+  );
+  if (!signal) {
+    throw new Error(`Stripe intent ${paymentIntent.id} is not one of ours`);
+  }
+  return signal;
+}

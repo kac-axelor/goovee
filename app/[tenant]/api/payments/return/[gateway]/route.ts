@@ -1,4 +1,4 @@
-import {NextResponse} from 'next/server';
+import {NextResponse, after} from 'next/server';
 import {headers} from 'next/headers';
 
 import {TENANT_HEADER} from '@/proxy';
@@ -7,6 +7,7 @@ import {setPaymentCookie} from '@/payment/access';
 import {GatewaySchema, getAdapter} from '@/payment/adapters/registry';
 import {parseReference} from '@/payment/domain/reference';
 import type {GatewaySignal} from '@/payment/domain/signal';
+import {runPaymentJobs} from '@/payment/jobs';
 import {triggerProjection} from '@/payment/project';
 import {referenceOf, resolveReference} from '@/payment/resolve';
 import {settlePayment} from '@/payment/settle';
@@ -72,6 +73,12 @@ async function handleReturn(
        * first paint. The job row is committed either way. */
       if (outcome.outcome === 'settled' && outcome.projectionQueued) {
         await triggerProjection({tenant, reference: outcome.reference});
+      }
+      /* Not awaited: it changes nothing the page shows, and the job row is
+       * committed, so the clock runs it if this does not. */
+      if (outcome.outcome === 'settled' && outcome.transferCheckQueued) {
+        const {paymentId} = outcome;
+        after(() => runPaymentJobs({tenant, paymentId}));
       }
     } else {
       attestedReference = await referenceOf({

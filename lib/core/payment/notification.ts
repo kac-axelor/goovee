@@ -6,6 +6,7 @@ import {manager} from '@/tenant';
 import {RequestBodyTooLarge, readTextWithin} from '@/security/request-body';
 import {getAdapter} from './adapters/registry';
 import type {Gateway} from './domain/types';
+import {runPaymentJobs} from './jobs';
 import {triggerProjection} from './project';
 import {settlePayment} from './settle';
 
@@ -77,6 +78,10 @@ export async function handleNotification({
     if (outcome.outcome === 'settled' && outcome.projectionQueued) {
       const reference = outcome.reference;
       after(() => triggerProjection({tenant, reference}));
+    }
+    if (outcome.outcome === 'settled' && outcome.transferCheckQueued) {
+      const {paymentId} = outcome;
+      after(() => runPaymentJobs({tenant, paymentId}));
     }
     if (outcome.outcome === 'rejected') {
       console.warn(

@@ -74,6 +74,8 @@ export const JOB_KIND = {
   project: 'project',
   notify: 'notify',
   reconcile: 'reconcile',
+  /** After money lands on an invoice, withdraw the transfers it no longer needs. */
+  cancelTransfers: 'cancel_transfers',
 } as const;
 
 export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];

@@ -5,6 +5,10 @@ export async function register() {
   const {startStagedUploadReaper} = await import('@/upload/startup');
   startStagedUploadReaper();
 
+  // Run the payment jobs goovee owns (non-blocking — just arms timers).
+  const {startPaymentJobs} = await import('@/payment/job-startup');
+  startPaymentJobs();
+
   // Report whether images can be resized. Never throws, never blocks startup.
   const {checkImageResizing} = await import('@/image/startup');
   void checkImageResizing();

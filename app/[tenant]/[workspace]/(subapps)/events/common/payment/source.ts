@@ -52,15 +52,10 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
 
   intentSchema: EventIntentSchema,
 
-  /* The gateways that settle while the payer waits. A guest registers with no
+  /* Only gateways that settle while the payer waits. A guest registers with no
    * account and no link to come back through, so a transfer that settled days
    * later would reach nobody. */
-  gateways: [
-    GATEWAY.stripeCard,
-    GATEWAY.paypal,
-    GATEWAY.paybox,
-    GATEWAY.up2pay,
-  ],
+  gateways: [GATEWAY.stripeCard, GATEWAY.paypal, GATEWAY.paybox],
 
   async prepare({intent}) {
     const access = await ensureAccess({

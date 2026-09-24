@@ -14,6 +14,7 @@ import {
   EVENT_TYPE,
   JOB_KIND,
   OBSERVED_VIA,
+  PAYMENT_SOURCE,
   PAYMENT_STATUS,
   SESSION_STATUS,
   type EventType,
@@ -28,13 +29,20 @@ import {readSnapshot} from './intent';
 /** How long a projection job may stay open before the payment counts as needing attention. */
 const PROJECTION_GRACE_SECONDS = 5 * 60;
 
+/* A transfer left open can be paid while the check waits, so it counts as
+ * needing attention sooner than a projection does. */
+const TRANSFER_CHECK_GRACE_SECONDS = 2 * 60;
+
 export type SettleOutcome =
   | {
       outcome: 'settled';
+      paymentId: string;
       reference: string;
       status: PaymentStatus;
       /** A projection job was written; the caller may ask AOS to run it now. */
       projectionQueued: boolean;
+      /** A job goovee runs itself was written; the caller may run it now. */
+      transferCheckQueued: boolean;
     }
   /** The financial event was already in the ledger. Nothing changed. */
   | {outcome: 'duplicate'; reference: string}
@@ -242,6 +250,25 @@ export async function settlePayment({
       }
     }
 
+    /* Money on an invoice may leave another transfer on it unneeded. Checking
+     * means asking the provider, which cannot happen here, so the check is a
+     * job written with the capture and run once this commits. */
+    let transferCheckQueued = false;
+    if (
+      isCapture &&
+      !currencyMismatch &&
+      payment.source === PAYMENT_SOURCE.invoices &&
+      payment.invoice
+    ) {
+      await upsertJob(
+        txClient,
+        payment.id,
+        JOB_KIND.cancelTransfers,
+        TRANSFER_CHECK_GRACE_SECONDS,
+      );
+      transferCheckQueued = true;
+    }
+
     await txClient.aOSPortalPayment.update({
       data: {
         id: payment.id,
@@ -279,9 +306,11 @@ export async function settlePayment({
 
     return {
       outcome: 'settled',
+      paymentId: payment.id,
       reference: payment.reference,
       status: derived.status,
       projectionQueued,
+      transferCheckQueued,
     };
   });
 }
@@ -488,7 +517,9 @@ async function latestSession(
 }
 
 /* One row per kind per payment. A second capture on a payment whose job is
- * still open makes it due again rather than queueing a second one. */
+ * still open makes it due again rather than queueing a second one, and moves
+ * its version on, so a run that claimed the job before cannot then finish it:
+ * the fresh request must run. */
 async function upsertJob(
   txClient: Client,
   paymentId: string,
@@ -502,7 +533,8 @@ async function upsertJob(
              now() + make_interval(secs => $3), 0)
      ON CONFLICT (payment, kind) DO UPDATE
        SET next_attempt_on = now(), escalate_on = EXCLUDED.escalate_on, attempts = 0,
-           classification = NULL, last_error = NULL, updated_on = now()`,
+           classification = NULL, last_error = NULL, updated_on = now(),
+           version = COALESCE(portal_portal_payment_job.version, 0) + 1`,
     paymentId,
     kind,
     graceSeconds,

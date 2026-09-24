@@ -1,5 +1,6 @@
 import type {TenantConfig} from '@/tenant';
 import type {GatewaySignal} from '../domain/signal';
+import type {WithdrawalRequest} from '../domain/transfers';
 import type {Gateway, Money} from '../domain/types';
 
 export type GatewayCapabilities = {
@@ -63,6 +64,8 @@ export type AwaitingInstructions = {
   reference?: string;
   /** Decimal string of what is still expected, in the payment's currency. */
   amountRemaining?: string;
+  /** Decimal string of the whole amount the transfer asks for, as the provider holds it. */
+  amount?: string;
   accountHolder?: string;
   iban?: string;
   bic?: string;
@@ -136,4 +139,35 @@ export interface GatewayAdapter {
     sessionRef: string,
     context: GatewayContext,
   ): Promise<AwaitingInstructions | null>;
+
+  /**
+   * Withdraws a session the payer has not funded yet, so money sent later is
+   * no longer taken for it. Only for gateways that can take it back; the
+   * others have nothing to cancel, or cannot be asked to.
+   *
+   * Never withdraws a session that has received any money, in part or in
+   * full: the provider may still accept the call, but what becomes of money
+   * already applied is not ours to decide, so the session is left for the
+   * provider's own event to settle.
+   */
+  cancelAwaiting?(
+    sessionRef: string,
+    request: WithdrawalRequest,
+    context: GatewayContext,
+  ): Promise<CancelResult>;
 }
+
+/** Why a session is withdrawn: the invoice no longer needs it, or the payer asked. */
+export type CancelReason = WithdrawalRequest['reason'];
+
+/**
+ * What became of a withdrawal. Every outcome carries the provider's own
+ * account of the session, to be settled like any other signal: that is what
+ * records a cancellation, and what records money that arrived first. `kept`
+ * is a transfer asking for no more than the request allows.
+ */
+export type CancelResult =
+  | {outcome: 'cancelled'; signal: GatewaySignal}
+  | {outcome: 'already-ended'; signal: GatewaySignal}
+  | {outcome: 'funded'; signal: GatewaySignal}
+  | {outcome: 'kept'; signal: GatewaySignal};

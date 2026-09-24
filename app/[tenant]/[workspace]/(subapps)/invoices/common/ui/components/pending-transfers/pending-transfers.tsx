@@ -1,12 +1,21 @@
 'use client';
 
 import {useState} from 'react';
+import {useRouter} from 'next/navigation';
 import {EllipsisVertical} from 'lucide-react';
 
 // ---- CORE IMPORTS ---- //
 import {i18n} from '@/locale';
 import {formatDate} from '@/locale/formatters';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -15,8 +24,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/components';
+import {useToast} from '@/ui/hooks';
 import {GATEWAY} from '@/payment/domain/types';
 import {
   formatMoney,
@@ -24,16 +35,59 @@ import {
 } from '@/ui/components/payment/transfer-instructions';
 
 // ---- LOCAL IMPORTS ---- //
+import {cancelPendingTransfer} from '@/subapps/invoices/common/actions/transfers';
 import type {PendingTransfer} from '@/subapps/invoices/common/payment/pending';
 
-function PendingTransferEntry({transfer}: {transfer: PendingTransfer}) {
+/** What a withdrawal needs to name the invoice the way the page was opened. */
+type CancelScope = {
+  invoiceId: string;
+  workspaceURL: string;
+  token?: string;
+};
+
+function PendingTransferEntry({
+  transfer,
+  cancelScope,
+}: {
+  transfer: PendingTransfer;
+  /** Null where the workspace does not let the payer withdraw a transfer. */
+  cancelScope: CancelScope | null;
+}) {
+  const router = useRouter();
+  const {toast} = useToast();
   const [showDetails, setShowDetails] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const {instructions, currencyCode, currencyScale} = transfer;
   /* The reference the bank transfer must quote, which is the provider's, not
    * the payment's own. */
   const transferReference = instructions?.reference;
   const partlyReceived = transfer.remaining < transfer.amount;
-  const hasActions = Boolean(instructions || transfer.href);
+  const canCancel = Boolean(cancelScope && transfer.cancelable);
+  const hasActions = Boolean(instructions || transfer.href || canCancel);
+
+  const cancel = async () => {
+    if (!cancelScope || cancelling) return;
+    setCancelling(true);
+    try {
+      const result = await cancelPendingTransfer({
+        ...cancelScope,
+        transferId: transfer.id,
+      });
+      if (result.error) {
+        toast({variant: 'destructive', title: result.message});
+      }
+      setConfirmingCancel(false);
+      router.refresh();
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: i18n.t('Something went wrong while canceling the bank transfer'),
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <li className="flex items-center justify-between gap-2 rounded border border-ink-150 bg-white p-2">
@@ -84,6 +138,16 @@ function PendingTransferEntry({transfer}: {transfer: PendingTransfer}) {
                 <a href={transfer.href}>{i18n.t('View payment')}</a>
               </DropdownMenuItem>
             )}
+            {canCancel && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => setConfirmingCancel(true)}
+                  className="text-red-600 focus:bg-red-50 focus:text-red-600">
+                  {i18n.t('Cancel Transfer')}
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
@@ -105,6 +169,43 @@ function PendingTransferEntry({transfer}: {transfer: PendingTransfer}) {
           </DialogContent>
         </Dialog>
       )}
+
+      {canCancel && (
+        <AlertDialog
+          open={confirmingCancel}
+          onOpenChange={open => {
+            if (!cancelling) setConfirmingCancel(open);
+          }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {i18n.t('Cancel bank transfer?')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {i18n.t(
+                  'This bank transfer will be canceled and can no longer be completed. This action cannot be undone.',
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancelling}>
+                {i18n.t('Keep transfer')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={cancelling}
+                className="bg-red-600 hover:bg-red-700"
+                onClick={event => {
+                  /* Kept open until the answer is in, so a refusal is read
+                   * against the dialog the payer is looking at. */
+                  event.preventDefault();
+                  void cancel();
+                }}>
+                {cancelling ? i18n.t('Canceling…') : i18n.t('Yes, cancel')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </li>
   );
 }
@@ -112,9 +213,11 @@ function PendingTransferEntry({transfer}: {transfer: PendingTransfer}) {
 function PendingTransferGroup({
   heading,
   transfers,
+  cancelScope,
 }: {
   heading: string;
   transfers: PendingTransfer[];
+  cancelScope: CancelScope | null;
 }) {
   if (!transfers.length) {
     return null;
@@ -124,7 +227,11 @@ function PendingTransferGroup({
       <h3 className="font-semibold text-ink-900">{heading}</h3>
       <ul className="flex flex-col gap-2">
         {transfers.map(transfer => (
-          <PendingTransferEntry key={transfer.reference} transfer={transfer} />
+          <PendingTransferEntry
+            key={transfer.id}
+            transfer={transfer}
+            cancelScope={cancelScope}
+          />
         ))}
       </ul>
     </section>
@@ -134,10 +241,17 @@ function PendingTransferGroup({
 /**
  * Transfers started on the invoice that the payer's bank has not finished,
  * grouped by how they were started. Each carries what the payer needs to
- * complete it; a transfer that settles is no longer listed and is counted in
- * what remains to pay.
+ * complete it, and a Stripe transfer nothing has arrived for can be withdrawn;
+ * a transfer that settles is no longer listed and is counted in what remains
+ * to pay.
  */
-export function PendingTransfers({transfers}: {transfers: PendingTransfer[]}) {
+export function PendingTransfers({
+  transfers,
+  cancelScope,
+}: {
+  transfers: PendingTransfer[];
+  cancelScope: CancelScope | null;
+}) {
   const stripe = transfers.filter(
     transfer => transfer.gateway === GATEWAY.stripeBankTransfer,
   );
@@ -149,10 +263,12 @@ export function PendingTransfers({transfers}: {transfers: PendingTransfer[]}) {
       <PendingTransferGroup
         heading={i18n.t('Pending Stripe Bank transfers')}
         transfers={stripe}
+        cancelScope={cancelScope}
       />
       <PendingTransferGroup
         heading={i18n.t('Pending HUB PISP payments')}
         transfers={hubpisp}
+        cancelScope={cancelScope}
       />
     </>
   );
