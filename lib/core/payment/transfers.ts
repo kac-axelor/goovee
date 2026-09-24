@@ -51,6 +51,15 @@ export type OpenTransferSession = {
   currencyScale: number;
 };
 
+/** The events that say how far a transfer session has got: what it received, and whether it ended. */
+const SESSION_EVENTS = [
+  EVENT_TYPE.captured,
+  EVENT_TYPE.partiallyCaptured,
+  EVENT_TYPE.cancelled,
+  EVENT_TYPE.expired,
+  EVENT_TYPE.refused,
+] as const;
+
 export async function findOpenTransferSessions({
   client,
   invoiceId,
@@ -89,14 +98,29 @@ export async function findOpenTransferSessions({
   }
 
   /* A session's own captures are snapshots of one balance, so the highest is
-   * what it holds, the same reading the payment's status is derived from. */
-  const captures = await client.aOSPortalPaymentEvent.find({
+   * what it holds, the same reading the payment's status is derived from. Its
+   * endings are read with them: a session keeps its first outcome, so one
+   * funded in part reads captured even after the provider ends it. */
+  const events = await client.aOSPortalPaymentEvent.find({
     where: {
       session: {id: {in: sessions.map(session => session.id)}},
-      type: {in: [EVENT_TYPE.captured, EVENT_TYPE.partiallyCaptured]},
+      type: {in: [...SESSION_EVENTS]},
     },
-    select: {session: {id: true}, amount: true, currencyCode: true},
+    select: {session: {id: true}, type: true, amount: true, currencyCode: true},
   });
+  const captures = events.filter(
+    event =>
+      event.type === EVENT_TYPE.captured ||
+      event.type === EVENT_TYPE.partiallyCaptured,
+  );
+  /* Finished whatever the amounts say: ended by the provider, or captured in
+   * full. The amounts alone can mislead for an older session, measured
+   * against a payment amount a later press rewrote. */
+  const closed = new Set(
+    events
+      .filter(event => event.type !== EVENT_TYPE.partiallyCaptured)
+      .flatMap(event => (event.session ? [event.session.id] : [])),
+  );
 
   return sessions.flatMap((session): OpenTransferSession[] => {
     const {payment} = session;
@@ -120,9 +144,10 @@ export async function findOpenTransferSessions({
     /* A captured session is still open only while it is short of the amount:
      * a transfer funded in part is recorded as a capture of what arrived. */
     const open =
-      session.status === SESSION_STATUS.awaiting
+      !closed.has(session.id) &&
+      (session.status === SESSION_STATUS.awaiting
         ? received < amount
-        : received > 0 && received < amount;
+        : received > 0 && received < amount);
     if (!open || !session.sessionRef) {
       return [];
     }
@@ -144,6 +169,33 @@ export async function findOpenTransferSessions({
       },
     ];
   });
+}
+
+/**
+ * An open transfer that has received part of what it asks for. It stays open
+ * at the provider for the rest, and the withdrawal never takes it back, so
+ * any other payment of the invoice would be paid twice once the rest
+ * arrives. Only a Stripe bank transfer is ever funded in part.
+ */
+export function isPartlyFunded(
+  session: Pick<OpenTransferSession, 'received'>,
+): boolean {
+  return session.received > 0;
+}
+
+/**
+ * The transfer on the invoice that is funded in part, if any. While one is,
+ * the invoice takes no other payment: the payer completes that transfer.
+ */
+export async function findPartlyFundedTransfer({
+  client,
+  invoiceId,
+}: {
+  client: Client;
+  invoiceId: string;
+}): Promise<OpenTransferSession | null> {
+  const sessions = await findOpenTransferSessions({client, invoiceId});
+  return sessions.find(isPartlyFunded) ?? null;
 }
 
 /**
@@ -275,7 +327,7 @@ export async function withdrawUnneededTransfers({
    * withdraw one. */
   const sessions = (await findOpenTransferSessions({client, invoiceId})).filter(
     session =>
-      session.received === 0 &&
+      !isPartlyFunded(session) &&
       session.currencyCode === payment.currencyCode &&
       session.currencyScale === payment.currencyScale &&
       Boolean(getAdapter(session.gateway).cancelAwaiting),

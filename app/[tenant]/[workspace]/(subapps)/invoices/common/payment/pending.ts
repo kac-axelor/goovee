@@ -13,6 +13,7 @@ import {triggerProjection} from '@/payment/project';
 import {settlePayment} from '@/payment/settle';
 import {
   findOpenTransferSessions,
+  isPartlyFunded,
   type OpenTransferSession,
 } from '@/payment/transfers';
 import {paymentPageUrl} from '@/payment/urls';
@@ -35,6 +36,8 @@ export type PendingTransfer = {
   href: string | null;
   /** The payer may withdraw it: the gateway can, and nothing has arrived for it yet. */
   cancelable: boolean;
+  /** Part of it has arrived; until the rest does, the invoice takes no other payment. */
+  partlyFunded: boolean;
 };
 
 /**
@@ -136,7 +139,8 @@ export async function findPendingTransfers({
       })
         ? paymentPageUrl(tenant.id, session.workspaceUrl, session.reference)
         : null,
-      cancelable: Boolean(adapter.cancelAwaiting) && session.received === 0,
+      cancelable: Boolean(adapter.cancelAwaiting) && !isPartlyFunded(session),
+      partlyFunded: isPartlyFunded(session),
     };
   });
 }

@@ -5,9 +5,14 @@ import {z} from 'zod';
 import {currentWorkspace} from '@/url/current';
 import {t} from '@/locale/server';
 import {SUBAPP_CODES} from '@/constants';
-import {toMinorUnits, resolveCurrency} from '@/payment/domain/money';
+import {
+  fromMinorUnits,
+  toMinorUnits,
+  resolveCurrency,
+} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {findPartlyFundedTransfer} from '@/payment/transfers';
 import {
   resolveInvoicePaymentAccess,
   validatePaymentData,
@@ -78,6 +83,27 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
       return validated;
     }
     const {$amount, $invoice, isPartialPayment} = validated.data;
+
+    /* A transfer that has received part of its amount stays open for the
+     * rest, and nothing withdraws it; paid another way, the invoice would be
+     * paid twice once the rest arrives. So the payer completes that transfer,
+     * whatever method this start names. */
+    const partlyFunded = await findPartlyFundedTransfer({
+      client: tenant.client,
+      invoiceId: $invoice.id,
+    });
+    if (partlyFunded) {
+      return {
+        error: true,
+        message: await t(
+          'A bank transfer on this invoice has already received part of its amount. Send the remaining {0} using its bank details under pending transfers; another payment can be made once it completes.',
+          `${fromMinorUnits(
+            partlyFunded.amount - partlyFunded.received,
+            partlyFunded.currencyScale,
+          )} ${partlyFunded.currencyCode}`,
+        ),
+      };
+    }
 
     const payer = intent.token
       ? $invoice.partner?.emailAddress?.address

@@ -24,6 +24,7 @@ import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {PaymentOption} from '@/types';
 import {isPaymentOptionAvailable} from '@/utils/payment';
 import {cn} from '@/utils/css';
+import {formatMoney} from '@/ui/components/payment/transfer-instructions';
 
 // ---- LOCAL IMPORTS ---- //
 import {TotalProps} from '@/subapps/invoices/common/types/invoices';
@@ -84,11 +85,18 @@ export function Total({
   const canPayInvoice = config.canPayInvoice ?? INVOICE_PAYMENT_OPTIONS.NO;
   const paymentOptionSet = config.paymentOptionSet;
 
+  /* The same rule a start is refused under: while a transfer has received
+   * part of its amount, the payer completes it rather than paying again. */
+  const partlyFundedTransfer = pendingTransfers.find(
+    transfer => transfer.partlyFunded,
+  );
+
   const allowInvoicePayment =
     isUnpaid &&
     allowOnlinePayment &&
     canPayInvoice !== INVOICE_PAYMENT_OPTIONS.NO &&
-    Boolean(paymentOptionSet?.length);
+    Boolean(paymentOptionSet?.length) &&
+    !partlyFundedTransfer;
 
   const {workspaceURL} = useWorkspace();
   /* The same conditions the withdrawal is refused under, so the action is not
@@ -249,6 +257,18 @@ export function Total({
 
       {invoiceType !== INVOICE.PAID && (
         <>
+          {isUnpaid && partlyFundedTransfer && (
+            <p className="rounded-lg border border-yellow-200 bg-yellow-50/50 p-3 text-sm text-ink-700">
+              {i18n.t(
+                'A bank transfer on this invoice has already received part of its amount. Send the remaining {0} using its bank details above; another payment can be made once it completes.',
+                formatMoney(
+                  partlyFundedTransfer.remaining,
+                  partlyFundedTransfer.currencyCode,
+                  partlyFundedTransfer.currencyScale,
+                ),
+              )}
+            </p>
+          )}
           {allowInvoicePayment && !paymentType && (
             <div className="flex flex-col gap-3">
               <Button

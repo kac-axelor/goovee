@@ -103,6 +103,13 @@ function PendingTransferEntry({
             </span>
           </span>
         )}
+        {transfer.partlyFunded && (
+          <span className="text-xs text-ink-500">
+            {i18n.t(
+              'Part received. Send the rest with the same bank details to complete this payment.',
+            )}
+          </span>
+        )}
         {transfer.startedOn && (
           <span className="text-xs text-ink-500">
             {formatDate(transfer.startedOn, {dateFormat: 'YYYY-MM-DD'})}
