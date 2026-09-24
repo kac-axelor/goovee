@@ -41,6 +41,17 @@ release or settle it by hand in the ERP before upgrading. Start with HUB PISP
 rows: a HUB PISP transfer can stay pending for a day, and on the previous
 release only its startup resumed it.
 
+A Stripe bank transfer can stay pending for weeks, since the payer sends it when
+they choose. Settling one by hand means cancelling its payment intent in the
+Stripe dashboard before the upgrade, whether or not the invoice is paid another
+way: a payer who wired later would otherwise be charged, with nothing recording
+the payment in the ERP.
+
+These payments are not moved into the new payment records: a payment context
+holds the provider, the payer and the priced purchase, but neither the amount
+taken nor, for most providers, the provider's own reference, and the ERP already
+holds what each finished payment booked.
+
 ## 2. Check the currencies
 
 A payment is refused before it starts when the ERP gives its currency a number
@@ -62,10 +73,11 @@ ORDER BY
 
 ## 3. Migrate each tenant's schema
 
-Stop the previous portal first. Its shop and marketplace checkouts call two AOS
-endpoints this release removes, `ws/portal/orders/order` and
-`ws/portal/marketplace/order`, so a checkout taken between the AOS upgrade and
-the portal's would be charged and never become an order.
+Stop the previous portal first. Its checkouts book their payments through AOS
+endpoints this release removes — `ws/portal/orders/order`,
+`ws/portal/marketplace/order`, `ws/portal/invoice/payment` and
+`ws/portal/invoice/eventInvoice` — so a payment taken between the AOS upgrade and
+the portal's would be charged and never booked.
 
 AOS runs no DDL on a named tenant: schema updates and module loading at startup
 reach the default database only. So bring each tenant's database up to date by
@@ -385,6 +397,20 @@ What the ERP's _Portal › Payments_ menu shows, and what finance does with it.
 - _Jobs past their time_ — every payment job still open past its time, by kind.
 - _Unmatched events_ — a refund or dispute that named no payment the portal
   knew, to match to its payment or dismiss.
+
+### A refund or dispute on a payment made before the upgrade
+
+A payment taken by the previous release has no record among the new payments,
+so the portal cannot attach a later refund or dispute to it:
+
+- **PayPal** — the refund or dispute arrives under _Unmatched events_ with
+  nothing to match it to. Dismiss it there with _Dismiss as not ours_, then book
+  it in the ERP by hand.
+- **Stripe** — it is not recorded at all: the portal reads Stripe's events only
+  for payments it recorded. Watch refunds and disputes on charges made before
+  the upgrade in the Stripe dashboard, and book them in the ERP by hand.
+- **Paybox, Up2Pay and HUB PISP** report no refunds or disputes; take them from
+  the provider's back office, as before.
 
 ### A Paybox or Up2Pay notification that never came
 
