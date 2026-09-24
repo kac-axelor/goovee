@@ -1,4 +1,9 @@
-import type {EventType, Gateway, ObservedVia} from './types';
+import {
+  EVENT_TYPE,
+  type EventType,
+  type Gateway,
+  type ObservedVia,
+} from './types';
 
 /**
  * How a provider callback names the payment it is about. Always a value we
@@ -17,7 +22,8 @@ export type SignalResolution =
  * `parseReturn` and `parseNotification` produce the same shape, and one settle
  * function consumes it, so no leg is authoritative: the ledger's unique key on
  * `(gateway, eventKey)` decides which observation of a financial event does the
- * work.
+ * work. An adapter names the event by the provider's own id; the key is made
+ * from the id and the type by one rule, `eventKeyOf`, for every provider.
  *
  * A `pending` signal is "not yet": the provider was asked and the money has not
  * moved. It records nothing and never invents a failure from an absence.
@@ -27,10 +33,12 @@ export type GatewaySignal = {
   resolution: SignalResolution;
   type: EventType | 'pending';
   /**
-   * Stable per financial event, identical whichever leg observed it:
-   * "capture:pi_3ABC", "refund:re_1XYZ". Null only for a pending signal.
+   * The provider's own id for the event, identical whichever leg observed it:
+   * the payment intent a capture is of, a refund's id. Where one provider id
+   * names several events of the same kind, the adapter makes it compound
+   * (an attempt and the code it ended with). Null only for a pending signal.
    */
-  eventKey: string | null;
+  eventId: string | null;
   /** Minor units as the provider reports them. Null when the event carries no amount. */
   amount: number | null;
   currencyCode: string | null;
@@ -61,7 +69,7 @@ export function pendingSignal(input: {
     gateway: input.gateway,
     resolution: input.resolution,
     type: 'pending',
-    eventKey: null,
+    eventId: null,
     amount: null,
     currencyCode: null,
     providerRef: null,
@@ -73,4 +81,37 @@ export function pendingSignal(input: {
     observedOn: new Date(),
     payload: input.payload,
   };
+}
+
+/*
+ * The prefix of each type's key. A refusal and a cancellation share one: they
+ * are both the end of an attempt, which ends once, and a provider may report
+ * the same ending as either on different legs (a Paybox return says refused
+ * where its IPN says cancelled), so the two must land as one row. Adding an
+ * event type means adding its prefix here and in the ERP's
+ * PortalPaymentEventKeys, which keys events entered by hand the same way.
+ */
+const KEY_PREFIX: Record<EventType, string> = {
+  [EVENT_TYPE.authorised]: 'authorise',
+  [EVENT_TYPE.captured]: 'capture',
+  [EVENT_TYPE.partiallyCaptured]: 'partial',
+  [EVENT_TYPE.refused]: 'ended',
+  [EVENT_TYPE.cancelled]: 'ended',
+  [EVENT_TYPE.expired]: 'expire',
+  [EVENT_TYPE.refunded]: 'refund',
+  [EVENT_TYPE.disputed]: 'dispute',
+  [EVENT_TYPE.disputeWon]: 'dispute-won',
+  [EVENT_TYPE.disputeLost]: 'dispute-lost',
+  [EVENT_TYPE.disputeClosed]: 'dispute-closed',
+};
+
+/** The ledger's key for an event: its type's prefix and the provider's id. */
+export function eventKeyOf(type: EventType, eventId: string): string {
+  return `${KEY_PREFIX[type]}:${eventId}`;
+}
+
+/** The provider's id back out of a key made by `eventKeyOf`; a key made otherwise is its own id. */
+export function eventIdOf(type: EventType, eventKey: string): string {
+  const prefix = `${KEY_PREFIX[type]}:`;
+  return eventKey.startsWith(prefix) ? eventKey.slice(prefix.length) : eventKey;
 }

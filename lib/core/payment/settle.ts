@@ -3,7 +3,7 @@ import 'server-only';
 import type {Client} from '@/goovee/.generated/client';
 import type {Tenant} from '@/tenant';
 import {fromMinorUnits, minorUnitsOf, scaleOfCurrency} from './domain/money';
-import type {GatewaySignal} from './domain/signal';
+import {eventKeyOf, type GatewaySignal} from './domain/signal';
 import {
   deriveStatus,
   disputeIdOf,
@@ -67,8 +67,12 @@ export type SettleOutcome =
       /** A job goovee runs itself was written; the caller may run it now. */
       gooveeJobsQueued: boolean;
     }
-  /** The financial event was already in the ledger. Nothing changed. */
-  | {outcome: 'duplicate'; reference: string}
+  /**
+   * The financial event was already in the ledger. Nothing changed.
+   * `recordedOn` is the reference of the payment whose ledger holds it: this
+   * one, unless the provider's id named an event of another payment.
+   */
+  | {outcome: 'duplicate'; reference: string; recordedOn: string}
   /** The provider has not decided yet. Nothing recorded. */
   | {outcome: 'pending'; reference: string | null}
   /** A refund or dispute for a capture we never recorded; kept for a human. */
@@ -136,7 +140,7 @@ export async function settlePayment({
     return {outcome: 'rejected', reason: 'not-found'};
   }
 
-  if (signal.type === 'pending' || !signal.eventKey) {
+  if (signal.type === 'pending' || !signal.eventId) {
     const payment = await client.aOSPortalPayment.findOne({
       where: {id: resolved.paymentId},
       select: {reference: true},
@@ -145,7 +149,7 @@ export async function settlePayment({
   }
 
   const eventType = signal.type;
-  const eventKey = signal.eventKey;
+  const eventKey = eventKeyOf(eventType, signal.eventId);
 
   return client.$transaction(async txClient => {
     const payment = await lockPayment(txClient, resolved.paymentId);
@@ -193,7 +197,20 @@ export async function settlePayment({
           eventKey,
         );
       }
-      return {outcome: 'duplicate', reference: payment.reference};
+      const holder: unknown = await txClient.$raw(
+        `SELECT payment.reference
+           FROM portal_portal_payment_event event
+           JOIN portal_portal_payment payment ON payment.id = event.payment
+          WHERE event.gateway = $1 AND event.event_key = $2`,
+        signal.gateway,
+        eventKey,
+      );
+      const row: unknown = Array.isArray(holder) ? holder[0] : null;
+      const recordedOn =
+        typeof row === 'object' && row !== null && 'reference' in row
+          ? String((row as {reference: unknown}).reference)
+          : payment.reference;
+      return {outcome: 'duplicate', reference: payment.reference, recordedOn};
     }
 
     if (session) {
@@ -1176,9 +1193,10 @@ async function recordUnmatched({
   signal: GatewaySignal;
   client: Client;
 }): Promise<void> {
-  if (!signal.eventKey || signal.type === 'pending') {
+  if (!signal.eventId || signal.type === 'pending') {
     return;
   }
+  const eventKey = eventKeyOf(signal.type, signal.eventId);
   const correlationRef =
     signal.resolution.by === 'correlationRef'
       ? signal.resolution.correlationRef
@@ -1194,7 +1212,7 @@ async function recordUnmatched({
              $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (gateway, event_key) DO NOTHING`,
     signal.gateway,
-    signal.eventKey,
+    eventKey,
     correlationRef,
     signal.type,
     signal.amount,

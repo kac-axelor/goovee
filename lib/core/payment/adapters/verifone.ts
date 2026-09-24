@@ -237,21 +237,21 @@ export function withReference(returnUrl: string, reference: string): string {
 }
 
 /**
- * The event key for what a Verifone gateway reported about one attempt. A
- * capture keys on the gateway's transaction number where it gives one; an
- * attempt that ended with nothing charged keys on the attempt and the code,
- * so the return and the IPN reporting the same ending land as one row
- * whichever names it first, and the marker on the return only picks between
- * refused and cancelled on the row that wins.
+ * The event's id for what a Verifone gateway reported about one attempt. A
+ * capture is the gateway's transaction number where it gives one; an attempt
+ * that ended with nothing charged is the attempt and the code, so the return
+ * and the IPN reporting the same ending land as one row whichever names it
+ * first (a refusal and a cancellation share a key prefix), and the marker on
+ * the return only picks between refused and cancelled on the row that wins.
  */
-export function eventKeyFor(
+export function eventIdFor(
   type: EventType,
   attempt: string,
   transaction: string | null,
   code: string | null,
 ): string {
   if (type === EVENT_TYPE.captured) {
-    return `capture:${transaction ?? attempt}`;
+    return transaction ?? attempt;
   }
-  return `ended:${attempt}:${code ?? 'unknown'}`;
+  return `${attempt}:${code ?? 'unknown'}`;
 }

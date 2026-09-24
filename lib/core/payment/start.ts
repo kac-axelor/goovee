@@ -127,14 +127,14 @@ export async function startPayment({
       message: await t('The amount must be greater than zero'),
     };
   }
-  /* A provider told the amount in the currency's own minor units reads ours
-   * correctly only where the ERP's scale for the currency is that one; any
-   * other would tell it a sum a hundred times off. */
+  /* Every provider takes and reports an amount at the currency's own scale,
+   * and the ledger counts an event only at the payment's: where the ERP's
+   * scale for the currency is another, a minor-unit provider would be told a
+   * sum a power of ten off, a decimal one would be sent more decimals than it
+   * accepts, and either one's events would record money that never counts.
+   * So no provider may take it; the ERP's currency is what needs fixing. */
   const {currencyCode, currencyScale} = prepared.data.money;
-  if (
-    adapter.capabilities.amountAs === 'minor-units' &&
-    currencyScale !== scaleOfCurrency(currencyCode)
-  ) {
+  if (currencyScale !== scaleOfCurrency(currencyCode)) {
     console.warn(
       `${currencyCode} has scale ${currencyScale} in the ERP but ${scaleOfCurrency(currencyCode)} at the providers; refusing to start`,
     );

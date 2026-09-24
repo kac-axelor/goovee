@@ -17,7 +17,7 @@ import type {
 } from './types';
 import {
   commandFor,
-  eventKeyFor,
+  eventIdFor,
   eventTypeForCode,
   fieldValue,
   numericCurrency,
@@ -124,7 +124,7 @@ function signalFromQuery(
     gateway: GATEWAY.paybox,
     resolution,
     type,
-    eventKey: eventKeyFor(type, attempt, transactionKey, code),
+    eventId: eventIdFor(type, attempt, transactionKey, code),
     amount: type === EVENT_TYPE.captured && amount ? Number(amount) : null,
     currencyCode: null,
     providerRef: transactionKey,
@@ -152,7 +152,6 @@ export const payboxAdapter: GatewayAdapter = {
     reportsDisputes: false,
     resolvesBy: 'reference',
     idempotency: 'reference',
-    amountAs: 'minor-units',
   },
 
   isConfigured(config) {

@@ -28,13 +28,6 @@ export type GatewayCapabilities = {
   resolvesBy: 'reference' | 'sessionRef';
   /** What makes a repeated create call harmless at the provider. */
   idempotency: 'provider-key' | 'reference';
-  /**
-   * How the provider is told the amount: as an integer in the currency's own
-   * minor units, or as a decimal string. The first reads our minor units
-   * correctly only where the ERP's scale for the currency is the currency's
-   * own, so a payment in any other is refused before it starts.
-   */
-  amountAs: 'minor-units' | 'decimal';
 };
 
 /** What the button does after the server created the session. */

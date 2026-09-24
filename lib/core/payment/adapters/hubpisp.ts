@@ -379,7 +379,7 @@ async function signalForLink(
     return {
       ...common,
       type: EVENT_TYPE.expired,
-      eventKey: `expire:${link.resourceId}`,
+      eventId: link.resourceId,
       amount: null,
       providerRef: null,
       correlationRefs: [link.resourceId],
@@ -424,7 +424,7 @@ async function signalForLink(
       return {
         ...common,
         type: EVENT_TYPE.captured,
-        eventKey: `capture:${requestId}`,
+        eventId: requestId,
         amount:
           typeof amount === 'number'
             ? toMinorUnits(amount, scaleOfCurrency(currency))
@@ -440,7 +440,7 @@ async function signalForLink(
       return {
         ...common,
         type: EVENT_TYPE.cancelled,
-        eventKey: `ended:${requestId}:CANC`,
+        eventId: `${requestId}:CANC`,
         amount: null,
         providerRef: requestId,
         correlationRefs,
@@ -452,7 +452,7 @@ async function signalForLink(
       return {
         ...common,
         type: EVENT_TYPE.refused,
-        eventKey: `ended:${requestId}:RJCT`,
+        eventId: `${requestId}:RJCT`,
         amount: null,
         providerRef: requestId,
         correlationRefs,
@@ -500,7 +500,6 @@ export const hubpispAdapter: GatewayAdapter = {
     reportsDisputes: false,
     resolvesBy: 'reference',
     idempotency: 'reference',
-    amountAs: 'decimal',
   },
 
   isConfigured(config) {

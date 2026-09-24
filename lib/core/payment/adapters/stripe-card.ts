@@ -29,7 +29,6 @@ export const stripeCardAdapter: GatewayAdapter = {
     reportsDisputes: true,
     resolvesBy: 'reference',
     idempotency: 'provider-key',
-    amountAs: 'minor-units',
   },
 
   isConfigured(config) {
@@ -136,7 +135,7 @@ export const stripeCardAdapter: GatewayAdapter = {
       return {
         ...signal,
         type: EVENT_TYPE.cancelled,
-        eventKey: `cancel:${session.id}`,
+        eventId: session.id,
       };
     }
     return signal;

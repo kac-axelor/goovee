@@ -163,7 +163,7 @@ function base(
   payload: unknown,
 ): Omit<
   GatewaySignal,
-  | 'eventKey'
+  | 'eventId'
   | 'amount'
   | 'currencyCode'
   | 'providerRef'
@@ -208,7 +208,7 @@ function signalForOrder(
   ) {
     return {
       ...base(EVENT_TYPE.captured, resolution, observedVia, payload),
-      eventKey: `capture:${capture.id}`,
+      eventId: capture.id,
       amount: captureAmount,
       currencyCode: captureCurrency,
       providerRef: capture.id,
@@ -224,9 +224,7 @@ function signalForOrder(
   if (declinedIssue || capture?.status === 'DECLINED') {
     return {
       ...base(EVENT_TYPE.refused, resolution, observedVia, payload),
-      eventKey: capture?.id
-        ? `refuse:${capture.id}`
-        : `refuse:${order.id}:${declinedIssue ?? 'DECLINED'}`,
+      eventId: capture?.id ?? `${order.id}:${declinedIssue ?? 'DECLINED'}`,
       amount: captureAmount,
       currencyCode: captureCurrency,
       providerRef: capture?.id ?? null,
@@ -239,7 +237,7 @@ function signalForOrder(
   if (order.status === 'VOIDED') {
     return {
       ...base(EVENT_TYPE.expired, resolution, observedVia, payload),
-      eventKey: `void:${order.id}`,
+      eventId: order.id,
       amount: null,
       currencyCode: null,
       providerRef: null,
@@ -270,7 +268,7 @@ function cancelledSignal(
       OBSERVED_VIA.return,
       payload,
     ),
-    eventKey: `cancel:${orderId}`,
+    eventId: orderId,
     amount: null,
     currencyCode: null,
     providerRef: null,
@@ -434,7 +432,7 @@ export function signalsForWebhookEvent(
             OBSERVED_VIA.webhook,
             payload,
           ),
-          eventKey: `${completed ? 'capture' : 'refuse'}:${id}`,
+          eventId: id,
           amount: minor(amount?.value, amount?.currency_code),
           currencyCode: amount?.currency_code?.toUpperCase() ?? null,
           providerRef: id,
@@ -460,7 +458,7 @@ export function signalsForWebhookEvent(
             OBSERVED_VIA.webhook,
             payload,
           ),
-          eventKey: `refund:${id}`,
+          eventId: id,
           amount: minor(amount?.value, amount?.currency_code),
           currencyCode: amount?.currency_code?.toUpperCase() ?? null,
           providerRef: id,
@@ -488,7 +486,7 @@ export function signalsForWebhookEvent(
             OBSERVED_VIA.webhook,
             payload,
           ),
-          eventKey: `dispute:${disputeId}`,
+          eventId: disputeId,
           amount: minor(disputeAmount?.value, disputeAmount?.currency_code),
           currencyCode: disputeAmount?.currency_code?.toUpperCase() ?? null,
           providerRef: disputeId,
@@ -521,7 +519,7 @@ export function signalsForWebhookEvent(
             OBSERVED_VIA.webhook,
             payload,
           ),
-          eventKey: `${DISPUTE_KEY_PREFIX[type]}:${disputeId}`,
+          eventId: disputeId,
           amount: minor(disputeAmount?.value, disputeAmount?.currency_code),
           currencyCode: disputeAmount?.currency_code?.toUpperCase() ?? null,
           providerRef: disputeId,
@@ -540,12 +538,6 @@ type DisputeOutcomeType =
   | typeof EVENT_TYPE.disputeWon
   | typeof EVENT_TYPE.disputeLost
   | typeof EVENT_TYPE.disputeClosed;
-
-const DISPUTE_KEY_PREFIX: Record<DisputeOutcomeType, string> = {
-  [EVENT_TYPE.disputeWon]: 'dispute-won',
-  [EVENT_TYPE.disputeLost]: 'dispute-lost',
-  [EVENT_TYPE.disputeClosed]: 'dispute-closed',
-};
 
 /**
  * PayPal's resolution of a dispute. Decided for us, cancelled by the buyer,
@@ -595,7 +587,6 @@ export const paypalAdapter: GatewayAdapter = {
     reportsDisputes: true,
     resolvesBy: 'reference',
     idempotency: 'provider-key',
-    amountAs: 'decimal',
   },
 
   isConfigured(config) {

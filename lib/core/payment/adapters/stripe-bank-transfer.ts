@@ -148,7 +148,6 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
     reportsDisputes: false,
     resolvesBy: 'reference',
     idempotency: 'provider-key',
-    amountAs: 'minor-units',
   },
 
   /* Without the signing secret nothing would ever confirm a transfer, and the

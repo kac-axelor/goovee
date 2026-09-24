@@ -2,7 +2,7 @@ import 'server-only';
 
 import type {Tenant} from '@/tenant';
 import {minorUnitsOf} from './domain/money';
-import type {GatewaySignal} from './domain/signal';
+import {eventIdOf, type GatewaySignal} from './domain/signal';
 import {OBSERVED_VIA, type EventType, type Gateway} from './domain/types';
 import {triggerProjection} from './project';
 import {settlePayment} from './settle';
@@ -54,7 +54,9 @@ export async function applyRecordedEvents({
        * payment, so there is nothing to resolve. */
       resolution: {by: 'reference', reference: entry.payment.reference},
       type: entry.type as EventType,
-      eventKey: entry.eventKey,
+      /* The ERP keyed the entry by the same rule, so its id is recovered from
+       * the key and settle makes the key again, unchanged. */
+      eventId: eventIdOf(entry.type as EventType, entry.eventKey),
       amount: entry.amount == null ? null : minorUnitsOf(entry.amount),
       currencyCode: entry.amount == null ? null : entry.payment.currencyCode,
       providerRef: entry.providerRef,
@@ -70,6 +72,25 @@ export async function applyRecordedEvents({
     };
 
     const outcome = await settlePayment({signal, tenant});
+
+    /* The key a reference makes is the provider's own, so a reference that
+     * names another payment's event finds that payment's row and changes
+     * nothing here; applying it would say the money moved when it did not. */
+    if (
+      outcome.outcome === 'duplicate' &&
+      outcome.recordedOn !== entry.payment.reference
+    ) {
+      await client.aOSPortalPaymentRecordedEvent.update({
+        data: {
+          id: entry.id,
+          version: entry.version,
+          status: RECORDED_STATUS.rejected,
+          error: `This reference is already recorded on payment ${outcome.recordedOn}; nothing was applied to this one. Check the reference.`,
+        },
+        select: {id: true},
+      });
+      continue;
+    }
 
     if (outcome.outcome === 'settled' || outcome.outcome === 'duplicate') {
       await client.aOSPortalPaymentRecordedEvent.update({
