@@ -86,6 +86,13 @@ export const JOB_KIND = {
 
 export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];
 
+/** Where an event that named no payment stands: waiting, matched to one, or dismissed as not ours. */
+export const UNMATCHED_STATUS = {
+  open: 'open',
+  matched: 'matched',
+  dismissed: 'dismissed',
+} as const;
+
 export const DELIVERY_STATUS = {
   pending: 'pending',
   delivered: 'delivered',

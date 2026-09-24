@@ -18,10 +18,12 @@ import {
   PAYMENT_SOURCE,
   PAYMENT_STATUS,
   SESSION_STATUS,
+  UNMATCHED_STATUS,
   type EventType,
   type PaymentStatus,
   type SessionStatus,
 } from './domain/types';
+import {dropReconcileIfSettled} from './reconcile-schedule';
 import {resolvePayment} from './resolve';
 import {getSourceHandler} from './sources/registry';
 import type {SubjectLinks} from './sources/types';
@@ -182,6 +184,17 @@ export async function settlePayment({
       await updateSession(txClient, session, signal, eventType);
       await recordCorrelationRefs(txClient, session.id, signal);
     }
+
+    /* A refund or dispute that came before we knew the charge it names waits
+     * as unmatched; now that this event names it, it joins the ledger here,
+     * before the status is worked out, so the status counts it. */
+    await replayUnmatched(
+      txClient,
+      payment.id,
+      session?.id ?? null,
+      signal.gateway,
+      signal.correlationRefs,
+    );
 
     /* An event in another currency, or converted at another scale than the
      * payment's, is recorded but never summed: minor units only add up when
@@ -349,6 +362,10 @@ export async function settlePayment({
       },
       select: {id: true},
     });
+
+    /* The backstop goes once the provider has told us the end of every
+     * session; a payment funded in part keeps it, since the rest may come. */
+    await dropReconcileIfSettled(txClient, payment.id, derived.status);
 
     return {
       outcome: 'settled',
@@ -635,6 +652,66 @@ async function dropDecision(
   return typeof last_error === 'string' ? last_error : null;
 }
 
+/**
+ * Moves the open unmatched events that name one of `refs` into this payment's
+ * ledger, each under its own event key, and marks them matched. Locked for the
+ * transaction, so two settles learning the same reference replay it once.
+ * Returns how many it moved.
+ */
+async function replayUnmatched(
+  txClient: Client,
+  paymentId: string,
+  sessionId: string | null,
+  gateway: string,
+  refs: string[],
+): Promise<number> {
+  const unique = [...new Set(refs)].filter(Boolean);
+  if (!unique.length) {
+    return 0;
+  }
+  const rows: unknown = await txClient.$raw(
+    `SELECT id FROM portal_portal_payment_unmatched_event
+      WHERE status = $1 AND gateway = $2 AND correlation_ref = ANY($3::text[])
+      ORDER BY observed_on
+      FOR UPDATE`,
+    UNMATCHED_STATUS.open,
+    gateway,
+    unique,
+  );
+  if (!Array.isArray(rows) || !rows.length) {
+    return 0;
+  }
+  const ids = rows.flatMap((row: unknown) =>
+    typeof row === 'object' && row !== null && 'id' in row
+      ? [String((row as {id: unknown}).id)]
+      : [],
+  );
+  await txClient.$raw(
+    `INSERT INTO portal_portal_payment_event
+       (id, version, created_on, payment, session, gateway, event_key, type, amount,
+        currency_code, currency_scale, observed_via, observed_on, provider_ref, payload)
+     SELECT nextval('portal_portal_payment_event_seq'), 0, now(), $1, $2, gateway, event_key,
+            type, amount, currency_code, currency_scale, observed_via, observed_on,
+            provider_ref, payload
+       FROM portal_portal_payment_unmatched_event
+      WHERE id = ANY($3::bigint[])
+     ON CONFLICT (gateway, event_key) DO NOTHING`,
+    paymentId,
+    sessionId,
+    ids,
+  );
+  await txClient.$raw(
+    `UPDATE portal_portal_payment_unmatched_event
+        SET status = $2, matched_payment = $3, resolved_on = now(), updated_on = now(),
+            version = COALESCE(version, 0) + 1
+      WHERE id = ANY($1::bigint[])`,
+    ids,
+    UNMATCHED_STATUS.matched,
+    paymentId,
+  );
+  return ids.length;
+}
+
 async function recordUnmatched({
   signal,
   client,
@@ -657,7 +734,7 @@ async function recordUnmatched({
        (id, version, created_on, gateway, event_key, correlation_ref, type, amount, currency_code,
         currency_scale, observed_via, observed_on, provider_ref, payload, status)
      VALUES (nextval('portal_portal_payment_unmatched_event_seq'), 0, now(), $1, $2, $3, $4, $5, $6,
-             $7, $8, $9, $10, $11, 'open')
+             $7, $8, $9, $10, $11, $12)
      ON CONFLICT (gateway, event_key) DO NOTHING`,
     signal.gateway,
     signal.eventKey,
@@ -670,6 +747,7 @@ async function recordUnmatched({
     signal.observedOn,
     signal.providerRef,
     JSON.stringify(signal.payload ?? null),
+    UNMATCHED_STATUS.open,
   );
 }
 

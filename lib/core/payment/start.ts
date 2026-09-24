@@ -23,6 +23,11 @@ import {
   type PaymentStatus,
 } from './domain/types';
 import {writeSnapshot} from './intent';
+import {
+  reconcileSchedule,
+  rescheduleFromSessions,
+  scheduleReconcile,
+} from './reconcile-schedule';
 import {getSourceHandler} from './sources/registry';
 import type {PreparedIntent} from './sources/types';
 import {paymentPageUrl} from './urls';
@@ -170,6 +175,7 @@ export async function startPayment({
   }
 
   const idempotencyKey = randomUUID();
+  const startedOn = new Date();
   const {paymentId, reference, sessionId, sessionVersion} =
     await client.$transaction(async txClient => {
       /* The same purchase pressed again keeps its payment untouched: the key
@@ -215,6 +221,15 @@ export async function startPayment({
         },
         select: {id: true, version: true},
       });
+
+      /* Written before the provider is called, so a session whose call never
+       * comes back is still looked at; moved to the handoff's own expiry once
+       * the provider has answered. */
+      await scheduleReconcile(
+        txClient,
+        payment.id,
+        reconcileSchedule({gateway, startedOn, expiresOn: null}),
+      );
 
       return {
         paymentId: payment.id,
@@ -296,6 +311,9 @@ export async function startPayment({
       gateway,
       PAYMENT_STATUS.initiated,
     );
+    /* The provisional schedule gives way to one worked out from the
+     * handoff's expiry, which the update above has just recorded. */
+    await rescheduleFromSessions(txClient, paymentId);
   });
 
   return {success: true, data: {reference, handoff: created.handoff}};

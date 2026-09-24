@@ -2,7 +2,10 @@ import 'server-only';
 
 import type {Tenant} from '@/tenant';
 import {JOB_KIND, type JobKind} from './domain/types';
+import {DEFAULT_LOCALE} from '@/locale/contants';
+import {runInBackground} from '@/locale/server/background';
 import {notifyPayment} from './notify';
+import {reconcilePayment} from './reconcile';
 import {withdrawUnneededTransfers} from './transfers';
 
 /*
@@ -30,7 +33,22 @@ const FIRST_RETRY_SECONDS = 60;
 const MAX_RETRY_SECONDS = 60 * 60;
 const BATCH_SIZE = 20;
 
-type JobHandler = (args: {tenant: Tenant; paymentId: string}) => Promise<void>;
+/**
+ * What a handler asks of its job once it has run: nothing, and the job is
+ * done and removed; to run again at a later time, as a check that found
+ * nothing yet does, with when a person will be needed if it still finds
+ * nothing; or to wait for a person, with the reason they will read. A handler
+ * that throws is retried with a backoff instead.
+ */
+export type JobOutcome =
+  | void
+  | {runAgainAt: Date; decideBy?: Date}
+  | {needsDecision: string};
+
+type JobHandler = (args: {
+  tenant: Tenant;
+  paymentId: string;
+}) => Promise<JobOutcome>;
 
 const HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KIND.cancelTransfers]: async ({tenant, paymentId}) => {
@@ -39,6 +57,8 @@ const HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KIND.notify]: async ({tenant, paymentId}) => {
     await notifyPayment({tenant, paymentId});
   },
+  [JOB_KIND.reconcile]: ({tenant, paymentId}) =>
+    reconcilePayment({tenant, paymentId}),
 };
 
 const GOOVEE_KINDS = Object.keys(HANDLERS);
@@ -115,7 +135,38 @@ async function claim(
 /* Keyed on the version this claim set, which only ever grows: a capture that
  * queued the same job again while this one ran moved it on, and that fresh
  * request must still run, even if another claim has taken it since. */
-async function complete(tenant: Tenant, job: ClaimedJob): Promise<void> {
+async function complete(
+  tenant: Tenant,
+  job: ClaimedJob,
+  outcome: JobOutcome,
+): Promise<void> {
+  if (outcome && 'runAgainAt' in outcome) {
+    /* Not a failure: the backoff and the last error start afresh. */
+    await tenant.client.$raw(
+      `UPDATE portal_portal_payment_job
+          SET next_attempt_on = $3, escalate_on = COALESCE($4, escalate_on),
+              attempts = 0, classification = NULL, last_error = NULL, updated_on = now()
+        WHERE id = $1 AND version = $2`,
+      job.id,
+      job.version,
+      outcome.runAgainAt,
+      outcome.decideBy ?? null,
+    );
+    return;
+  }
+  if (outcome && 'needsDecision' in outcome) {
+    /* Never claimed again: it waits on the grid until a person acts. */
+    await tenant.client.$raw(
+      `UPDATE portal_portal_payment_job
+          SET classification = 'needs_decision', escalate_on = now(),
+              last_error = $3, updated_on = now()
+        WHERE id = $1 AND version = $2`,
+      job.id,
+      job.version,
+      outcome.needsDecision.slice(0, 4000),
+    );
+    return;
+  }
   await tenant.client.$raw(
     `DELETE FROM portal_portal_payment_job WHERE id = $1 AND version = $2`,
     job.id,
@@ -169,8 +220,14 @@ export async function runPaymentJobs({
       continue;
     }
     try {
-      await handler({tenant, paymentId: job.paymentId});
-      await complete(tenant, job);
+      /* Every job runs as background work, whether the clock or a request's
+       * after() started it: what it translates is for the tenant, not for
+       * whoever happened to be browsing. */
+      const outcome = await runInBackground(
+        {tenant: tenant.id, locale: DEFAULT_LOCALE},
+        () => handler({tenant, paymentId: job.paymentId}),
+      );
+      await complete(tenant, job, outcome);
       summary.completed += 1;
     } catch (error) {
       console.error(

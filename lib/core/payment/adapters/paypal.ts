@@ -649,13 +649,26 @@ export const paypalAdapter: GatewayAdapter = {
 
   async fetchStatus(sessionRef, context) {
     const paypal = paypalConfig(context.config);
-    const signal = await settleOrder(
-      ordersController(paypal),
-      sessionRef,
-      context.tenantId,
-      OBSERVED_VIA.reconcile,
-      {source: 'reconcile', orderId: sessionRef},
-    );
+    let signal;
+    try {
+      signal = await settleOrder(
+        ordersController(paypal),
+        sessionRef,
+        context.tenantId,
+        OBSERVED_VIA.reconcile,
+        {source: 'reconcile', orderId: sessionRef},
+      );
+    } catch (error) {
+      /* The SDK's own error carries no message; the status and PayPal's
+       * issue code are what a person needs to look the order up. */
+      if (error instanceof ApiError) {
+        throw new Error(
+          `PayPal answered ${error.statusCode}${issueOf(error) ? ` ${issueOf(error)}` : ''} for order ${sessionRef}`,
+          {cause: error},
+        );
+      }
+      throw error;
+    }
     if (!signal) {
       throw new Error(`PayPal order ${sessionRef} is not one of ours`);
     }

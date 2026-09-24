@@ -21,14 +21,11 @@ export async function register() {
   const {checkPushConfig} = await import('@/pwa/startup');
   checkPushConfig();
 
-  /* Prepares every database and connects every tenant in the background, then
-   * resumes the payment polling each tenant had pending when the server last
-   * stopped. A database that is not reachable yet is retried with backoff, and
-   * one tenant failing never holds up the rest. */
-  const [{startTenants}, {resumeHubPispPolling}] = await Promise.all([
-    import('@/tenant/startup'),
-    import('@/payment/hubpisp/startup'),
-  ]);
+  /* Prepares every database and connects every tenant in the background. A
+   * database that is not reachable yet is retried with backoff, and one tenant
+   * failing never holds up the rest. Payments left open when the server last
+   * stopped are the payment jobs' to look at, not something resumed here. */
+  const {startTenants} = await import('@/tenant/startup');
 
-  startTenants(tenantId => resumeHubPispPolling({tenantId}));
+  startTenants();
 }
