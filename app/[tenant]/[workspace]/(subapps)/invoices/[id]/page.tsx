@@ -11,7 +11,6 @@ import {SUBAPP_CODES} from '@/constants';
 import {currentWorkspace} from '@/url/current';
 import {PartnerKey} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
-import {canSettleStripeBankTransfer} from '@/payment/stripe';
 import {PAYMENT_SOURCE} from '@/payment/domain/types';
 import {offeredGateways} from '@/payment/offer';
 import {mintSubmitToken} from '@/payment/submit-token';
@@ -73,9 +72,6 @@ async function Invoice({
         invoice={clone(invoice)}
         config={clone(config)}
         token={access.token}
-        allowStripeBankTransfer={canSettleStripeBankTransfer(
-          access.tenant.config,
-        )}
         gateways={offeredGateways({
           source: PAYMENT_SOURCE.invoices,
           paymentOptions: config.paymentOptionSet,
@@ -121,9 +117,6 @@ async function Invoice({
     <Content
       invoice={clone(invoice)}
       config={clone(config)}
-      allowStripeBankTransfer={canSettleStripeBankTransfer(
-        access.tenant.config,
-      )}
       gateways={offeredGateways({
         source: PAYMENT_SOURCE.invoices,
         paymentOptions: config.paymentOptionSet,

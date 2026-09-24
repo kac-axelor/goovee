@@ -33,9 +33,9 @@ function hubPispOptions(
 }
 
 /**
- * The gateways a checkout may offer: named by the workspace's online payment
- * methods and configured on the tenant. Computed on the server, so the button
- * component never reads tenant configuration.
+ * The gateways a checkout may offer: accepted by the source, named by the
+ * workspace's online payment methods and configured on the tenant. Computed on
+ * the server, so the button component never reads tenant configuration.
  */
 export function offeredGateways({
   source,
@@ -46,13 +46,15 @@ export function offeredGateways({
   paymentOptions: PaymentConfig['paymentOptionSet'] | undefined;
   tenantConfig: TenantConfig;
 }): OfferedGateway[] {
+  const handler = getSourceHandler(source);
   /* A source with no fallback payment mode is not offered a method the
    * workspace maps to none; the server refuses it on press too. */
-  const requirePaymentMode = !!getSourceHandler(source).requiresPaymentMode;
+  const requirePaymentMode = !!handler.requiresPaymentMode;
   return listAdapters()
     .filter(adapter => {
       const option = paymentOptionFor(adapter.gateway);
       return (
+        handler.gateways.includes(adapter.gateway) &&
         isPaymentOptionAvailable(paymentOptions, option) &&
         adapter.isConfigured(tenantConfig) &&
         (!requirePaymentMode || !!getPaymentModeId(paymentOptions, option))

@@ -6,7 +6,7 @@ import {currentWorkspace} from '@/url/current';
 import {t} from '@/locale/server';
 import {SUBAPP_CODES} from '@/constants';
 import {toMinorUnits, resolveCurrency} from '@/payment/domain/money';
-import {PAYMENT_SOURCE} from '@/payment/domain/types';
+import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
 import {
   resolveInvoicePaymentAccess,
@@ -36,6 +36,18 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
   source: PAYMENT_SOURCE.invoices,
 
   intentSchema: InvoiceIntentSchema,
+
+  /* Every gateway, the asynchronous ones included: an invoice payer can always
+   * come back to the invoice — signed in, or through the invoice's own link —
+   * and see a transfer that settled days later applied to it. */
+  gateways: [
+    GATEWAY.stripeCard,
+    GATEWAY.stripeBankTransfer,
+    GATEWAY.hubpisp,
+    GATEWAY.paypal,
+    GATEWAY.paybox,
+    GATEWAY.up2pay,
+  ],
 
   async prepare({intent, tenant}) {
     const scope = await currentWorkspace();

@@ -5,7 +5,7 @@ import type {Client} from '@/goovee/.generated/client';
 import type {PaymentConfig} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
 import type {ActionResponse} from '@/types/action';
-import type {Money, PaymentSource} from '../domain/types';
+import type {Gateway, Money, PaymentSource} from '../domain/types';
 import type {BillingDetails} from '../adapters/types';
 
 /** The ERP rows a payment is for. Exactly one is set once delivery has succeeded. */
@@ -70,6 +70,15 @@ export interface PaymentSourceHandler<TIntent = unknown> {
    * the refusal happens before any money is taken.
    */
   requiresPaymentMode?: boolean;
+
+  /**
+   * The gateways this source may be paid through. Nothing outside the list is
+   * offered, and a start naming one is refused, so a gateway added to the
+   * registry reaches a source only when that source opts in. Asynchronous
+   * gateways, which settle days after the buyer leaves, belong only to sources
+   * whose payer can come back to the result.
+   */
+  gateways: readonly Gateway[];
 
   /** Authorises the caller for the subject and prices it. Runs before T1, outside any transaction. */
   prepare(args: {

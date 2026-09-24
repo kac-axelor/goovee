@@ -35,7 +35,6 @@ interface ContentProps {
   invoice: Cloned<InvoiceType>;
   config: InvoicesConfig | Cloned<InvoicesConfig>;
   token?: string;
-  allowStripeBankTransfer: boolean;
   gateways: OfferedGateway[];
   submitToken: string;
 }
@@ -74,7 +73,6 @@ export default function Content({
   invoice,
   config,
   token,
-  allowStripeBankTransfer,
   gateways,
   submitToken,
 }: ContentProps) {
@@ -189,7 +187,6 @@ export default function Content({
               config={config}
               token={token}
               onPaymentUpdate={handlePaymentUpdate}
-              allowStripeBankTransfer={allowStripeBankTransfer}
               gateways={gateways}
               submitToken={submitToken}
             />

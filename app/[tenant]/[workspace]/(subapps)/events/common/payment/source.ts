@@ -8,7 +8,7 @@ import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
 import {t} from '@/locale/server';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
-import {PAYMENT_SOURCE} from '@/payment/domain/types';
+import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
 import {IdSchema} from '@/utils/validators';
 import {scale} from '@/utils';
@@ -51,6 +51,16 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
   source: PAYMENT_SOURCE.events,
 
   intentSchema: EventIntentSchema,
+
+  /* The gateways that settle while the payer waits. A guest registers with no
+   * account and no link to come back through, so a transfer that settled days
+   * later would reach nobody. */
+  gateways: [
+    GATEWAY.stripeCard,
+    GATEWAY.paypal,
+    GATEWAY.paybox,
+    GATEWAY.up2pay,
+  ],
 
   async prepare({intent}) {
     const access = await ensureAccess({

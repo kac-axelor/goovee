@@ -59,6 +59,14 @@ export async function startPayment({
   option?: string;
 }): ActionResponse<StartResult> {
   const handler = getSourceHandler(source);
+  /* Checked before anything is priced or written: the offer is only what the
+   * page rendered, and a start can name any gateway. */
+  if (!handler.gateways.includes(gateway)) {
+    return {
+      error: true,
+      message: await t('This payment method is not available'),
+    };
+  }
   const parsedIntent = handler.intentSchema.safeParse(intent);
   if (!parsedIntent.success) {
     return {error: true, message: await t('Invalid payment request')};

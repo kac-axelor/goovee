@@ -193,7 +193,6 @@ export type TotalProps = {
   invoiceType: string;
   token?: string;
   onPaymentUpdate?: (status: PaymentUpdateStatus) => void;
-  allowStripeBankTransfer: boolean;
   /** The gateways this tenant and workspace offer, decided on the server. */
   gateways: OfferedGateway[];
   /** Minted when the page rendered; a second press finds the same payment. */

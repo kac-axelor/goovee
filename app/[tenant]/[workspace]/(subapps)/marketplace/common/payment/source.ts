@@ -8,7 +8,7 @@ import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
-import {PAYMENT_SOURCE} from '@/payment/domain/types';
+import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
 import {getPartnerId} from '@/utils';
 
@@ -50,6 +50,16 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
     intentSchema: MarketplaceIntentSchema,
 
     requiresPaymentMode: true,
+
+    /* The gateways that settle while the buyer waits. A transfer that settles
+     * days later would leave nothing to show for it in the meantime, and no
+     * way back to the result but the purchase history. */
+    gateways: [
+      GATEWAY.stripeCard,
+      GATEWAY.paypal,
+      GATEWAY.paybox,
+      GATEWAY.up2pay,
+    ],
 
     async prepare({intent}) {
       const access = await ensureAccess({code: SUBAPP_CODES.marketplace});

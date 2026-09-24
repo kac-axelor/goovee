@@ -1,6 +1,7 @@
 'use client';
 
 import {useRef, useState} from 'react';
+import {CreditCard, Landmark} from 'lucide-react';
 import {
   PayPalOneTimePaymentButton,
   PayPalProvider,
@@ -9,7 +10,16 @@ import {
 // ---- CORE IMPORTS ---- //
 import {i18n, l10n} from '@/locale';
 import {transformLocale} from '@/locale/utils';
-import {Button, Portal, Spinner} from '@/ui/components';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Portal,
+  Spinner,
+} from '@/ui/components';
 import {useToast} from '@/ui/hooks';
 import {useEnvironment} from '@/environment';
 import {
@@ -28,15 +38,24 @@ type GatewayPresentation = {
   className: string;
 };
 
-const PRESENTATION: Record<Gateway, GatewayPresentation> = {
-  [GATEWAY.stripeCard]: {
-    label: () => i18n.t('Pay by card'),
-    className: 'bg-[#635bff] hover:bg-[#5851e0]',
-  },
-  [GATEWAY.stripeBankTransfer]: {
-    label: () => i18n.t('Pay by bank transfer'),
-    className: 'bg-[#635bff]',
-  },
+/* Stripe's gateways share one provider account and one button, so they are
+ * presented together below rather than one button each. */
+type StripeGateway =
+  | typeof GATEWAY.stripeCard
+  | typeof GATEWAY.stripeBankTransfer;
+
+const STRIPE_GATEWAYS: readonly Gateway[] = [
+  GATEWAY.stripeCard,
+  GATEWAY.stripeBankTransfer,
+];
+
+const isStripe = (offered: OfferedGateway) =>
+  STRIPE_GATEWAYS.includes(offered.gateway);
+
+const PRESENTATION: Record<
+  Exclude<Gateway, StripeGateway>,
+  GatewayPresentation
+> = {
   [GATEWAY.paypal]: {
     label: () => i18n.t('Pay with PayPal'),
     className: 'bg-[#ffc439] text-ink-900',
@@ -191,6 +210,182 @@ function PaypalButton({disabled, start}: {disabled?: boolean; start: Starter}) {
   );
 }
 
+type StripeOption = {
+  offered: OfferedGateway;
+  icon: typeof CreditCard;
+  /** Written as literal calls so the keys stay visible to the extractor. */
+  title: () => string;
+  description: () => string;
+};
+
+/**
+ * One button for however many Stripe gateways the source is offered. Card
+ * alone goes straight to Stripe's checkout; with a bank transfer on offer too
+ * the buyer chooses first. A transfer is confirmed before it starts, because
+ * Stripe applies whatever cash balance the buyer already holds with it the
+ * moment the transfer is created.
+ */
+function StripeButton({
+  offers,
+  disabled,
+  busy,
+  validate,
+  launch,
+}: {
+  offers: OfferedGateway[];
+  disabled?: boolean;
+  busy: boolean;
+  /** The caller's pre-flight, run before any choice is shown. */
+  validate: () => Promise<boolean>;
+  /** Starts an already-validated gateway and performs its handoff. */
+  launch: (offered: OfferedGateway) => Promise<void>;
+}) {
+  const [choosing, setChoosing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [validating, setValidating] = useState(false);
+
+  const card = offers.find(offered => offered.gateway === GATEWAY.stripeCard);
+  const transfer = offers.find(
+    offered => offered.gateway === GATEWAY.stripeBankTransfer,
+  );
+
+  const options: StripeOption[] = [
+    ...(card
+      ? [
+          {
+            offered: card,
+            icon: CreditCard,
+            title: () => i18n.t('Credit or Debit Card'),
+            description: () => i18n.t('Pay immediately with your card'),
+          },
+        ]
+      : []),
+    ...(transfer
+      ? [
+          {
+            offered: transfer,
+            icon: Landmark,
+            title: () => i18n.t('Bank Transfer'),
+            description: () =>
+              i18n.t('Pay via bank transfer (1-3 business days)'),
+          },
+        ]
+      : []),
+  ];
+
+  const choose = (offered: OfferedGateway) => {
+    setChoosing(false);
+    if (offered.gateway === GATEWAY.stripeBankTransfer) {
+      setConfirming(true);
+      return;
+    }
+    void launch(offered);
+  };
+
+  /* The pre-flight can take a while — a form re-validates itself — so the
+   * button stays disabled until it answers. */
+  const open = async () => {
+    if (validating) return;
+    setValidating(true);
+    try {
+      if (!(await validate())) {
+        return;
+      }
+    } finally {
+      setValidating(false);
+    }
+    if (options.length === 1) {
+      choose(options[0].offered);
+      return;
+    }
+    setChoosing(true);
+  };
+
+  return (
+    <>
+      <Button
+        type="button"
+        className="h-[50px] w-full bg-[#635bff] text-lg font-medium hover:bg-[#5851e0]"
+        disabled={disabled || validating}
+        onClick={open}>
+        {busy ? i18n.t('Redirecting…') : i18n.t('Pay with Stripe')}
+      </Button>
+
+      <Dialog open={choosing} onOpenChange={setChoosing}>
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>
+              {i18n.t('Select Payment Method (Stripe)')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            {options.map(({offered, icon: Icon, title, description}) => (
+              <button
+                key={offered.gateway}
+                type="button"
+                className="flex items-center gap-3 rounded-lg border border-ink-200 p-3 text-left hover:bg-ink-50"
+                onClick={() => choose(offered)}>
+                <Icon className="h-6 w-6 shrink-0 text-ink-700" />
+                <span>
+                  <span className="block font-medium text-ink-900">
+                    {title()}
+                  </span>
+                  <span className="block text-sm text-ink-500">
+                    {description()}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{i18n.t('Confirm Bank Transfer')}</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  {i18n.t(
+                    'Bank transfers may immediately use your existing Stripe balance.',
+                  )}
+                </p>
+                <p className="text-sm text-ink-500">
+                  {i18n.t(
+                    'If you already have sufficient balance, this payment will be completed instantly and funds will be deducted.',
+                  )}
+                </p>
+                <p className="text-sm font-medium text-ink-500">
+                  {i18n.t('This action cannot be undone.')}
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirming(false)}>
+              {i18n.t('Cancel')}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                if (transfer) {
+                  void launch(transfer);
+                }
+              }}>
+              {i18n.t('Continue')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function keyOf(offered: OfferedGateway): string {
   return offered.option
     ? `${offered.gateway}:${offered.option}`
@@ -198,8 +393,9 @@ function keyOf(offered: OfferedGateway): string {
 }
 
 /**
- * One button per gateway the server offers. The intent is opaque here: the
- * component sends `{source, intent, submitToken}` and the server prices it.
+ * One button per gateway the server offers, except Stripe's, which share one.
+ * The intent is opaque here: the component sends `{source, intent,
+ * submitToken}` and the server prices it.
  */
 export function PaymentMethods({
   gateways,
@@ -216,17 +412,20 @@ export function PaymentMethods({
 }) {
   const {toast} = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  /* `busy` is state, so two presses handled in the same render both read it
+   * as clear; this is what actually stops a second payment from starting. */
+  const starting = useRef(false);
 
   if (gateways.length === 0) {
     return null;
   }
 
-  /* Validates, starts the payment on the server and returns the handoff, or
-   * null after showing why not. Shared by the plain buttons and the SDK one. */
-  const start: Starter = async offered => {
-    if (onValidate && !(await onValidate(offered.gateway))) {
-      return null;
-    }
+  const validate = async (gateway: Gateway) =>
+    !onValidate || (await onValidate(gateway));
+
+  /* Starts the payment on the server and returns the handoff, or null after
+   * showing why not. */
+  const begin: Starter = async offered => {
     try {
       const result = await startPaymentAction({
         gateway: offered.gateway,
@@ -249,11 +448,16 @@ export function PaymentMethods({
     }
   };
 
-  const press = async (offered: OfferedGateway) => {
-    if (busy) return;
+  /* Validates, then starts. Shared by the plain buttons and the SDK one. */
+  const start: Starter = async offered =>
+    (await validate(offered.gateway)) ? begin(offered) : null;
+
+  const run = async (offered: OfferedGateway, starter: Starter) => {
+    if (starting.current) return;
+    starting.current = true;
     setBusy(keyOf(offered));
     try {
-      const handoff = await start(offered);
+      const handoff = await starter(offered);
       if (handoff && !performHandoff(handoff)) {
         toast({
           variant: 'destructive',
@@ -261,15 +465,45 @@ export function PaymentMethods({
         });
       }
     } finally {
+      starting.current = false;
       setBusy(null);
     }
   };
+
+  const press = (offered: OfferedGateway) => run(offered, start);
+  /* For a button that validated before letting the buyer choose. */
+  const launch = (offered: OfferedGateway) => run(offered, begin);
+
+  const stripeOffers = gateways.filter(isStripe);
+  const stripeBusy = stripeOffers.some(offered => keyOf(offered) === busy);
 
   return (
     <div className="flex flex-col gap-3">
       {gateways.map(offered => {
         const key = keyOf(offered);
-        if (offered.gateway === GATEWAY.paypal) {
+        const {gateway} = offered;
+        if (
+          gateway === GATEWAY.stripeCard ||
+          gateway === GATEWAY.stripeBankTransfer
+        ) {
+          /* Rendered once, where the first Stripe gateway falls in the order. */
+          if (offered !== stripeOffers[0]) {
+            return null;
+          }
+          return (
+            <StripeButton
+              key="stripe"
+              offers={stripeOffers}
+              disabled={disabled || busy !== null}
+              busy={stripeBusy}
+              /* The caller's pre-flight does not depend on which Stripe gateway
+               * the buyer will pick, and it has to pass before they pick. */
+              validate={() => validate(gateway)}
+              launch={launch}
+            />
+          );
+        }
+        if (gateway === GATEWAY.paypal) {
           return (
             <PaypalButton
               key={key}
@@ -278,7 +512,7 @@ export function PaymentMethods({
             />
           );
         }
-        const presentation = PRESENTATION[offered.gateway];
+        const presentation = PRESENTATION[gateway];
         return (
           <Button
             key={key}

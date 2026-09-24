@@ -11,7 +11,7 @@ import {t} from '@/locale/server';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {shouldHidePricesAndPurchase} from '@/orm/product';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
-import {PAYMENT_SOURCE} from '@/payment/domain/types';
+import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
 import {computeTotal} from '@/utils/cart';
 
@@ -87,6 +87,16 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
   source: PAYMENT_SOURCE.shop,
 
   intentSchema: ShopIntentSchema,
+
+  /* The gateways that settle while the buyer waits. The order is recorded only
+   * once the money is captured, so a transfer that settled days later would
+   * hold the cart's goods in limbo with nothing for the buyer to come back to. */
+  gateways: [
+    GATEWAY.stripeCard,
+    GATEWAY.paypal,
+    GATEWAY.paybox,
+    GATEWAY.up2pay,
+  ],
 
   async prepare({intent}) {
     const access = await ensureAccess({
