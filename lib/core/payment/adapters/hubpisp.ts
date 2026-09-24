@@ -384,6 +384,7 @@ async function signalForLink(
       providerRef: null,
       correlationRefs: [link.resourceId],
       reason: null,
+      deadline: null,
       payload: {...payload, consentStatus: link.consentStatus},
     };
   }
@@ -431,6 +432,7 @@ async function signalForLink(
         providerRef: requestId,
         correlationRefs,
         reason: null,
+        deadline: null,
         payload: detail,
       };
     }
@@ -443,6 +445,7 @@ async function signalForLink(
         providerRef: requestId,
         correlationRefs,
         reason,
+        deadline: null,
         payload: detail,
       };
     case 'RJCT':
@@ -454,6 +457,7 @@ async function signalForLink(
         providerRef: requestId,
         correlationRefs,
         reason: reason ?? 'RJCT',
+        deadline: null,
         payload: detail,
       };
     default:

@@ -26,6 +26,7 @@ import {
   validateCart,
   type ValidatedCart,
 } from '../utils/cart';
+import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
 
 const MarketplaceIntentSchema = z.object({
   productIds: CartProductIdsSchema,
@@ -135,7 +136,7 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
             url: access.workspace.url,
             configId: access.workspace.config.id,
           },
-          subject: {},
+          subject: null,
           snapshot,
         },
       };
@@ -191,7 +192,10 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
         paymentContextId: null,
       });
 
-      return {delivered: true, subject: {marketplaceProductOrder: orderId}};
+      return {
+        delivered: true,
+        subject: {model: SUBJECT_MODEL.marketplaceOrder, id: orderId},
+      };
     },
 
     async notify({payment, subject, snapshot, tenant}) {
@@ -210,7 +214,7 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
     },
 
     onwardLink({subject}) {
-      const orderId = subject.marketplaceProductOrder;
+      const orderId = subjectIdOf(subject, SUBJECT_MODEL.marketplaceOrder);
       if (!orderId) {
         return `/${SUBAPP_CODES.marketplace}/cart`;
       }

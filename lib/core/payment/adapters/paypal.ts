@@ -114,6 +114,7 @@ const HANDLED_EVENTS = new Set([
   'PAYMENT.CAPTURE.REFUNDED',
   'PAYMENT.CAPTURE.REVERSED',
   'CUSTOMER.DISPUTE.CREATED',
+  'CUSTOMER.DISPUTE.RESOLVED',
 ]);
 
 type WebhookEvent = {
@@ -174,6 +175,7 @@ function base(
     gateway: GATEWAY.paypal,
     resolution,
     type,
+    deadline: null,
     observedVia,
     observedOn: new Date(),
     payload,
@@ -493,12 +495,90 @@ export function signalsForWebhookEvent(
           sessionRef: null,
           correlationRefs: [],
           reason: typeof resource.reason === 'string' ? resource.reason : null,
+          deadline: dateOf(resource.seller_response_due_date),
+        },
+      ];
+    }
+    case 'CUSTOMER.DISPUTE.RESOLVED': {
+      const disputeId =
+        typeof resource.dispute_id === 'string' ? resource.dispute_id : null;
+      const transactions = resource.disputed_transactions as
+        | {seller_transaction_id?: string}[]
+        | undefined;
+      const captureId = transactions?.[0]?.seller_transaction_id ?? null;
+      const disputeAmount = resource.dispute_amount as PaypalMoney | undefined;
+      const outcome = resource.dispute_outcome as
+        | {outcome_code?: string}
+        | undefined;
+      const code = outcome?.outcome_code ?? null;
+      const type = disputeOutcomeType(code);
+      if (!disputeId || !captureId) return [];
+      return [
+        {
+          ...base(
+            type,
+            {by: 'correlationRef', correlationRef: captureId},
+            OBSERVED_VIA.webhook,
+            payload,
+          ),
+          eventKey: `${DISPUTE_KEY_PREFIX[type]}:${disputeId}`,
+          amount: minor(disputeAmount?.value, disputeAmount?.currency_code),
+          currencyCode: disputeAmount?.currency_code?.toUpperCase() ?? null,
+          providerRef: disputeId,
+          sessionRef: null,
+          correlationRefs: [],
+          reason: code,
         },
       ];
     }
     default:
       return [];
   }
+}
+
+type DisputeOutcomeType =
+  | typeof EVENT_TYPE.disputeWon
+  | typeof EVENT_TYPE.disputeLost
+  | typeof EVENT_TYPE.disputeClosed;
+
+const DISPUTE_KEY_PREFIX: Record<DisputeOutcomeType, string> = {
+  [EVENT_TYPE.disputeWon]: 'dispute-won',
+  [EVENT_TYPE.disputeLost]: 'dispute-lost',
+  [EVENT_TYPE.disputeClosed]: 'dispute-closed',
+};
+
+/**
+ * PayPal's resolution of a dispute. Decided for us, cancelled by the buyer,
+ * or paid out of PayPal's own protection, the money stays with us; decided for
+ * the buyer, it is gone. NONE means a new dispute on the same transaction took
+ * this one's place and opens on its own. ACCEPTED and DENIED are PayPal's
+ * older words for the buyer's and our favour. A code PayPal adds later is read
+ * as lost, which keeps the payment charged back and its item open with the
+ * code for finance to read, rather than releasing money we cannot vouch for.
+ */
+export function disputeOutcomeType(code: string | null): DisputeOutcomeType {
+  switch (code) {
+    case 'RESOLVED_SELLER_FAVOUR':
+    case 'CANCELED_BY_BUYER':
+    case 'RESOLVED_WITH_PAYOUT':
+    case 'DENIED':
+      return EVENT_TYPE.disputeWon;
+    case 'NONE':
+      return EVENT_TYPE.disputeClosed;
+    case 'RESOLVED_BUYER_FAVOUR':
+    case 'ACCEPTED':
+    default:
+      return EVENT_TYPE.disputeLost;
+  }
+}
+
+/* An RFC 3339 date as PayPal sends it, or null for anything unreadable. */
+function dateOf(value: unknown): Date | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export const paypalAdapter: GatewayAdapter = {

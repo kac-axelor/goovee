@@ -5,16 +5,9 @@ import type {Client} from '@/goovee/.generated/client';
 import type {PaymentConfig} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
 import type {ActionResponse} from '@/types/action';
+import type {Subject} from '../domain/subject';
 import type {Gateway, Money, PaymentSource} from '../domain/types';
 import type {BillingDetails} from '../adapters/types';
-
-/** The ERP rows a payment is for. Exactly one is set once delivery has succeeded. */
-export type SubjectLinks = {
-  invoice?: string;
-  registration?: string;
-  marketplaceProductOrder?: string;
-  shopOrderRequest?: string;
-};
 
 /** What the source needs to remember between the button press and delivery. Stored as JSON. */
 export type IntentSnapshot = JsonObject;
@@ -32,15 +25,16 @@ export type PreparedIntent = {
   paymentOptions: PaymentConfig['paymentOptionSet'];
   /** The workspace and the app configuration the checkout ran under; the ERP builds its records from the latter. */
   workspace: {id: string; url: string; configId: string};
-  /** Subject rows that exist before delivery, such as the invoice being paid. */
-  subject: SubjectLinks;
+  /** The subject when it exists before delivery, such as the invoice being paid. */
+  subject: Subject | null;
   snapshot: IntentSnapshot;
   /** Where known; some providers ask for it. */
   billing?: BillingDetails;
 };
 
 export type DeliveryResult =
-  | {delivered: true; subject: SubjectLinks}
+  /** Null keeps the subject the payment was started with, such as the invoice being paid. */
+  | {delivered: true; subject: Subject | null}
   | {delivered: false; reason: string};
 
 export type DeliveredPayment = {
@@ -121,14 +115,14 @@ export interface PaymentSourceHandler<TIntent = unknown> {
    */
   notify?(args: {
     payment: NotifiedPayment;
-    subject: SubjectLinks;
+    subject: Subject | null;
     snapshot: IntentSnapshot;
     tenant: Tenant;
   }): Promise<void>;
 
   /** Where the result page sends the payer next, as a workspace sub-path. */
   onwardLink(args: {
-    subject: SubjectLinks;
+    subject: Subject | null;
     snapshot: IntentSnapshot;
   }): `/${string}` | null;
 }

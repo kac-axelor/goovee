@@ -50,6 +50,14 @@
     },
     {
       "type": "String",
+      "name": "reason"
+    },
+    {
+      "type": "DateTime",
+      "name": "deadline"
+    },
+    {
+      "type": "String",
       "name": "payload"
     },
     {

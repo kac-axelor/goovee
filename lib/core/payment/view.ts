@@ -14,6 +14,7 @@ import {
 } from './domain/types';
 import {readSnapshot} from './intent';
 import {getSourceHandler} from './sources/registry';
+import {readSubject} from './domain/subject';
 
 /** What the result page shows. Nothing here mutates. */
 export type PaymentView = {
@@ -64,10 +65,8 @@ export async function findPaymentView(
       createdOn: true,
       capturedOn: true,
       portalWorkspace: {url: true},
-      invoice: {id: true},
-      registration: {id: true},
-      marketplaceProductOrder: {id: true},
-      shopOrderRequest: {id: true},
+      subjectModel: true,
+      subjectId: true,
       projectedInvoice: {id: true},
       projectedSaleOrder: {id: true},
       projectedInvoicePayment: {id: true},
@@ -91,12 +90,7 @@ export async function findPaymentView(
   const handler = getSourceHandler(payment.source as PaymentSource);
   const snapshot = await readSnapshot(client, payment.id);
   const onwardLink = handler.onwardLink({
-    subject: {
-      invoice: payment.invoice?.id,
-      registration: payment.registration?.id,
-      marketplaceProductOrder: payment.marketplaceProductOrder?.id,
-      shopOrderRequest: payment.shopOrderRequest?.id,
-    },
+    subject: readSubject(payment.subjectModel, payment.subjectId),
     snapshot,
   });
 

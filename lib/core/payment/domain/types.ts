@@ -65,6 +65,15 @@ export const EVENT_TYPE = {
   expired: 'expired',
   refunded: 'refunded',
   disputed: 'disputed',
+  /** The provider decided a dispute for us: the money stays. */
+  disputeWon: 'dispute_won',
+  /** The provider decided a dispute for the payer: the money is gone. */
+  disputeLost: 'dispute_lost',
+  /**
+   * A dispute closed with no decision, replaced by a new one on the same
+   * transaction, which opens with its own event.
+   */
+  disputeClosed: 'dispute_closed',
 } as const;
 
 export type EventType = (typeof EVENT_TYPE)[keyof typeof EVENT_TYPE];
@@ -101,6 +110,23 @@ export const UNMATCHED_STATUS = {
   open: 'open',
   matched: 'matched',
   dismissed: 'dismissed',
+} as const;
+
+/** Money that left a payment after it was taken, parked for finance to book in the ERP by hand. */
+export const FINANCE_KIND = {
+  refund: 'refund',
+  dispute: 'dispute',
+} as const;
+
+export const FINANCE_STATUS = {
+  open: 'open',
+  closed: 'closed',
+} as const;
+
+export const DISPUTE_OUTCOME = {
+  won: 'won',
+  lost: 'lost',
+  withdrawn: 'withdrawn',
 } as const;
 
 export const DELIVERY_STATUS = {

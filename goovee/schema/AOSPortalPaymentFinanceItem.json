@@ -1,6 +1,6 @@
 {
-  "name": "AOSPortalPaymentEvent",
-  "table": "portal_portal_payment_event",
+  "name": "AOSPortalPaymentFinanceItem",
+  "table": "portal_portal_payment_finance_item",
   "synchronize": false,
   "fields": [
     {
@@ -11,22 +11,19 @@
     },
     {
       "type": "ManyToOne",
-      "name": "session",
-      "target": "AOSPortalPaymentSession"
+      "name": "ledgerEvent",
+      "target": "AOSPortalPaymentEvent",
+      "required": true,
+      "unique": true
     },
     {
       "type": "String",
-      "name": "gateway",
+      "name": "kind",
       "required": true
     },
     {
       "type": "String",
-      "name": "eventKey",
-      "required": true
-    },
-    {
-      "type": "String",
-      "name": "type",
+      "name": "status",
       "required": true
     },
     {
@@ -38,24 +35,6 @@
       "name": "currencyCode"
     },
     {
-      "type": "Int",
-      "name": "currencyScale"
-    },
-    {
-      "type": "String",
-      "name": "observedVia",
-      "required": true
-    },
-    {
-      "type": "DateTime",
-      "name": "observedOn",
-      "required": true
-    },
-    {
-      "type": "DateTime",
-      "name": "confirmedOn"
-    },
-    {
       "type": "String",
       "name": "providerRef"
     },
@@ -65,16 +44,32 @@
     },
     {
       "type": "DateTime",
+      "name": "occurredOn",
+      "required": true
+    },
+    {
+      "type": "DateTime",
       "name": "deadline"
     },
     {
       "type": "String",
-      "name": "payload"
-    }
-  ],
-  "uniques": [
+      "name": "detail"
+    },
     {
-      "columns": ["gateway", "eventKey"]
+      "type": "String",
+      "name": "erpNote"
+    },
+    {
+      "type": "String",
+      "name": "outcome"
+    },
+    {
+      "type": "DateTime",
+      "name": "outcomeOn"
+    },
+    {
+      "type": "DateTime",
+      "name": "closedOn"
     }
   ]
 }

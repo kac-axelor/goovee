@@ -13,6 +13,8 @@ import {
 } from './domain/transfers';
 import {
   EVENT_TYPE,
+  FINANCE_KIND,
+  FINANCE_STATUS,
   PAYMENT_SOURCE,
   PAYMENT_STATUS,
   SESSION_STATUS,
@@ -20,6 +22,7 @@ import {
 } from './domain/types';
 import {triggerProjection} from './project';
 import {settlePayment} from './settle';
+import {SUBJECT_MODEL, readSubject, subjectIdOf} from './domain/subject';
 
 /**
  * A transfer on an invoice the payer's bank has not finished: a session at a
@@ -72,7 +75,11 @@ export async function findOpenTransferSessions({
       gateway: {in: [...TRANSFER_GATEWAYS]},
       status: {in: [SESSION_STATUS.awaiting, SESSION_STATUS.captured]},
       sessionRef: {ne: null},
-      payment: {invoice: {id: invoiceId}, source: PAYMENT_SOURCE.invoices},
+      payment: {
+        subjectModel: SUBJECT_MODEL.invoice,
+        subjectId: invoiceId,
+        source: PAYMENT_SOURCE.invoices,
+      },
     },
     select: {
       sessionRef: true,
@@ -202,9 +209,10 @@ export async function findPartlyFundedTransfer({
  * What the invoice still needs, in minor units at `scale`: the ERP's
  * remaining amount, less money the ledger holds for the invoice that the ERP
  * has not recorded yet, plus money the ERP still counts as paid that was
- * refunded after it was recorded. A capture reaches the ERP only when the
- * payment is projected, and a transfer funded in part not until it
- * completes; a refund or a chargeback is never taken back off the invoice.
+ * refunded after it was recorded and that finance has not booked yet. A
+ * capture reaches the ERP only when the payment is projected, and a transfer
+ * funded in part not until it completes; a refund reaches it only when
+ * finance books it and closes its item, and a chargeback never does.
  *
  * Read in one statement, so it is one snapshot: read in two, a projection
  * committing in between would leave the money counted by neither half.
@@ -232,13 +240,18 @@ async function invoiceRemaining({
                               THEN payment.captured_amount - COALESCE(payment.refunded_amount, 0)
                          END), 0)::text AS held,
             COALESCE(SUM(CASE WHEN payment.projected_invoice_payment IS NOT NULL
-                              THEN COALESCE(payment.refunded_amount, 0)
+                              THEN (SELECT COALESCE(SUM(item.amount), 0)
+                                      FROM portal_portal_payment_finance_item AS item
+                                     WHERE item.payment = payment.id
+                                       AND item.kind = $9 AND item.status = $10
+                                       AND item.erp_note IS NULL)
                          END), 0)::text AS refunded_after,
             COALESCE(BOOL_OR(payment.status = $7), false) AS disputed
        FROM account_invoice AS invoice
        LEFT JOIN base_currency AS currency ON currency.id = invoice.currency
        LEFT JOIN portal_portal_payment AS payment
-              ON payment.invoice = invoice.id
+              ON payment.subject_model = $8
+             AND payment.subject_id = invoice.id
              AND payment.source = $2
              AND payment.currency_code = $3
              AND payment.currency_scale = $4
@@ -251,6 +264,9 @@ async function invoiceRemaining({
     PAYMENT_STATUS.captured,
     PAYMENT_STATUS.partiallyCaptured,
     PAYMENT_STATUS.chargedBack,
+    SUBJECT_MODEL.invoice,
+    FINANCE_KIND.refund,
+    FINANCE_STATUS.open,
   );
   const row: unknown = Array.isArray(rows) ? rows[0] : null;
   if (typeof row !== 'object' || row === null) {
@@ -303,9 +319,19 @@ export async function withdrawUnneededTransfers({
   const {client} = tenant;
   const payment = await client.aOSPortalPayment.findOne({
     where: {id: paymentId},
-    select: {invoice: {id: true}, currencyCode: true, currencyScale: true},
+    select: {
+      subjectModel: true,
+      subjectId: true,
+      currencyCode: true,
+      currencyScale: true,
+    },
   });
-  const invoiceId = payment?.invoice?.id;
+  const invoiceId = payment
+    ? subjectIdOf(
+        readSubject(payment.subjectModel, payment.subjectId),
+        SUBJECT_MODEL.invoice,
+      )
+    : null;
   if (!payment || !invoiceId) {
     return report;
   }

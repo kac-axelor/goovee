@@ -40,8 +40,10 @@ export type GatewaySignal = {
   sessionRef: string | null;
   /** Every provider id a later event may name. Persisted on the session. */
   correlationRefs: string[];
-  /** The provider's reason on a refusal. */
+  /** The provider's reason on a refusal or a dispute. */
   reason: string | null;
+  /** By when the provider needs our answer: a dispute's deadline for evidence. */
+  deadline: Date | null;
   observedVia: ObservedVia;
   observedOn: Date;
   /** The signal's source material, kept for support. Must be JSON-serialisable. */
@@ -66,6 +68,7 @@ export function pendingSignal(input: {
     sessionRef: input.sessionRef ?? null,
     correlationRefs: [],
     reason: null,
+    deadline: null,
     observedVia: input.observedVia,
     observedOn: new Date(),
     payload: input.payload,

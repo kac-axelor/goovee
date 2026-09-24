@@ -39,6 +39,7 @@ export async function applyRecordedEvents({
       occurredOn: true,
       providerRef: true,
       reason: true,
+      deadline: true,
       eventKey: true,
       gateway: true,
       payment: {reference: true, currencyCode: true},
@@ -62,6 +63,7 @@ export async function applyRecordedEvents({
        * reference finds this payment. */
       correlationRefs: entry.providerRef ? [entry.providerRef] : [],
       reason: entry.reason,
+      deadline: entry.deadline,
       observedVia: OBSERVED_VIA.admin,
       observedOn: entry.occurredOn ?? new Date(),
       payload: {source: 'admin', recordedEventId: entry.id},

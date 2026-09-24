@@ -5,7 +5,7 @@ import {minorUnitsOf} from './domain/money';
 import {DELIVERY_STATUS, PAYMENT_STATUS} from './domain/types';
 import {readSnapshot} from './intent';
 import {getSourceHandler} from './sources/registry';
-import type {SubjectLinks} from './sources/types';
+import {readSubject} from './domain/subject';
 
 /**
  * The `notify` job: runs a captured payment's confirmation through its
@@ -32,10 +32,8 @@ export async function notifyPayment({
       payer: true,
       subjectLabel: true,
       portalWorkspace: {url: true},
-      invoice: {id: true},
-      registration: {id: true},
-      marketplaceProductOrder: {id: true},
-      shopOrderRequest: {id: true},
+      subjectModel: true,
+      subjectId: true,
     },
   });
   if (!payment) {
@@ -62,16 +60,7 @@ export async function notifyPayment({
     return;
   }
 
-  const subject: SubjectLinks = {
-    ...(payment.invoice && {invoice: payment.invoice.id}),
-    ...(payment.registration && {registration: payment.registration.id}),
-    ...(payment.marketplaceProductOrder && {
-      marketplaceProductOrder: payment.marketplaceProductOrder.id,
-    }),
-    ...(payment.shopOrderRequest && {
-      shopOrderRequest: payment.shopOrderRequest.id,
-    }),
-  };
+  const subject = readSubject(payment.subjectModel, payment.subjectId);
 
   await handler.notify({
     payment: {

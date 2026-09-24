@@ -116,6 +116,7 @@ export function signalForSession(
         (ref): ref is string => Boolean(ref),
       ),
       reason: null,
+      deadline: null,
       observedVia,
       observedOn: new Date(),
       payload,
@@ -134,6 +135,7 @@ export function signalForSession(
       sessionRef: session.id,
       correlationRefs: [session.id],
       reason: null,
+      deadline: null,
       observedVia,
       observedOn: new Date(),
       payload,
@@ -193,6 +195,7 @@ export function signalForPaymentIntent(
       amount: paymentIntent.amount_received,
       providerRef: paymentIntent.id,
       reason: null,
+      deadline: null,
     };
   }
 
@@ -204,6 +207,7 @@ export function signalForPaymentIntent(
       amount: null,
       providerRef: paymentIntent.id,
       reason: paymentIntent.cancellation_reason ?? null,
+      deadline: null,
     };
   }
 
@@ -226,6 +230,7 @@ export function signalForPaymentIntent(
       amount: paymentIntent.amount - instructions.amount_remaining,
       providerRef: paymentIntent.id,
       reason: null,
+      deadline: null,
     };
   }
 
@@ -242,6 +247,7 @@ const HANDLED_EVENTS = new Set<Stripe.Event.Type>([
   'payment_intent.canceled',
   'charge.refunded',
   'charge.dispute.created',
+  'charge.dispute.closed',
 ]);
 
 /**
@@ -326,6 +332,7 @@ export async function signalsForStripeEvent(
         sessionRef: null,
         correlationRefs: [],
         reason: refund.reason ?? null,
+        deadline: null,
         observedVia: OBSERVED_VIA.webhook,
         observedOn: new Date(refund.created * 1000),
         payload: {...payload, refundId: refund.id},
@@ -355,14 +362,68 @@ export async function signalsForStripeEvent(
           sessionRef: null,
           correlationRefs: [],
           reason: dispute.reason,
+          deadline: dispute.evidence_details?.due_by
+            ? new Date(dispute.evidence_details.due_by * 1000)
+            : null,
           observedVia: OBSERVED_VIA.webhook,
           observedOn: new Date(dispute.created * 1000),
           payload,
         },
       ];
     }
+    case 'charge.dispute.closed': {
+      const dispute = event.data.object;
+      const chargeId = idOf(dispute.charge);
+      const type = disputeOutcomeType(dispute.status);
+      if (!chargeId || !type) {
+        return [];
+      }
+      const charge = await stripe.charges.retrieve(chargeId);
+      if (!ourReference(charge.metadata, null, tenantId)) {
+        return [];
+      }
+      return [
+        {
+          gateway: gatewayOf(charge.metadata),
+          resolution: {by: 'correlationRef', correlationRef: chargeId},
+          type,
+          eventKey: `${type === EVENT_TYPE.disputeWon ? 'dispute-won' : 'dispute-lost'}:${dispute.id}`,
+          amount: dispute.amount,
+          currencyCode: dispute.currency.toUpperCase(),
+          providerRef: dispute.id,
+          sessionRef: null,
+          correlationRefs: [],
+          reason: dispute.status,
+          deadline: null,
+          observedVia: OBSERVED_VIA.webhook,
+          observedOn: new Date(event.created * 1000),
+          payload,
+        },
+      ];
+    }
     default:
       return [];
+  }
+}
+
+/**
+ * Stripe's final word on a dispute. Won, and an inquiry that closed without
+ * becoming a dispute or one the card network prevented, leave the money with
+ * us; lost is the payer's. Any other status is not final and is ignored.
+ * Takes a string: "prevented" is newer than the SDK's own list.
+ */
+export function disputeOutcomeType(
+  status: string,
+): typeof EVENT_TYPE.disputeWon | typeof EVENT_TYPE.disputeLost | null {
+  switch (status) {
+    case 'won':
+    case 'warning_closed':
+    case 'prevented':
+      return EVENT_TYPE.disputeWon;
+    case 'lost':
+      return EVENT_TYPE.disputeLost;
+    default:
+      return null;
   }
 }
 

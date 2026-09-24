@@ -30,6 +30,7 @@ import {findEvent} from '../orm/event';
 import {registerParticipants} from '../orm/registration';
 import {announceRegistration} from '../utils/notify';
 import {getCalculatedTotalPrice} from '../utils/payments';
+import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
 
 const EventIntentSchema = z.object({
   eventId: IdSchema,
@@ -161,7 +162,7 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
           url: access.workspace.url,
           configId: access.workspace.config.id,
         },
-        subject: {},
+        subject: null,
         snapshot,
       },
     };
@@ -208,7 +209,10 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
       client: txClient,
     });
 
-    return {delivered: true, subject: {registration: registration.id}};
+    return {
+      delivered: true,
+      subject: {model: SUBJECT_MODEL.registration, id: registration.id},
+    };
   },
 
   /* What a free registration tells its participants, now that the paid one
@@ -216,7 +220,7 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
    * payer's own carrying what was paid. The ERP's own template mail, where the
    * workspace set one, still follows the projection. */
   async notify({payment, subject, snapshot, tenant}) {
-    const registrationId = subject.registration;
+    const registrationId = subjectIdOf(subject, SUBJECT_MODEL.registration);
     const {registeredBy, workspaceUrl} = snapshot as Partial<EventSnapshot>;
     if (!registrationId || !workspaceUrl) {
       return;

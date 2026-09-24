@@ -6,13 +6,29 @@ import {fromMinorUnits, minorUnitsOf, scaleOfCurrency} from './domain/money';
 import type {GatewaySignal} from './domain/signal';
 import {
   deriveStatus,
+  disputeIdOf,
+  disputeOutcomes,
+  isDisputeEvent,
   overCapturedBy,
   sessionStatusFor,
+  type DerivedStatus,
+  type DisputeOutcome,
   type LedgerEntry,
 } from './domain/status';
 import {
+  SUBJECT_MODEL,
+  allowsSubject,
+  readSubject,
+  subjectColumns,
+  subjectTable,
+  type Subject,
+} from './domain/subject';
+import {
   DELIVERY_STATUS,
+  DISPUTE_OUTCOME,
   EVENT_TYPE,
+  FINANCE_KIND,
+  FINANCE_STATUS,
   JOB_KIND,
   OBSERVED_VIA,
   PAYMENT_SOURCE,
@@ -20,13 +36,13 @@ import {
   SESSION_STATUS,
   UNMATCHED_STATUS,
   type EventType,
+  type PaymentSource,
   type PaymentStatus,
   type SessionStatus,
 } from './domain/types';
 import {dropReconcileIfSettled} from './reconcile-schedule';
 import {resolvePayment} from './resolve';
 import {getSourceHandler} from './sources/registry';
-import type {SubjectLinks} from './sources/types';
 import {readSnapshot} from './intent';
 
 /** How long a projection job may stay open before the payment counts as needing attention. */
@@ -75,10 +91,8 @@ type LockedPayment = {
   payer: string | null;
   workspaceId: string;
   paymentModeId: string | null;
-  invoice: string | null;
-  registration: string | null;
-  marketplaceProductOrder: string | null;
-  shopOrderRequest: string | null;
+  capturedOn: Date | null;
+  subject: Subject | null;
 };
 
 /**
@@ -114,7 +128,7 @@ export async function settlePayment({
   if (resolved.kind === 'not-found') {
     if (
       signal.type === EVENT_TYPE.refunded ||
-      signal.type === EVENT_TYPE.disputed
+      (signal.type !== 'pending' && isDisputeEvent(signal.type))
     ) {
       await recordUnmatched({signal, client});
       return {outcome: 'unmatched'};
@@ -141,9 +155,10 @@ export async function settlePayment({
     const inserted = await txClient.$raw(
       `INSERT INTO portal_portal_payment_event
          (id, version, created_on, payment, session, gateway, event_key, type, amount,
-          currency_code, currency_scale, observed_via, observed_on, provider_ref, reason, payload)
+          currency_code, currency_scale, observed_via, observed_on, provider_ref, reason, payload,
+          deadline)
        VALUES (nextval('portal_portal_payment_event_seq'), 0, now(), $1, $2, $3, $4, $5, $6,
-               $7, $8, $9, $10, $11, $12, $13)
+               $7, $8, $9, $10, $11, $12, $13, $14)
        ON CONFLICT (gateway, event_key) DO NOTHING
        RETURNING id`,
       payment.id,
@@ -161,6 +176,7 @@ export async function settlePayment({
       signal.providerRef,
       signal.reason,
       JSON.stringify(signal.payload ?? null),
+      signal.deadline,
     );
 
     if (!Array.isArray(inserted) || inserted.length === 0) {
@@ -223,6 +239,13 @@ export async function settlePayment({
     const newlyCaptured =
       derived.status === PAYMENT_STATUS.captured &&
       payment.status !== PAYMENT_STATUS.captured;
+    /* Delivery happens once, on the capture that first completes the payment.
+     * A payment that reads captured again after a dispute went our way was
+     * delivered, or found undeliverable, the first time. */
+    const firstCapture =
+      newlyCaptured &&
+      (payment.deliveryStatus === DELIVERY_STATUS.pending ||
+        payment.deliveryStatus === null);
 
     const isCapture =
       eventType === EVENT_TYPE.captured ||
@@ -230,11 +253,11 @@ export async function settlePayment({
 
     let deliveryStatus = payment.deliveryStatus;
     let deliveryReason: string | null = null;
-    let subject: SubjectLinks = {};
+    let subject: Subject | null = null;
     let projectionQueued = false;
     let gooveeJobsQueued = false;
 
-    if (newlyCaptured && deliveryStatus !== DELIVERY_STATUS.delivered) {
+    if (firstCapture) {
       const handler = getSourceHandler(
         payment.source as Parameters<typeof getSourceHandler>[0],
       );
@@ -257,7 +280,14 @@ export async function settlePayment({
         tenant,
       });
 
-      if (delivery.delivered) {
+      const misfit =
+        delivery.delivered && delivery.subject
+          ? await subjectMisfit(txClient, payment, delivery.subject)
+          : null;
+      if (misfit) {
+        deliveryStatus = DELIVERY_STATUS.undeliverable;
+        deliveryReason = misfit;
+      } else if (delivery.delivered) {
         deliveryStatus = DELIVERY_STATUS.delivered;
         subject = delivery.subject;
         await upsertJob(
@@ -292,7 +322,7 @@ export async function settlePayment({
       isCapture &&
       !currencyMismatch &&
       payment.source === PAYMENT_SOURCE.invoices &&
-      payment.invoice
+      payment.subject?.model === SUBJECT_MODEL.invoice
     ) {
       await upsertJob(
         txClient,
@@ -325,6 +355,8 @@ export async function settlePayment({
       );
     }
 
+    await syncFinanceItems(txClient, payment, derived, deliveryStatus);
+
     await txClient.aOSPortalPayment.update({
       data: {
         id: payment.id,
@@ -332,7 +364,8 @@ export async function settlePayment({
         status: derived.status,
         capturedAmount: String(derived.capturedAmount),
         refundedAmount: String(derived.refundedAmount),
-        ...(newlyCaptured && {capturedOn: signal.observedOn}),
+        ...(newlyCaptured &&
+          !payment.capturedOn && {capturedOn: signal.observedOn}),
         ...(isCapture &&
           signal.providerRef && {providerRef: signal.providerRef}),
         ...(deliveryStatus && {deliveryStatus}),
@@ -343,22 +376,7 @@ export async function settlePayment({
         ...(overCaptureMessage && {lastError: overCaptureMessage}),
         ...(resolvedMessage &&
           resolvedMessage === payment.lastError && {lastError: null}),
-        ...(subject.invoice &&
-          !payment.invoice && {invoice: {select: {id: subject.invoice}}}),
-        ...(subject.registration &&
-          !payment.registration && {
-            registration: {select: {id: subject.registration}},
-          }),
-        ...(subject.marketplaceProductOrder &&
-          !payment.marketplaceProductOrder && {
-            marketplaceProductOrder: {
-              select: {id: subject.marketplaceProductOrder},
-            },
-          }),
-        ...(subject.shopOrderRequest &&
-          !payment.shopOrderRequest && {
-            shopOrderRequest: {select: {id: subject.shopOrderRequest}},
-          }),
+        ...(subject && !payment.subject && subjectColumns(subject)),
       },
       select: {id: true},
     });
@@ -466,12 +484,11 @@ async function lockPayment(
       deliveryStatus: true,
       lastError: true,
       payer: true,
+      capturedOn: true,
+      subjectModel: true,
+      subjectId: true,
       portalWorkspace: {id: true},
       paymentMode: {id: true},
-      invoice: {id: true},
-      registration: {id: true},
-      marketplaceProductOrder: {id: true},
-      shopOrderRequest: {id: true},
     },
   });
   if (!payment) {
@@ -493,10 +510,8 @@ async function lockPayment(
     payer: payment.payer,
     workspaceId: payment.portalWorkspace.id,
     paymentModeId: payment.paymentMode?.id ?? null,
-    invoice: payment.invoice?.id ?? null,
-    registration: payment.registration?.id ?? null,
-    marketplaceProductOrder: payment.marketplaceProductOrder?.id ?? null,
-    shopOrderRequest: payment.shopOrderRequest?.id ?? null,
+    capturedOn: payment.capturedOn,
+    subject: readSubject(payment.subjectModel, payment.subjectId),
   };
 }
 
@@ -619,6 +634,7 @@ async function loadLedger(
       amount: true,
       currencyCode: true,
       eventKey: true,
+      providerRef: true,
       session: {id: true},
     },
   });
@@ -628,6 +644,7 @@ async function loadLedger(
     countable: isCountable(event.currencyCode, currencyCode, currencyScale),
     sessionId: event.session?.id ?? null,
     eventKey: event.eventKey,
+    providerRef: event.providerRef,
   }));
 }
 
@@ -752,10 +769,11 @@ async function replayUnmatched(
   await txClient.$raw(
     `INSERT INTO portal_portal_payment_event
        (id, version, created_on, payment, session, gateway, event_key, type, amount,
-        currency_code, currency_scale, observed_via, observed_on, provider_ref, payload)
+        currency_code, currency_scale, observed_via, observed_on, provider_ref, reason, deadline,
+        payload)
      SELECT nextval('portal_portal_payment_event_seq'), 0, now(), $1, $2, gateway, event_key,
             type, amount, currency_code, currency_scale, observed_via, observed_on,
-            provider_ref, payload
+            provider_ref, reason, deadline, payload
        FROM portal_portal_payment_unmatched_event
       WHERE id = ANY($3::bigint[])
      ON CONFLICT (gateway, event_key) DO NOTHING`,
@@ -773,6 +791,382 @@ async function replayUnmatched(
     paymentId,
   );
   return ids.length;
+}
+
+/*
+ * Why a subject a source delivered cannot be this payment's, or null when it
+ * can: a model its source does not pay for, a record that is not there, or one
+ * another payment is already for. The source built the record from this
+ * payment's own payer and workspace in this transaction, so those fit by
+ * construction; what can still go wrong is the source naming the wrong thing.
+ * A payment that fails this keeps its money and waits for a person, as any
+ * undeliverable one does.
+ */
+async function subjectMisfit(
+  txClient: Client,
+  payment: LockedPayment,
+  subject: Subject,
+): Promise<string | null> {
+  if (!allowsSubject(payment.source as PaymentSource, subject.model)) {
+    return `The ${payment.source} source delivered a ${subject.model}, which a ${payment.source} payment cannot be for`;
+  }
+  const found: unknown = await txClient.$raw(
+    `SELECT id FROM ${subjectTable(subject.model)} WHERE id = $1`,
+    subject.id,
+  );
+  if (!Array.isArray(found) || !found.length) {
+    return `The ${payment.source} source delivered ${subject.model} ${subject.id}, which does not exist`;
+  }
+  const {exclusiveSubjectId} = subjectColumns(subject);
+  if (exclusiveSubjectId) {
+    const taken: unknown = await txClient.$raw(
+      `SELECT reference FROM portal_portal_payment
+        WHERE subject_model = $1 AND exclusive_subject_id = $2 AND id <> $3`,
+      subject.model,
+      exclusiveSubjectId,
+      payment.id,
+    );
+    const row: unknown = Array.isArray(taken) ? taken[0] : null;
+    if (typeof row === 'object' && row !== null) {
+      const {reference} = row as Record<string, unknown>;
+      return `${subject.model} ${subject.id} is already what payment ${String(reference)} is for`;
+    }
+  }
+  return null;
+}
+
+const FINANCE_EVENT_TYPES: EventType[] = [
+  EVENT_TYPE.refunded,
+  EVENT_TYPE.disputed,
+  EVENT_TYPE.disputeWon,
+  EVENT_TYPE.disputeLost,
+  EVENT_TYPE.disputeClosed,
+];
+
+type FinanceEvent = {
+  id: string;
+  type: EventType;
+  amount: number | null;
+  currencyCode: string;
+  currencyScale: number;
+  providerRef: string | null;
+  reason: string | null;
+  deadline: Date | null;
+  observedOn: Date;
+  eventKey: string;
+};
+
+/*
+ * Parks for finance every refund and dispute in the ledger it has not been
+ * told about, one item each, and writes a dispute's outcome onto its item once
+ * the provider decides it. Nothing is booked in the ERP. Reads the whole
+ * ledger rather than the event that arrived, so a refund replayed from the
+ * unmatched queue or entered by hand is parked exactly like one the provider
+ * sent, and a refund before the projection like one after it.
+ */
+async function syncFinanceItems(
+  txClient: Client,
+  payment: LockedPayment,
+  derived: DerivedStatus,
+  deliveryStatus: string | null,
+): Promise<void> {
+  const rows = await txClient.aOSPortalPaymentEvent.find({
+    where: {payment: {id: payment.id}, type: {in: FINANCE_EVENT_TYPES}},
+    select: {
+      type: true,
+      amount: true,
+      currencyCode: true,
+      currencyScale: true,
+      providerRef: true,
+      reason: true,
+      deadline: true,
+      observedOn: true,
+      eventKey: true,
+    },
+    orderBy: {id: 'ASC'},
+  });
+  if (!rows.length) {
+    return;
+  }
+  const events: FinanceEvent[] = rows.map(row => ({
+    id: row.id,
+    type: row.type as EventType,
+    amount: row.amount == null ? null : minorUnitsOf(row.amount),
+    currencyCode: row.currencyCode ?? payment.currencyCode,
+    currencyScale: row.currencyScale ?? payment.currencyScale,
+    providerRef: row.providerRef,
+    reason: row.reason,
+    deadline: row.deadline,
+    observedOn: row.observedOn,
+    eventKey: row.eventKey,
+  }));
+  const items = await txClient.aOSPortalPaymentFinanceItem.find({
+    where: {payment: {id: payment.id}},
+    select: {
+      kind: true,
+      providerRef: true,
+      outcome: true,
+      ledgerEvent: {id: true},
+    },
+  });
+  const parked = new Set(items.map(item => item.ledgerEvent.id));
+  const held = {
+    captured: derived.capturedAmount,
+    kept: derived.capturedAmount - derived.refundedAmount,
+  };
+
+  /* The ERP records at most the amount the payment was for, so refunds of
+   * what was captured beyond it give back money the ERP never recorded. The
+   * excess exists from the capture that took the payment past its amount;
+   * refunds before that capture were of money the ERP holds, and those after
+   * it use up the excess oldest first. A refund entirely within the excess has
+   * nothing to reverse; one that straddles it says in its detail how much to
+   * book. */
+  let excessLeft = Math.max(held.captured - payment.amount, 0);
+  const excessSince =
+    excessLeft > 0 ? await captureThatExceeded(txClient, payment) : null;
+  for (const event of events) {
+    if (event.type !== EVENT_TYPE.refunded) {
+      continue;
+    }
+    const countable =
+      excessSince !== null &&
+      BigInt(event.id) > excessSince &&
+      event.amount != null &&
+      isCountable(
+        event.currencyCode,
+        payment.currencyCode,
+        payment.currencyScale,
+      );
+    const excessPart = countable ? Math.min(event.amount ?? 0, excessLeft) : 0;
+    excessLeft -= excessPart;
+    if (parked.has(event.id)) {
+      continue;
+    }
+    const wholeExcess = countable && excessPart === event.amount;
+    await txClient.aOSPortalPaymentFinanceItem.create({
+      data: {
+        payment: {select: {id: payment.id}},
+        ledgerEvent: {select: {id: event.id}},
+        kind: FINANCE_KIND.refund,
+        status: FINANCE_STATUS.open,
+        amount: event.amount == null ? null : String(event.amount),
+        currencyCode: event.currencyCode,
+        providerRef: event.providerRef,
+        reason: event.reason,
+        occurredOn: event.observedOn,
+        detail: refundDetail(
+          event,
+          payment,
+          held,
+          wholeExcess ? 0 : excessPart,
+        ),
+        erpNote: wholeExcess ? EXCESS_ONLY : null,
+      },
+      select: {id: true},
+    });
+  }
+
+  /* Undeliverable and refunded in full, the payment never reaches the ERP:
+   * nothing is projected for it, so the refunds say so here, as the
+   * projection says it of a payment refunded before it ran. */
+  if (
+    deliveryStatus === DELIVERY_STATUS.undeliverable &&
+    held.kept <= 0 &&
+    events.some(event => event.type === EVENT_TYPE.refunded)
+  ) {
+    await txClient.$raw(
+      `UPDATE portal_portal_payment_finance_item
+          SET erp_note = $4, version = COALESCE(version, 0) + 1, updated_on = now()
+        WHERE payment = $1 AND kind = $2 AND status = $3 AND erp_note IS NULL`,
+      payment.id,
+      FINANCE_KIND.refund,
+      FINANCE_STATUS.open,
+      NEVER_IN_THE_ERP,
+    );
+  }
+
+  for (const [disputeId, outcome] of disputeOutcomes(events)) {
+    const about = events.filter(
+      event => isDisputeEvent(event.type) && disputeIdOf(event) === disputeId,
+    );
+    const opening =
+      about.find(event => event.type === EVENT_TYPE.disputed) ?? about[0];
+    const decided = outcome
+      ? about.find(event => outcomeOfEvent(event.type) === outcome)
+      : undefined;
+    const item = items.find(
+      candidate =>
+        candidate.kind === FINANCE_KIND.dispute &&
+        candidate.providerRef === disputeId,
+    );
+    /* An item written from an outcome that came first takes the opening's
+     * own facts once it arrives: the amount disputed, the reason, the date. */
+    const reopened =
+      item &&
+      opening.type === EVENT_TYPE.disputed &&
+      item.ledgerEvent.id !== opening.id;
+    if (item && reopened) {
+      await txClient.aOSPortalPaymentFinanceItem.update({
+        data: {
+          id: item.id,
+          version: item.version,
+          ledgerEvent: {select: {id: opening.id}},
+          amount: opening.amount == null ? null : String(opening.amount),
+          currencyCode: opening.currencyCode,
+          reason: opening.reason,
+          occurredOn: opening.observedOn,
+          deadline: opening.deadline,
+          detail: disputeDetail(opening, disputeId),
+          ...(outcome &&
+            item.outcome !== outcome && {
+              outcome,
+              outcomeOn: decided?.observedOn ?? null,
+            }),
+        },
+        select: {id: true},
+      });
+    } else if (!item) {
+      await txClient.aOSPortalPaymentFinanceItem.create({
+        data: {
+          payment: {select: {id: payment.id}},
+          ledgerEvent: {select: {id: opening.id}},
+          kind: FINANCE_KIND.dispute,
+          status: FINANCE_STATUS.open,
+          amount: opening.amount == null ? null : String(opening.amount),
+          currencyCode: opening.currencyCode,
+          providerRef: disputeId,
+          reason: opening.reason,
+          occurredOn: opening.observedOn,
+          deadline: opening.deadline,
+          detail: disputeDetail(opening, disputeId),
+          outcome,
+          outcomeOn: decided?.observedOn ?? null,
+        },
+        select: {id: true},
+      });
+    } else if (outcome && item.outcome !== outcome) {
+      await txClient.aOSPortalPaymentFinanceItem.update({
+        data: {
+          id: item.id,
+          version: item.version,
+          outcome,
+          outcomeOn: decided?.observedOn ?? null,
+        },
+        select: {id: true},
+      });
+    }
+  }
+}
+
+const EXCESS_ONLY =
+  'This refund gives back money captured beyond what the payment was for, which the ERP never recorded: there is no ERP record to reverse.';
+
+const NEVER_IN_THE_ERP =
+  'Its delivery failed and it is refunded in full, so it never reaches the ERP: there is no ERP record to reverse.';
+
+/* The ledger id of the capture that took what the payment holds past its
+ * amount, summed as the status sums it: the highest snapshot per session,
+ * added across sessions. Null when none did. */
+async function captureThatExceeded(
+  txClient: Client,
+  payment: LockedPayment,
+): Promise<bigint | null> {
+  const captures = await txClient.aOSPortalPaymentEvent.find({
+    where: {
+      payment: {id: payment.id},
+      type: {in: [EVENT_TYPE.captured, EVENT_TYPE.partiallyCaptured]},
+    },
+    select: {
+      amount: true,
+      currencyCode: true,
+      eventKey: true,
+      session: {id: true},
+    },
+    orderBy: {id: 'ASC'},
+  });
+  const bySession = new Map<string, number>();
+  for (const capture of captures) {
+    if (
+      capture.amount == null ||
+      !isCountable(
+        capture.currencyCode,
+        payment.currencyCode,
+        payment.currencyScale,
+      )
+    ) {
+      continue;
+    }
+    const key = capture.session?.id ?? `event:${capture.eventKey}`;
+    bySession.set(
+      key,
+      Math.max(bySession.get(key) ?? 0, minorUnitsOf(capture.amount)),
+    );
+    let total = 0;
+    for (const amount of bySession.values()) {
+      total += amount;
+    }
+    if (total > payment.amount) {
+      return BigInt(capture.id);
+    }
+  }
+  return null;
+}
+
+function outcomeOfEvent(type: EventType): DisputeOutcome | null {
+  switch (type) {
+    case EVENT_TYPE.disputeWon:
+      return DISPUTE_OUTCOME.won;
+    case EVENT_TYPE.disputeLost:
+      return DISPUTE_OUTCOME.lost;
+    case EVENT_TYPE.disputeClosed:
+      return DISPUTE_OUTCOME.withdrawn;
+    default:
+      return null;
+  }
+}
+
+/* A date as finance reads it next to the provider's dashboard: UTC, to the minute. */
+function utcMinute(date: Date): string {
+  return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
+function moneyText(amount: number | null, scale: number, currency: string) {
+  return amount == null
+    ? `an amount the provider did not state, in ${currency}`
+    : `${fromMinorUnits(amount, scale)} ${currency}`;
+}
+
+function refundDetail(
+  event: FinanceEvent,
+  payment: LockedPayment,
+  held: {captured: number; kept: number},
+  excessPart: number,
+): string {
+  const scale = payment.currencyScale;
+  const currency = payment.currencyCode;
+  return [
+    `Refund of ${moneyText(event.amount, event.currencyScale, event.currencyCode)}${event.providerRef ? ` (${event.providerRef})` : ''}, made on ${utcMinute(event.observedOn)}.`,
+    `The payment was for ${fromMinorUnits(payment.amount, scale)} ${currency}, took ${fromMinorUnits(held.captured, scale)} ${currency} and holds ${fromMinorUnits(held.kept, scale)} ${currency} after its refunds.`,
+    'The ERP records what was taken, up to what the payment was for, refunds not deducted: book the credit note or reversal for this refund against the payment\'s ERP records, shown below once it is booked, then close this with "Refund booked in the ERP".',
+    excessPart > 0 && event.amount != null
+      ? `Of this refund, ${fromMinorUnits(excessPart, scale)} ${currency} gives back money captured beyond what the payment was for, which the ERP never recorded: book only ${fromMinorUnits(event.amount - excessPart, scale)} ${currency}.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function disputeDetail(opening: FinanceEvent, disputeId: string): string {
+  return [
+    `Dispute ${disputeId} over ${moneyText(opening.amount, opening.currencyScale, opening.currencyCode)}${opening.reason ? `, reason: ${opening.reason}` : ''}, reported on ${utcMinute(opening.observedOn)}.`,
+    opening.deadline
+      ? `Answer it at the provider by ${utcMinute(opening.deadline)}; past that date it is lost.`
+      : null,
+    'The ERP is not changed while it is open. Once the provider decides, book the outcome in the ERP, then close this with "Dispute booked in the ERP".',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 async function recordUnmatched({
@@ -795,9 +1189,9 @@ async function recordUnmatched({
   await client.$raw(
     `INSERT INTO portal_portal_payment_unmatched_event
        (id, version, created_on, gateway, event_key, correlation_ref, type, amount, currency_code,
-        currency_scale, observed_via, observed_on, provider_ref, payload, status)
+        currency_scale, observed_via, observed_on, provider_ref, payload, status, reason, deadline)
      VALUES (nextval('portal_portal_payment_unmatched_event_seq'), 0, now(), $1, $2, $3, $4, $5, $6,
-             $7, $8, $9, $10, $11, $12)
+             $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (gateway, event_key) DO NOTHING`,
     signal.gateway,
     signal.eventKey,
@@ -811,6 +1205,8 @@ async function recordUnmatched({
     signal.providerRef,
     JSON.stringify(signal.payload ?? null),
     UNMATCHED_STATUS.open,
+    signal.reason,
+    signal.deadline,
   );
 }
 

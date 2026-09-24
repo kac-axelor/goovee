@@ -32,6 +32,10 @@
       "name": "reason"
     },
     {
+      "type": "DateTime",
+      "name": "deadline"
+    },
+    {
       "type": "String",
       "name": "eventKey",
       "required": true,

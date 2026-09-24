@@ -96,24 +96,16 @@
       "name": "lastError"
     },
     {
-      "type": "ManyToOne",
-      "name": "invoice",
-      "target": "AOSInvoice"
+      "type": "String",
+      "name": "subjectModel"
     },
     {
-      "type": "ManyToOne",
-      "name": "registration",
-      "target": "AOSRegistration"
+      "type": "BigInt",
+      "name": "subjectId"
     },
     {
-      "type": "ManyToOne",
-      "name": "shopOrderRequest",
-      "target": "AOSPortalOrderRequest"
-    },
-    {
-      "type": "ManyToOne",
-      "name": "marketplaceProductOrder",
-      "target": "AOSMarketplaceProductOrder"
+      "type": "BigInt",
+      "name": "exclusiveSubjectId"
     },
     {
       "type": "ManyToOne",

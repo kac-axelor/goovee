@@ -168,6 +168,7 @@ function signalFromQuery(
     sessionRef: marker,
     correlationRefs: transactionKey ? [transactionKey] : [],
     reason: type === EVENT_TYPE.refused ? code : null,
+    deadline: null,
     observedVia,
     observedOn: new Date(),
     payload,

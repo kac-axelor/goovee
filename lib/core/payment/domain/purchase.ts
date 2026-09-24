@@ -1,12 +1,13 @@
 import {createHash} from 'node:crypto';
 
+import type {Subject} from './subject';
 import type {Money} from './types';
 
 /** What a press asks to buy, as the server priced it: the parts that make one purchase. */
 export type PricedIntent = {
   source: string;
   money: Money;
-  subject: Record<string, string | undefined>;
+  subject: Subject | null;
   snapshot: unknown;
 };
 

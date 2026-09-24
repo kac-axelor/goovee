@@ -1,4 +1,5 @@
 import {
+  DISPUTE_OUTCOME,
   EVENT_TYPE,
   PAYMENT_STATUS,
   SESSION_STATUS,
@@ -16,7 +17,75 @@ export type LedgerEntry = {
   sessionId: string | null;
   /** Names the event when no session does. */
   eventKey: string;
+  /** The provider's reference: for a dispute and its outcome, the dispute's id. */
+  providerRef: string | null;
 };
+
+export type DisputeOutcome =
+  (typeof DISPUTE_OUTCOME)[keyof typeof DISPUTE_OUTCOME];
+
+const DISPUTE_TYPES: readonly EventType[] = [
+  EVENT_TYPE.disputed,
+  EVENT_TYPE.disputeWon,
+  EVENT_TYPE.disputeLost,
+  EVENT_TYPE.disputeClosed,
+];
+
+export function isDisputeEvent(type: EventType): boolean {
+  return DISPUTE_TYPES.includes(type);
+}
+
+/* The dispute an event is about: its provider reference, else what follows
+ * the prefix of its key ("dispute-won:dp_1" names dp_1). */
+export function disputeIdOf(entry: {
+  providerRef: string | null;
+  eventKey: string;
+}): string {
+  return (
+    entry.providerRef ?? entry.eventKey.slice(entry.eventKey.indexOf(':') + 1)
+  );
+}
+
+/**
+ * Every dispute the ledger knows, by its id, with the provider's decision on
+ * it or null while it is open. Order does not matter: an outcome that reached
+ * us before its opening still closes it. Were a dispute ever reported both won
+ * and lost, lost stands, since that is the one that leaves the money gone.
+ */
+export function disputeOutcomes(
+  entries: readonly {
+    type: EventType;
+    providerRef: string | null;
+    eventKey: string;
+  }[],
+): Map<string, DisputeOutcome | null> {
+  const outcomes = new Map<string, DisputeOutcome | null>();
+  const rank = (outcome: DisputeOutcome | null) =>
+    outcome === DISPUTE_OUTCOME.lost
+      ? 3
+      : outcome === DISPUTE_OUTCOME.won
+        ? 2
+        : outcome === DISPUTE_OUTCOME.withdrawn
+          ? 1
+          : 0;
+  for (const entry of entries) {
+    if (!isDisputeEvent(entry.type)) {
+      continue;
+    }
+    const id = disputeIdOf(entry);
+    const outcome =
+      entry.type === EVENT_TYPE.disputeLost
+        ? DISPUTE_OUTCOME.lost
+        : entry.type === EVENT_TYPE.disputeWon
+          ? DISPUTE_OUTCOME.won
+          : entry.type === EVENT_TYPE.disputeClosed
+            ? DISPUTE_OUTCOME.withdrawn
+            : null;
+    const known = outcomes.get(id) ?? null;
+    outcomes.set(id, rank(outcome) > rank(known) ? outcome : known);
+  }
+  return outcomes;
+}
 
 export type DerivedStatus = {
   status: PaymentStatus;
@@ -29,7 +98,9 @@ export type DerivedStatus = {
  * anywhere else first.
  *
  * Captures sum; a partial funding and its remainder add up to the amount due.
- * A dispute outranks everything, a full refund outranks a capture. With nothing
+ * A dispute that is open or lost outranks everything; one the provider decided
+ * for us, or closed without a decision, no longer counts, and the payment reads
+ * what it held before. A full refund outranks a capture. With nothing
  * captured the payment is where its latest session left it: refused, cancelled
  * and expired are session outcomes, which is what lets a buyer try again on the
  * same payment.
@@ -52,7 +123,6 @@ export function deriveStatus({
    * providers still reaches its amount. */
   const capturedBySession = new Map<string, number>();
   let refundedAmount = 0;
-  let disputed = false;
 
   for (const entry of ledger) {
     if (!entry.countable) {
@@ -71,9 +141,6 @@ export function deriveStatus({
       case EVENT_TYPE.refunded:
         refundedAmount += entry.amount;
         break;
-      case EVENT_TYPE.disputed:
-        disputed = true;
-        break;
       default:
         break;
     }
@@ -84,7 +151,11 @@ export function deriveStatus({
     capturedAmount += captured;
   }
 
-  if (disputed) {
+  const countable = ledger.filter(entry => entry.countable);
+  const chargedBack = [...disputeOutcomes(countable).values()].some(
+    outcome => outcome === null || outcome === DISPUTE_OUTCOME.lost,
+  );
+  if (chargedBack) {
     return {status: PAYMENT_STATUS.chargedBack, capturedAmount, refundedAmount};
   }
   if (capturedAmount > 0 && refundedAmount >= capturedAmount) {

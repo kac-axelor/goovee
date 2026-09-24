@@ -24,6 +24,7 @@ import {
   resolveInvoicePaymentAccess,
   validatePaymentData,
 } from '@/subapps/invoices/common/utils/validations';
+import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
 
 const InvoiceIntentSchema = z.object({
   invoiceId: z.string().min(1),
@@ -164,20 +165,20 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
           countryCode: $invoice.address?.country?.numericCode ?? undefined,
         },
         workspace: {id: workspace.id, url: workspace.url, configId: config.id},
-        subject: {invoice: $invoice.id},
+        subject: {model: SUBJECT_MODEL.invoice, id: $invoice.id},
         snapshot,
       },
     };
   },
 
   async deliver() {
-    return {delivered: true, subject: {}};
+    return {delivered: true, subject: null};
   },
 
   /* The push the payer's portal account always had, now on every method, and
    * a mail: an invoice paid through its link has no account to push to. */
   async notify({payment, subject, snapshot, tenant}) {
-    const invoiceId = subject.invoice;
+    const invoiceId = subjectIdOf(subject, SUBJECT_MODEL.invoice);
     if (!invoiceId) {
       return;
     }
@@ -214,7 +215,8 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
 
   onwardLink({subject, snapshot}) {
     const invoiceId =
-      subject.invoice ?? (snapshot as Partial<InvoiceSnapshot>).invoiceId;
+      subjectIdOf(subject, SUBJECT_MODEL.invoice) ??
+      (snapshot as Partial<InvoiceSnapshot>).invoiceId;
     if (!invoiceId) {
       return null;
     }

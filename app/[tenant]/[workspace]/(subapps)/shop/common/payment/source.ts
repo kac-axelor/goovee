@@ -25,6 +25,7 @@ import {getShopConfig} from '../orm/config';
 import {priceCart} from '../service';
 import {computeExpectedAmount, formatNumber} from '../utils/order';
 import {CartSchema} from '../validators';
+import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
 
 const ShopIntentSchema = z.object({
   cart: CartSchema,
@@ -249,7 +250,7 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
           url: workspace.url,
           configId: workspace.config.id,
         },
-        subject: {},
+        subject: null,
         snapshot,
       },
     };
@@ -318,7 +319,10 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
       });
     }
 
-    return {delivered: true, subject: {shopOrderRequest: request.id}};
+    return {
+      delivered: true,
+      subject: {model: SUBJECT_MODEL.orderRequest, id: request.id},
+    };
   },
 
   async notify({payment, subject, snapshot, tenant}) {
@@ -344,7 +348,7 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
    * confirmation, which reads the sale order off the request, so the link is
    * right whether the ERP has projected the payment yet or not. */
   onwardLink({subject}) {
-    const requestId = subject.shopOrderRequest;
+    const requestId = subjectIdOf(subject, SUBJECT_MODEL.orderRequest);
     if (!requestId) {
       return `/${SUBAPP_CODES.shop}/cart`;
     }
