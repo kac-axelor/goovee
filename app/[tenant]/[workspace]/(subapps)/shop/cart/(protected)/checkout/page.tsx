@@ -50,10 +50,10 @@ async function Checkout({
   if (hidePriceAndPurchase) notFound();
 
   const gateways = config.allowOnlinePaymentForEcommerce
-    ? offeredGateways({
+    ? await offeredGateways({
         source: PAYMENT_SOURCE.shop,
         paymentOptions: config.paymentOptionSet,
-        tenantConfig: access.tenant.config,
+        tenant: access.tenant,
       })
     : [];
 

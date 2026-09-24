@@ -140,5 +140,10 @@
       "target": "AOSPortalPaymentJob",
       "mappedBy": "payment"
     }
+  ],
+  "uniques": [
+    {
+      "columns": ["subjectModel", "exclusiveSubjectId"]
+    }
   ]
 }

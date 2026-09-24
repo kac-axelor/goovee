@@ -65,10 +65,10 @@ export default async function CheckoutPage(props: {
       <CheckoutContent
         gateways={
           config.allowOnlinePaymentForEcommerce
-            ? offeredGateways({
+            ? await offeredGateways({
                 source: PAYMENT_SOURCE.marketplace,
                 paymentOptions: config.paymentOptionSet,
-                tenantConfig: access.tenant.config,
+                tenant: access.tenant,
               })
             : []
         }

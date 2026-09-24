@@ -16,6 +16,7 @@ import {withdrawTransferForPayer} from '@/payment/transfers';
 import {INVOICE_PAYMENT_OPTIONS} from '@/subapps/invoices/common/constants/invoices';
 import {findInvoice} from '@/subapps/invoices/common/orm/invoices';
 import {resolveInvoicePaymentAccess} from '@/subapps/invoices/common/utils/validations';
+import {paymentsReady} from '@/payment/schema-probe';
 
 const CancelPendingTransferSchema = z.object({
   invoiceId: IdSchema,
@@ -56,6 +57,12 @@ export async function cancelPendingTransfer(
       return access;
     }
     const {tenant, config, invoiceFilter} = access.data;
+    if (!(await paymentsReady(tenant))) {
+      return {
+        error: true,
+        message: await t('This payment method is not available'),
+      };
+    }
 
     if (!config.allowOnlinePaymentForInvoices) {
       return {error: true, message: await t('Online payment is not available')};

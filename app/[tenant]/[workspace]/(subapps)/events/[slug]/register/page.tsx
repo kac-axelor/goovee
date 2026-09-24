@@ -83,10 +83,10 @@ export default async function Page(props: {
     : null;
 
   const gateways = workspaceConfig.allowOnlinePaymentForEcommerce
-    ? offeredGateways({
+    ? await offeredGateways({
         source: PAYMENT_SOURCE.events,
         paymentOptions: workspaceConfig.paymentOptionSet,
-        tenantConfig: config,
+        tenant: access.tenant,
       })
     : [];
 

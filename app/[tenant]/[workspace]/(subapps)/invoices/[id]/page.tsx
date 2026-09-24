@@ -84,10 +84,10 @@ async function Invoice({
         config={clone(config)}
         token={access.token}
         pendingTransfers={pendingTransfers}
-        gateways={offeredGateways({
+        gateways={await offeredGateways({
           source: PAYMENT_SOURCE.invoices,
           paymentOptions: config.paymentOptionSet,
-          tenantConfig: access.tenant.config,
+          tenant: access.tenant,
         })}
         submitToken={mintSubmitToken()}
       />
@@ -137,10 +137,10 @@ async function Invoice({
       invoice={clone(invoice)}
       config={clone(config)}
       pendingTransfers={pendingTransfers}
-      gateways={offeredGateways({
+      gateways={await offeredGateways({
         source: PAYMENT_SOURCE.invoices,
         paymentOptions: config.paymentOptionSet,
-        tenantConfig: access.tenant.config,
+        tenant: access.tenant,
       })}
       submitToken={mintSubmitToken()}
     />
