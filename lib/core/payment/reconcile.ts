@@ -2,6 +2,7 @@ import 'server-only';
 
 import type {Tenant} from '@/tenant';
 import {getAdapter} from './adapters/registry';
+import {SessionNotFoundError} from './adapters/types';
 import {
   EVENT_TYPE,
   GATEWAY,
@@ -163,6 +164,13 @@ export async function reconcilePayment({
         config: tenant.config,
       });
     } catch (error) {
+      /* The provider no longer holds the session: closed as no answer, for
+       * finance to check, whatever the deadline — asking again changes
+       * nothing. */
+      if (error instanceof SessionNotFoundError) {
+        unanswered.push(session.id);
+        continue;
+      }
       if (pastDeadline) {
         decisions.push(
           `Payment ${payment.reference}: ${session.gateway} could not be asked about session ${session.sessionRef} (${error instanceof Error ? error.message : String(error)}); look it up in the provider's back office by the payment's reference, then record an out-of-band capture or cancel`,

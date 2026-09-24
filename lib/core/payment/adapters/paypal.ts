@@ -25,11 +25,12 @@ import {
   type GatewaySignal,
   type SignalResolution,
 } from '../domain/signal';
-import type {
-  CreatedSession,
-  GatewayAdapter,
-  GatewayContext,
-  SessionInput,
+import {
+  SessionNotFoundError,
+  type CreatedSession,
+  type GatewayAdapter,
+  type GatewayContext,
+  type SessionInput,
 } from './types';
 
 type PaypalConfig = NonNullable<
@@ -662,10 +663,16 @@ export const paypalAdapter: GatewayAdapter = {
       /* The SDK's own error carries no message; the status and PayPal's
        * issue code are what a person needs to look the order up. */
       if (error instanceof ApiError) {
-        throw new Error(
-          `PayPal answered ${error.statusCode}${issueOf(error) ? ` ${issueOf(error)}` : ''} for order ${sessionRef}`,
-          {cause: error},
-        );
+        const message = `PayPal answered ${error.statusCode}${issueOf(error) ? ` ${issueOf(error)}` : ''} for order ${sessionRef}`;
+        /* PayPal drops an order nobody approved; asked about it later, it
+         * answers exactly this, and nothing else means that. */
+        if (
+          error.statusCode === 404 &&
+          issueOf(error) === 'INVALID_RESOURCE_ID'
+        ) {
+          throw new SessionNotFoundError(message, {cause: error});
+        }
+        throw new Error(message, {cause: error});
       }
       throw error;
     }

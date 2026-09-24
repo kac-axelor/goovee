@@ -3,6 +3,17 @@ import type {GatewaySignal} from '../domain/signal';
 import type {WithdrawalRequest} from '../domain/transfers';
 import type {Gateway, Money} from '../domain/types';
 
+/**
+ * The provider says it holds no such session any more, as PayPal does for an
+ * order nobody approved in time. Not an expiry and not a cancellation: it
+ * says nothing about the money, so the session is closed as "no answer" for
+ * finance to check. Thrown by `fetchStatus` only for that exact answer; any
+ * other failure is an ordinary error, retried.
+ */
+export class SessionNotFoundError extends Error {
+  override name = 'SessionNotFoundError';
+}
+
 export type GatewayCapabilities = {
   /** Can we ask the provider what became of a session? */
   queryable: boolean;
