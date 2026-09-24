@@ -76,7 +76,7 @@ async function handleReturn(
       }
       /* Not awaited: it changes nothing the page shows, and the job row is
        * committed, so the clock runs it if this does not. */
-      if (outcome.outcome === 'settled' && outcome.transferCheckQueued) {
+      if (outcome.outcome === 'settled' && outcome.gooveeJobsQueued) {
         const {paymentId} = outcome;
         after(() => runPaymentJobs({tenant, paymentId}));
       }

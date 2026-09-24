@@ -10,6 +10,12 @@ import {findGooveeUserByEmail} from '@/orm/partner';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {
+  payerLocale,
+  sendPaymentConfirmation,
+  translatorFor,
+  workspaceLink,
+} from '@/payment/confirmation';
 import {getPartnerId} from '@/utils';
 
 import {findPartnerInvoicingAddresses, recordOrder} from '../orm';
@@ -186,6 +192,21 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
       });
 
       return {delivered: true, subject: {marketplaceProductOrder: orderId}};
+    },
+
+    async notify({payment, subject, snapshot, tenant}) {
+      const translate = translatorFor({
+        tenant,
+        locale: await payerLocale(tenant, payment.payer),
+      });
+      const link = marketplacePaymentSource.onwardLink({subject, snapshot});
+      await sendPaymentConfirmation({
+        tenant,
+        payment,
+        title: await translate('Purchase complete'),
+        link: link && workspaceLink(tenant, payment.workspaceUrl, link),
+        translate,
+      });
     },
 
     onwardLink({subject}) {

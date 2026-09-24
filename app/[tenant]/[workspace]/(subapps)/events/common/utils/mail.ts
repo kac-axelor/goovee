@@ -1,19 +1,12 @@
 // ---- CORE IMPORTS ---- //
-import {SUBAPP_CODES} from '@/constants';
-import {getSession} from '@/auth';
+import {dayjs} from '@/locale/dayjs';
 import NotificationManager, {NotificationType} from '@/notification';
-import {html} from '@/utils/template-string';
-import {findEvent} from '../orm/event';
-import {generateIcs} from './index';
-import {formatDate} from '@/locale/server/formatters';
-import type {Client} from '@/goovee/.generated/client';
+import {escapeHtml, html} from '@/utils/template-string';
 import type {TenantConfig} from '@/tenant';
-import type {WorkspaceScope} from '@/url/workspace-urls';
-import type {Workspace} from '@/orm/workspace';
-import type {Cloned} from '@/types/util';
 
 // ---- LOCAL IMPORTS ---- //
-import type {Participant} from '@/subapps/events/common/actions/validators';
+import type {RegistrationNotice} from '../orm/registration';
+import {generateIcs} from './index';
 
 type MailEvent = {
   eventTitle: string | null;
@@ -24,7 +17,18 @@ type MailEvent = {
   eventDescription: string | null;
 };
 
-export async function mailTemplate({
+type MailParticipant = NonNullable<
+  RegistrationNotice['participantList']
+>[number];
+
+/* Formatted without the request's locale, since the mail may be sent from the
+ * job clock: the pattern carries no word that a language would change. */
+function formatEventDate(value: string | Date | null): string {
+  if (!value) return '';
+  return dayjs(value).tz('Europe/Paris').format('YYYY-MM-DD HH:mm Z');
+}
+
+export function mailTemplate({
   event,
   eventLink,
   participant,
@@ -34,39 +38,32 @@ export async function mailTemplate({
    * where nothing resolves a path, and where the event is addressed is not an
    * attribute of the event. */
   eventLink: string;
-  participant: Participant;
+  participant: MailParticipant;
 }) {
-  const {
-    eventTitle,
-    eventPlace,
-    eventAllDay,
-    eventStartDateTime,
-    eventEndDateTime,
-    eventDescription,
-  } = event;
+  const {eventAllDay, eventStartDateTime, eventEndDateTime, eventDescription} =
+    event;
+  /* Escaped: the names are whatever the registration form was sent, and this
+   * mail goes to whichever addresses it named. The description is left as the
+   * rich text the event's author wrote. */
+  const eventTitle = escapeHtml(event.eventTitle);
+  const eventPlace = escapeHtml(event.eventPlace);
+  const link = escapeHtml(eventLink);
 
-  const {name, surname, subscriptionSet = []} = participant;
-  const fullName = `${name} ${surname}`.trim();
+  const {name, surname, subscriptionSet} = participant;
+  const fullName = escapeHtml(`${name ?? ''} ${surname ?? ''}`.trim());
 
-  const formattedEventStartDateTime = await formatDate(
-    eventStartDateTime ?? '',
-    {
-      timezone: 'Europe/Paris',
-      dateFormat: 'YYYY-MM-DD HH:mm Z',
-    },
-  );
-  const formattedEventEndDateTime = await formatDate(eventEndDateTime ?? '', {
-    timezone: 'Europe/Paris',
-    dateFormat: 'YYYY-MM-DD HH:mm Z',
-  });
+  const formattedEventStartDateTime = formatEventDate(eventStartDateTime);
+  const formattedEventEndDateTime = formatEventDate(eventEndDateTime);
   const dateDetails = eventAllDay
     ? html`<strong>Date:</strong> ${formattedEventStartDateTime}`
     : html`<strong>Date:</strong> ${formattedEventStartDateTime} -
         ${formattedEventEndDateTime}`;
 
   const subscriptionDetails = subscriptionSet?.length
-    ? (subscriptionSet as Array<{facility?: string | null}>)
-        .map(subscription => html`<li>${subscription.facility}</li>`)
+    ? subscriptionSet
+        .map(
+          subscription => html`<li>${escapeHtml(subscription.facility)}</li>`,
+        )
         .join('')
     : null;
 
@@ -147,7 +144,7 @@ export async function mailTemplate({
             ${eventDescription ? `<p>${eventDescription}</p>` : ''}
             <div class="btn-container">
               <a
-                href="${eventLink}"
+                href="${link}"
                 class="event-btn"
                 target="_blank"
                 rel="noopener noreferrer">
@@ -162,42 +159,29 @@ export async function mailTemplate({
   `;
 }
 
-export const generateRegistrationMailAction = async ({
-  eventId,
-  participants,
-  client,
+/**
+ * The registration mail, with its calendar invite, to every participant of a
+ * registration. Leans on no request, so a paid registration's confirmation
+ * job can send it as well as the free registration's own request.
+ *
+ * Returns how many mails could not be delivered; the mail service reports
+ * each one rather than throwing.
+ */
+export async function sendRegistrationMail({
+  notice,
+  eventLink,
   config,
-  workspace,
-  scope,
 }: {
-  participants: Participant[];
-  eventId: string;
-  client: Client;
+  notice: RegistrationNotice;
+  eventLink: string;
   config: TenantConfig;
-  workspace: Workspace | Cloned<Workspace>;
-  scope: WorkspaceScope;
-}) => {
-  if (![eventId, participants?.length, workspace.url].every(Boolean)) {
-    console.error(
-      '[MAIL] Missing required parameters: eventId, participants, or workspace.',
-    );
-    return;
-  }
-
-  const session = await getSession();
-  const user = session?.user;
-
-  const event = await findEvent({
-    id: eventId,
-    client,
-    config,
-    user,
-    workspace,
-  });
-
-  if (!event) {
-    console.error(`[MAIL] Event with ID ${eventId} not found.`);
-    return;
+}): Promise<{sent: number; failed: number}> {
+  const {event} = notice;
+  const participants = (notice.participantList ?? []).filter(
+    participant => participant.emailAddress,
+  );
+  if (!event || !participants.length) {
+    return {sent: 0, failed: 0};
   }
 
   const mailService = NotificationManager.getService(
@@ -206,30 +190,31 @@ export const generateRegistrationMailAction = async ({
   );
   if (!mailService) {
     console.error('[MAIL] Mail service is not available.');
-    return;
+    return {sent: 0, failed: 0};
   }
 
   const subject = `🎉 You're Registered for "${event.eventTitle}"!`;
   const ics = generateIcs(event, participants);
 
-  await mailService.notifyAll(participants, async participant => ({
-    to: participant.emailAddress,
-    subject,
-    html: await mailTemplate({
-      event,
-      eventLink: scope.forExternal(`/${SUBAPP_CODES.events}/${event.slug}`),
-      participant,
-    }),
-    icalEvent: {
-      method: 'REQUEST',
-      content: ics,
-    },
-    attachments: [
-      {
-        filename: 'invite.ics',
+  const results = await mailService.notifyAll(
+    participants,
+    async participant => ({
+      to: participant.emailAddress,
+      subject,
+      html: mailTemplate({event, eventLink, participant}),
+      icalEvent: {
+        method: 'REQUEST',
         content: ics,
-        contentType: 'text/calendar; method=REQUEST',
       },
-    ],
-  }));
-};
+      attachments: [
+        {
+          filename: 'invite.ics',
+          content: ics,
+          contentType: 'text/calendar; method=REQUEST',
+        },
+      ],
+    }),
+  );
+  const failed = results.filter(result => result.error).length;
+  return {sent: results.length - failed, failed};
+}

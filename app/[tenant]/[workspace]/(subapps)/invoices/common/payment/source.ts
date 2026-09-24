@@ -14,6 +14,13 @@ import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
 import {findPartlyFundedTransfer} from '@/payment/transfers';
 import {
+  payerLocale,
+  sendPaymentConfirmation,
+  translatorFor,
+  workspaceLink,
+} from '@/payment/confirmation';
+import {notifyInvoicePaymentSuccess} from '@/subapps/invoices/common/utils/notify';
+import {
   resolveInvoicePaymentAccess,
   validatePaymentData,
 } from '@/subapps/invoices/common/utils/validations';
@@ -165,6 +172,44 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
 
   async deliver() {
     return {delivered: true, subject: {}};
+  },
+
+  /* The push the payer's portal account always had, now on every method, and
+   * a mail: an invoice paid through its link has no account to push to. */
+  async notify({payment, subject, snapshot, tenant}) {
+    const invoiceId = subject.invoice;
+    if (!invoiceId) {
+      return;
+    }
+    const invoice = await tenant.client.aOSInvoice.findOne({
+      where: {id: invoiceId},
+      select: {invoiceId: true},
+    });
+    const invoiceNumber = String(invoice?.invoiceId ?? invoiceId);
+
+    /* The mail first: it is what fails the job, and the push, which never
+     * does, then goes out once, on the run that got the mail through. */
+    const translate = translatorFor({
+      tenant,
+      locale: await payerLocale(tenant, payment.payer),
+    });
+    const link = invoicesPaymentSource.onwardLink({subject, snapshot});
+    await sendPaymentConfirmation({
+      tenant,
+      payment,
+      title: await translate('Payment received for invoice {0}', invoiceNumber),
+      link: link && workspaceLink(tenant, payment.workspaceUrl, link),
+      translate,
+    });
+
+    if (payment.payer) {
+      await notifyInvoicePaymentSuccess({
+        invoiceId,
+        payer: payment.payer,
+        client: tenant.client,
+        tenantId: tenant.id,
+      });
+    }
   },
 
   onwardLink({subject, snapshot}) {

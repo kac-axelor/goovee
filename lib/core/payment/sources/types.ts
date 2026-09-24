@@ -53,6 +53,18 @@ export type DeliveredPayment = {
   paymentModeId: string | null;
 };
 
+/** A captured payment as its confirmation reads it. */
+export type NotifiedPayment = {
+  id: string;
+  reference: string;
+  money: Money;
+  payer: string | null;
+  /** Frozen at T1: what the payment was for, in the payer's words ("Invoice INV-1"). */
+  subjectLabel: string | null;
+  /** The workspace the payment was made in, as its address. */
+  workspaceUrl: string;
+};
+
 /**
  * One payment source: what it sells, how it prices it, and what goovee-local
  * work a capture unlocks. Adding a source is one handler and one registry
@@ -98,6 +110,21 @@ export interface PaymentSourceHandler<TIntent = unknown> {
     txClient: Client;
     tenant: Tenant;
   }): Promise<DeliveryResult>;
+
+  /**
+   * Tells the payer, and whoever else the source names, that the payment was
+   * captured and delivered. Runs as a `notify` job, outside any transaction and
+   * often outside any request — from the job clock — so it must not call
+   * `t()`, read the session or headers, or use a formatter that does:
+   * translate with `getTranslation` given a locale and the tenant. Throwing
+   * runs the whole notification again later.
+   */
+  notify?(args: {
+    payment: NotifiedPayment;
+    subject: SubjectLinks;
+    snapshot: IntentSnapshot;
+    tenant: Tenant;
+  }): Promise<void>;
 
   /** Where the result page sends the payer next, as a workspace sub-path. */
   onwardLink(args: {

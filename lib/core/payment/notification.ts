@@ -79,7 +79,7 @@ export async function handleNotification({
       const reference = outcome.reference;
       after(() => triggerProjection({tenant, reference}));
     }
-    if (outcome.outcome === 'settled' && outcome.transferCheckQueued) {
+    if (outcome.outcome === 'settled' && outcome.gooveeJobsQueued) {
       const {paymentId} = outcome;
       after(() => runPaymentJobs({tenant, paymentId}));
     }

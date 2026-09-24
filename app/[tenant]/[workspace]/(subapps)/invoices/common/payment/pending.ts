@@ -167,7 +167,7 @@ async function stillOpen(
     if (outcome.projectionQueued) {
       after(() => triggerProjection({tenant, reference}));
     }
-    if (outcome.transferCheckQueued) {
+    if (outcome.gooveeJobsQueued) {
       after(() => runPaymentJobs({tenant, paymentId}));
     }
   }

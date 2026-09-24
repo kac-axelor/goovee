@@ -21,6 +21,7 @@ import {
 import {getEventsConfig} from '../orm/config';
 import {findEvent} from '../orm/event';
 import {registerParticipants} from '../orm/registration';
+import {announceRegistration} from '../utils/notify';
 import {getCalculatedTotalPrice} from '../utils/payments';
 
 const EventIntentSchema = z.object({
@@ -201,6 +202,27 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
     });
 
     return {delivered: true, subject: {registration: registration.id}};
+  },
+
+  /* What a free registration tells its participants, now that the paid one
+   * has been captured and written: the push and the registration mail. The
+   * ERP's own template mail, where the workspace set one, still follows the
+   * projection. */
+  async notify({subject, snapshot, tenant}) {
+    const registrationId = subject.registration;
+    const {registeredBy, workspaceUrl} = snapshot as Partial<EventSnapshot>;
+    if (!registrationId || !workspaceUrl) {
+      return;
+    }
+    /* Run again only when no mail went out, so one address that refuses mail
+     * does not resend to every other participant on each retry. */
+    await announceRegistration({
+      registrationId,
+      registrant: registeredBy ? {id: registeredBy.id} : null,
+      tenant,
+      workspaceURL: workspaceUrl,
+      requireMail: true,
+    });
   },
 
   onwardLink({snapshot}) {

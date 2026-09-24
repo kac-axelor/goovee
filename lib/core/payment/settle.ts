@@ -34,6 +34,10 @@ const PROJECTION_GRACE_SECONDS = 5 * 60;
  * needing attention sooner than a projection does. */
 const TRANSFER_CHECK_GRACE_SECONDS = 2 * 60;
 
+/* A confirmation still unsent after this is a payer who paid and heard
+ * nothing: long enough for a retry or two, short enough to be noticed. */
+const NOTIFY_GRACE_SECONDS = 15 * 60;
+
 export type SettleOutcome =
   | {
       outcome: 'settled';
@@ -43,7 +47,7 @@ export type SettleOutcome =
       /** A projection job was written; the caller may ask AOS to run it now. */
       projectionQueued: boolean;
       /** A job goovee runs itself was written; the caller may run it now. */
-      transferCheckQueued: boolean;
+      gooveeJobsQueued: boolean;
     }
   /** The financial event was already in the ledger. Nothing changed. */
   | {outcome: 'duplicate'; reference: string}
@@ -215,6 +219,7 @@ export async function settlePayment({
     let deliveryReason: string | null = null;
     let subject: SubjectLinks = {};
     let projectionQueued = false;
+    let gooveeJobsQueued = false;
 
     if (newlyCaptured && deliveryStatus !== DELIVERY_STATUS.delivered) {
       const handler = getSourceHandler(
@@ -249,6 +254,18 @@ export async function settlePayment({
           PROJECTION_GRACE_SECONDS,
         );
         projectionQueued = true;
+        /* Written with the capture, so the confirmation survives whatever
+         * becomes of this request. An undeliverable payment is a human's to
+         * decide and is not confirmed. */
+        if (handler.notify) {
+          await upsertJob(
+            txClient,
+            payment.id,
+            JOB_KIND.notify,
+            NOTIFY_GRACE_SECONDS,
+          );
+          gooveeJobsQueued = true;
+        }
       } else {
         deliveryStatus = DELIVERY_STATUS.undeliverable;
         deliveryReason = delivery.reason;
@@ -258,7 +275,6 @@ export async function settlePayment({
     /* Money on an invoice may leave another transfer on it unneeded. Checking
      * means asking the provider, which cannot happen here, so the check is a
      * job written with the capture and run once this commits. */
-    let transferCheckQueued = false;
     if (
       isCapture &&
       !currencyMismatch &&
@@ -271,7 +287,7 @@ export async function settlePayment({
         JOB_KIND.cancelTransfers,
         TRANSFER_CHECK_GRACE_SECONDS,
       );
-      transferCheckQueued = true;
+      gooveeJobsQueued = true;
     }
 
     /* More kept than the payment was for: two of its sessions both took the
@@ -340,7 +356,7 @@ export async function settlePayment({
       reference: payment.reference,
       status: derived.status,
       projectionQueued,
-      transferCheckQueued,
+      gooveeJobsQueued,
     };
   });
 }

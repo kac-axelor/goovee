@@ -2,22 +2,30 @@ import 'server-only';
 
 import type {Tenant} from '@/tenant';
 import {JOB_KIND, type JobKind} from './domain/types';
+import {notifyPayment} from './notify';
 import {withdrawUnneededTransfers} from './transfers';
 
 /*
- * The payment jobs goovee runs itself, because they call a provider through
- * the TypeScript adapters. The ERP projection is AOS's and never claimed here.
+ * The payment jobs goovee runs itself: those that call a provider through the
+ * TypeScript adapters, and the confirmations, whose templates, languages and
+ * push live here. The ERP projection is AOS's and never claimed here.
  *
  * A job is claimed on a lease and run outside any transaction, since running
  * it means an HTTP call: the claim only moves the job's next attempt past the
  * lease, commits, and the work follows. A process that dies mid-run leaves the
- * job to be claimed again when the lease runs out, which is safe because every
- * handler is keyed at the provider and in the ledger. SKIP LOCKED lets any
- * number of instances drain at once.
+ * job to be claimed again when the lease runs out. A provider call is safe to
+ * repeat, being keyed at the provider and in the ledger; a confirmation is
+ * not, and is sent again — a second mail rather than none. SKIP LOCKED lets
+ * any number of instances drain at once.
  */
 
-/** Long enough for a handler's provider calls; a job still running past it may be claimed twice. */
-const LEASE_SECONDS = 5 * 60;
+/*
+ * Longer than any handler can run, or a job still running is claimed and run a
+ * second time. The longest is a confirmation against an unreachable mail
+ * server: the mail service retries each message itself for about twelve
+ * minutes, with its connection timeouts, before giving up.
+ */
+const LEASE_SECONDS = 15 * 60;
 const FIRST_RETRY_SECONDS = 60;
 const MAX_RETRY_SECONDS = 60 * 60;
 const BATCH_SIZE = 20;
@@ -27,6 +35,9 @@ type JobHandler = (args: {tenant: Tenant; paymentId: string}) => Promise<void>;
 const HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KIND.cancelTransfers]: async ({tenant, paymentId}) => {
     await withdrawUnneededTransfers({tenant, paymentId});
+  },
+  [JOB_KIND.notify]: async ({tenant, paymentId}) => {
+    await notifyPayment({tenant, paymentId});
   },
 };
 

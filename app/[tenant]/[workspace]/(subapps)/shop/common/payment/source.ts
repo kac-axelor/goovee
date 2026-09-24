@@ -13,6 +13,12 @@ import {shouldHidePricesAndPurchase} from '@/orm/product';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {
+  payerLocale,
+  sendPaymentConfirmation,
+  translatorFor,
+  workspaceLink,
+} from '@/payment/confirmation';
 import {computeTotal} from '@/utils/cart';
 
 import {getShopConfig} from '../orm/config';
@@ -313,6 +319,21 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
     }
 
     return {delivered: true, subject: {shopOrderRequest: request.id}};
+  },
+
+  async notify({payment, subject, snapshot, tenant}) {
+    const translate = translatorFor({
+      tenant,
+      locale: await payerLocale(tenant, payment.payer),
+    });
+    const link = shopPaymentSource.onwardLink({subject, snapshot});
+    await sendPaymentConfirmation({
+      tenant,
+      payment,
+      title: await translate('Order confirmed'),
+      link: link && workspaceLink(tenant, payment.workspaceUrl, link),
+      translate,
+    });
   },
 
   /* The order request exists only once the capture was delivered, so anything

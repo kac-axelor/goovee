@@ -47,13 +47,13 @@ import {
   isEventPrivate,
   isEventPublic,
 } from '@/subapps/events/common/utils';
-import {generateRegistrationMailAction} from '@/subapps/events/common/utils/mail';
+import {announceRegistration} from '@/subapps/events/common/utils/notify';
 import {getCalculatedTotalPrice} from '@/subapps/events/common/utils/payments';
 import {
   canEmailBeRegistered,
   isAlreadyRegistered,
 } from '@/subapps/events/common/utils/registration';
-import {notifyAll, notifyUser} from '@/pwa/utils';
+import {notifyUser} from '@/pwa/utils';
 import {NotificationTag} from '@/pwa/tags';
 
 export async function register(
@@ -71,7 +71,6 @@ export async function register(
     return {error: true, message: await accessMessage(access.reason)};
   }
   const workspaceURL = access.workspace.url;
-  const tenantId = access.tenant.id;
   const {user} = access;
   const {client} = access.tenant;
   const {config} = access.tenant;
@@ -131,47 +130,12 @@ export async function register(
     );
   }
 
-  let userParticipants = registration.participantList?.filter(
-    p => p.contact?.isActivatedOnPortal,
-  );
-
-  if (user) {
-    userParticipants = userParticipants?.filter(
-      p => p.contact?.emailAddress?.address !== user.email,
-    );
-  }
-
   after(() =>
-    notifyAll(userParticipants ?? [], async participant => {
-      const contact = participant.contact!;
-      const tr = getTranslation.bind(null, {
-        locale: contact.localization?.code || DEFAULT_LOCALE,
-        tenant: tenantId,
-      });
-
-      return {
-        userId: contact.id,
-        tenantId: access.tenant.id,
-        workspaceURL: access.workspace.url,
-        client,
-        payload: {
-          title: await tr('You have been registered for an event!'),
-          body: `${registration.event!.eventTitle}`,
-          link: `/${SUBAPP_CODES.events}/${registration.event!.slug}`,
-          tag: NotificationTag.event(registration.event!.id),
-        },
-      };
-    }),
-  );
-
-  after(() =>
-    generateRegistrationMailAction({
-      eventId,
-      participants,
-      client,
-      config,
-      workspace: access.workspace,
-      scope: access.scope,
+    announceRegistration({
+      registrationId: registration.id,
+      registrant: user ? {email: user.email} : null,
+      tenant: access.tenant,
+      workspaceURL,
     }),
   );
 
