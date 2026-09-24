@@ -20,16 +20,11 @@ import {
 } from '@/ui/components';
 import {formatNumber} from '@/locale/formatters';
 import {useSearchParams} from '@/ui/hooks';
-import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
-import {BankTransferList} from '@/ui/components/payment/stripe';
-import {HubPispPendingList} from '@/ui/components/payment/hubpisp';
 import {cn} from '@/utils/css';
-import {useToast} from '@/ui/hooks/';
-import type {BankTransferDetailsType} from '@/ui/components/payment/types';
-import type {Cloned} from '@/types/util';
 
 // ---- LOCAL IMPORTS ---- //
 import {TotalProps} from '@/subapps/invoices/common/types/invoices';
+import {PendingTransfers} from '@/subapps/invoices/common/ui/components/pending-transfers';
 
 // Parse a formatted currency string into a JS number, tolerating both
 // FR/EU ("1 234,56 €") and US ("1,234.56") locales.
@@ -53,7 +48,6 @@ import {
   INVOICE_PAYMENT_OPTIONS,
 } from '@/subapps/invoices/common/constants/invoices';
 import {InvoicePayments} from '@/subapps/invoices/common/ui/components';
-import {cancelStripeBankTransferPaymentIntent} from '@/app/[tenant]/[workspace]/(subapps)/invoices/common/actions';
 
 export function Total({
   isUnpaid,
@@ -61,6 +55,7 @@ export function Total({
   invoice,
   invoiceType,
   token,
+  pendingTransfers,
   gateways,
   submitToken,
 }: TotalProps) {
@@ -71,8 +66,6 @@ export function Total({
     taxTotal,
     invoicePaymentList,
     currency,
-    pendingStripeBankTransferIntents,
-    pendingHubPispContexts,
   } = invoice;
   const {searchParams} = useSearchParams();
   const type = searchParams.get('type') as INVOICE_PAYMENT_OPTIONS;
@@ -95,10 +88,6 @@ export function Total({
     Boolean(paymentOptionSet?.length);
 
   const remainingAmountValue = parseFloat(amountRemaining?.value || '0');
-
-  const {workspaceURL} = useWorkspace();
-
-  const {toast} = useToast();
 
   const formSchema = z.object({
     amount: z
@@ -150,32 +139,6 @@ export function Total({
         ? INVOICE_PAYMENT_OPTIONS.TOTAL
         : INVOICE_PAYMENT_OPTIONS.PARTIAL,
     );
-  };
-
-  const handleStripeIntentCancellation = async (
-    transfer: Cloned<BankTransferDetailsType>,
-  ): Promise<void> => {
-    const {id, contextId} = transfer;
-    try {
-      const response = await cancelStripeBankTransferPaymentIntent({
-        id,
-        contextId,
-        workspaceURL,
-        token,
-      });
-
-      if (response?.error) {
-        toast({
-          variant: 'destructive',
-          title: i18n.t(response.message),
-        });
-      }
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: i18n.t('Something went wrong while canceling the bank transfer'),
-      });
-    }
   };
 
   const hasPartialPayment = Boolean(invoicePaymentList?.length);
@@ -239,15 +202,7 @@ export function Total({
         </ul>
       )}
 
-      {pendingStripeBankTransferIntents?.length ? (
-        <BankTransferList
-          bankTransfers={pendingStripeBankTransferIntents}
-          onCancelTransfer={handleStripeIntentCancellation}
-        />
-      ) : null}
-      {pendingHubPispContexts?.length ? (
-        <HubPispPendingList pendingContexts={pendingHubPispContexts} />
-      ) : null}
+      <PendingTransfers transfers={pendingTransfers} />
 
       {isUnpaid && (
         <div className="rounded-lg p-4 bg-status-overdue-bg/40 border border-status-overdue-bg flex flex-col gap-2">

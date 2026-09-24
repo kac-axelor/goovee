@@ -10,29 +10,15 @@ import {Button} from '@/ui/components';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import {PAYMENT_STATUS} from '@/payment/domain/types';
 import type {PaymentView} from '@/payment/view';
+import {
+  formatMoney,
+  TransferInstructions,
+} from '@/ui/components/payment/transfer-instructions';
 
 /** Poll cadence: fast at first, backing off, and giving up after a few minutes. */
 const FIRST_POLL_MS = 1000;
 const MAX_POLL_MS = 5000;
 const POLL_BUDGET_MS = 3 * 60 * 1000;
-
-function formatMoney(
-  minor: number,
-  currencyCode: string,
-  scale: number,
-): string {
-  const value = minor / 10 ** scale;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currencyCode,
-      minimumFractionDigits: scale,
-      maximumFractionDigits: scale,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(scale)} ${currencyCode}`;
-  }
-}
 
 type Presentation = {
   tone: 'success' | 'pending' | 'failure' | 'neutral';
@@ -158,46 +144,6 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
   }
 }
 
-function Instructions({view}: {view: PaymentView}) {
-  const details = view.instructions;
-  if (!details) {
-    return null;
-  }
-  const rows: [string, string | undefined][] = [
-    [i18n.t('Account holder'), details.accountHolder],
-    [i18n.t('IBAN'), details.iban],
-    [i18n.t('BIC'), details.bic],
-    [i18n.t('Bank'), details.bankName],
-    [i18n.t('Routing number'), details.routingNumber],
-    [i18n.t('Account number'), details.accountNumber],
-    [i18n.t('Payment reference'), details.reference],
-    [
-      i18n.t('Amount remaining'),
-      details.amountRemaining
-        ? formatMoney(
-            Math.round(
-              Number(details.amountRemaining) * 10 ** view.currencyScale,
-            ),
-            view.currencyCode,
-            view.currencyScale,
-          )
-        : undefined,
-    ],
-  ];
-  return (
-    <dl className="mt-6 grid grid-cols-1 gap-2 rounded-md border border-ink-200 bg-white p-4 text-sm sm:grid-cols-2">
-      {rows
-        .filter(([, value]) => Boolean(value))
-        .map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-ink-500">{label}</dt>
-            <dd className="font-mono">{value}</dd>
-          </div>
-        ))}
-    </dl>
-  );
-}
-
 const TONE_CLASSES: Record<Presentation['tone'], string> = {
   success: 'border-success bg-success-light text-success-dark',
   pending: 'border-palette-blue bg-palette-blue-light text-ink-900',
@@ -300,7 +246,14 @@ export function PaymentResult({
             </div>
           )}
         </dl>
-        <Instructions view={view} />
+        {view.instructions && (
+          <TransferInstructions
+            className="mt-6"
+            instructions={view.instructions}
+            currencyCode={view.currencyCode}
+            currencyScale={view.currencyScale}
+          />
+        )}
         <div className="mt-6 flex flex-wrap gap-3">
           {onwardHref && (
             <Button onClick={() => router.push(onwardHref)}>

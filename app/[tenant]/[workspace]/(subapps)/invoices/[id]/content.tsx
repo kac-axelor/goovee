@@ -1,9 +1,7 @@
 'use client';
 
-import {useCallback} from 'react';
 import {Link} from '@/ui/components/link';
 import type {Cloned} from '@/types/util';
-import {useRouter} from 'next/navigation';
 import {MdArrowBack, MdOutlineFileDownload} from 'react-icons/md';
 
 // ---- CORE IMPORTS ---- //
@@ -12,12 +10,7 @@ import {i18n} from '@/locale';
 import {SUBAPP_CODES} from '@/constants';
 import {cn} from '@/utils/css';
 import {formatDate} from '@/locale/formatters';
-import {useToast} from '@/ui/hooks';
 import type {StatusKey} from '@/ui/components';
-import {
-  PaymentUpdateStatus,
-  PAYMENT_UPDATE_STATUS,
-} from '@/payment/sse/constants';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
 import type {OfferedGateway} from '@/payment/offer';
 
@@ -25,6 +18,7 @@ import type {OfferedGateway} from '@/payment/offer';
 import {Invoice, Total} from '@/subapps/invoices/common/ui/components';
 import {INVOICE_TYPE} from '@/subapps/invoices/common/constants/invoices';
 import type {InvoicesConfig} from '@/subapps/invoices/common/orm/config';
+import type {PendingTransfer} from '@/subapps/invoices/common/payment/pending';
 import type {Invoice as InvoiceType} from '@/subapps/invoices/common/types/invoices';
 import {
   extractAmount,
@@ -35,6 +29,7 @@ interface ContentProps {
   invoice: Cloned<InvoiceType>;
   config: InvoicesConfig | Cloned<InvoicesConfig>;
   token?: string;
+  pendingTransfers: PendingTransfer[];
   gateways: OfferedGateway[];
   submitToken: string;
 }
@@ -73,50 +68,19 @@ export default function Content({
   invoice,
   config,
   token,
+  pendingTransfers,
   gateways,
   submitToken,
 }: ContentProps) {
   const {id, invoiceId, dueDate, invoiceDate, isUnpaid} = invoice;
 
   const {scope} = useWorkspace();
-  const router = useRouter();
-  const {toast} = useToast();
 
   const invoiceType = isUnpaid ? INVOICE_TYPE.UNPAID : INVOICE_TYPE.PAID;
   const statusKey = getInvoiceStatusKey(invoice);
   const tone = getInvoiceTone(invoice);
   const overdue = isInvoiceOverdue(invoice);
   const statusLabel = getInvoiceStatusLabel({isUnpaid, overdue});
-
-  const handlePaymentUpdate = useCallback(
-    (status: PaymentUpdateStatus) => {
-      router.refresh();
-      if (status === PAYMENT_UPDATE_STATUS.SUCCESS) {
-        toast({
-          title: i18n.t('Payment completed successfully'),
-          variant: 'success',
-        });
-      } else if (status === PAYMENT_UPDATE_STATUS.PARTIAL) {
-        toast({
-          title: i18n.t(
-            'Partial payment received. Waiting for remaining funds.',
-          ),
-          variant: 'success',
-        });
-      } else if (status === PAYMENT_UPDATE_STATUS.CANCELLED) {
-        toast({
-          title: i18n.t('Payment cancelled.'),
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: i18n.t('Payment failed. Please try again.'),
-          variant: 'destructive',
-        });
-      }
-    },
-    [router, toast],
-  );
 
   return (
     <div className="bg-ink-25 flex-1 min-h-0 flex flex-col">
@@ -186,7 +150,7 @@ export default function Content({
               isUnpaid={isUnpaid}
               config={config}
               token={token}
-              onPaymentUpdate={handlePaymentUpdate}
+              pendingTransfers={pendingTransfers}
               gateways={gateways}
               submitToken={submitToken}
             />

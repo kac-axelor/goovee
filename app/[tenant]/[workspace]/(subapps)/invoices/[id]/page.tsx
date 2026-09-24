@@ -1,4 +1,5 @@
 import {Suspense} from 'react';
+import {cookies} from 'next/headers';
 import {notFound} from 'next/navigation';
 
 // ---- CORE IMPORTS ---- //
@@ -21,6 +22,7 @@ import {SignOutBanner} from './sign-out-banner';
 import {TokenInvalid} from './token-invalid';
 import {getInvoicesConfig} from '@/subapps/invoices/common/orm/config';
 import {findInvoice} from '@/subapps/invoices/common/orm/invoices';
+import {findPendingTransfers} from '@/subapps/invoices/common/payment/pending';
 import {InvoiceSkeleton} from '@/subapps/invoices/common/ui/components';
 
 type Params = {id: string; tenant: string; workspace: string};
@@ -67,11 +69,21 @@ async function Invoice({
     );
     if (!config) notFound();
 
+    /* A signed-in visitor on a token link is asked to sign out first, so the
+     * viewer here is anonymous and only the return cookie can open a payment. */
+    const pendingTransfers = await findPendingTransfers({
+      tenant: access.tenant,
+      invoiceId: invoice.id,
+      cookies: await cookies(),
+      viewerEmail: null,
+    });
+
     return (
       <Content
         invoice={clone(invoice)}
         config={clone(config)}
         token={access.token}
+        pendingTransfers={pendingTransfers}
         gateways={offeredGateways({
           source: PAYMENT_SOURCE.invoices,
           paymentOptions: config.paymentOptionSet,
@@ -113,10 +125,18 @@ async function Invoice({
   );
   if (!config) notFound();
 
+  const pendingTransfers = await findPendingTransfers({
+    tenant: access.tenant,
+    invoiceId: invoice.id,
+    cookies: await cookies(),
+    viewerEmail: access.user.email,
+  });
+
   return (
     <Content
       invoice={clone(invoice)}
       config={clone(config)}
+      pendingTransfers={pendingTransfers}
       gateways={offeredGateways({
         source: PAYMENT_SOURCE.invoices,
         paymentOptions: config.paymentOptionSet,
