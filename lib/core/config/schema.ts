@@ -1168,11 +1168,9 @@ function checkTenantIds(ids: string[]): ConfigIssue[] {
         path: tenantPath(id),
         message:
           `"${id}" is ${id.length} characters, and a tenant id may hold at ` +
-          `most ${TENANT_ID_MAX_LENGTH}. A Hub PISP payment carries its ` +
-          `reference as "<paymentContextId>-<tenantId>" in a field of 35 ` +
-          `characters, and a context id can reach 19 digits, so a longer id ` +
-          `works until this tenant's context ids grow and then fails every Hub ` +
-          `PISP payment it attempts.`,
+          `most ${TENANT_ID_MAX_LENGTH}. A payment's reference ends with the ` +
+          `tenant id, and Hub PISP carries the reference in a field of 35 ` +
+          `characters, which leaves ${TENANT_ID_MAX_LENGTH} for the id.`,
       });
     }
   }

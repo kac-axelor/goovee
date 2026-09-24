@@ -30,7 +30,7 @@ import {findEvent} from '../orm/event';
 import {registerParticipants} from '../orm/registration';
 import {announceRegistration} from '../utils/notify';
 import {getCalculatedTotalPrice} from '../utils/payments';
-import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
+import {SUBJECT_MODEL, subjectIdOf} from '@/payment/domain/subject';
 
 const EventIntentSchema = z.object({
   eventId: IdSchema,

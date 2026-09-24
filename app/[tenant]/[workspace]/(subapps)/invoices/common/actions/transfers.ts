@@ -84,7 +84,6 @@ export async function cancelPendingTransfer(
       ...invoiceFilter,
       client: tenant.client,
       workspaceURL: access.data.workspaceURL,
-      tenantId,
     });
     if (!invoice) {
       return {error: true, message: await t('Invalid invoice!')};

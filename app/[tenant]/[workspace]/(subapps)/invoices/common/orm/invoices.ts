@@ -138,7 +138,6 @@ export const findInvoice = async ({
   };
   client: Client;
   workspaceURL: Workspace['url'];
-  tenantId: string;
 }): Promise<Invoice | null> => {
   if (!workspaceURL) return null;
 

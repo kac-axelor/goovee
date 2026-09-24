@@ -25,7 +25,7 @@ import {getShopConfig} from '../orm/config';
 import {priceCart} from '../service';
 import {computeExpectedAmount, formatNumber} from '../utils/order';
 import {CartSchema} from '../validators';
-import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
+import {SUBJECT_MODEL, subjectIdOf} from '@/payment/domain/subject';
 
 const ShopIntentSchema = z.object({
   cart: CartSchema,

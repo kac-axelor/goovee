@@ -26,7 +26,7 @@ import {
   validateCart,
   type ValidatedCart,
 } from '../utils/cart';
-import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
+import {SUBJECT_MODEL, subjectIdOf} from '@/payment/domain/subject';
 
 const MarketplaceIntentSchema = z.object({
   productIds: CartProductIdsSchema,
@@ -189,7 +189,6 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
         companyId: companyId ?? null,
         paymentModeId: payment.paymentModeId,
         invoicingAddress: invoicingAddress?.address ?? null,
-        paymentContextId: null,
       });
 
       return {

@@ -24,7 +24,7 @@ import {
   resolveInvoicePaymentAccess,
   validatePaymentData,
 } from '@/subapps/invoices/common/utils/validations';
-import {SUBJECT_MODEL, subjectIdOf} from '@/lib/core/payment/domain/subject';
+import {SUBJECT_MODEL, subjectIdOf} from '@/payment/domain/subject';
 
 const InvoiceIntentSchema = z.object({
   invoiceId: z.string().min(1),
