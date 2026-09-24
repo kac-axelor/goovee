@@ -141,13 +141,19 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
 
   capabilities: {
     queryable: true,
-    lookupByReference: false,
     settlesOnReturn: true,
     partialCapture: true,
-    reportsRefunds: true,
-    reportsDisputes: false,
-    resolvesBy: 'reference',
-    idempotency: 'provider-key',
+    chargesOnStart: true,
+  },
+
+  /* The payer sends the transfer when they choose, so there is no expiry to
+   * wait for: asked daily from the start, and a person looks at one still
+   * awaiting two weeks after it was started. */
+  reconcile: {
+    timedFrom: 'start',
+    recheckMs: 24 * 60 * 60 * 1000,
+    firstCheckAfterMs: 24 * 60 * 60 * 1000,
+    decideAfterMs: 14 * 24 * 60 * 60 * 1000,
   },
 
   /* Without the signing secret nothing would ever confirm a transfer, and the

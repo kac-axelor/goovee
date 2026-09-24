@@ -84,11 +84,11 @@ export async function reconcilePayment({
     const open =
       row.status === SESSION_STATUS.initiated ||
       row.status === SESSION_STATUS.awaiting ||
-      /* Only a Stripe bank transfer is ever funded in part, and a session
-       * keeps its first outcome, so one funded in part reads captured. */
+      /* A session keeps its first outcome, so one funded in part reads
+       * captured; only a provider that funds in parts leaves it open. */
       (partlyFunded &&
         row.status === SESSION_STATUS.captured &&
-        row.gateway === GATEWAY.stripeBankTransfer);
+        getAdapter(row.gateway as Gateway).capabilities.partialCapture);
     return open
       ? [
           {
@@ -141,11 +141,11 @@ export async function reconcilePayment({
         lookAgain(decideAt.getTime(), decideAt);
       } else if (
         adapter.capabilities.queryable &&
-        session.gateway === GATEWAY.stripeBankTransfer
+        adapter.capabilities.chargesOnStart
       ) {
-        /* The one start that can move money before the payer does anything:
-         * confirming the transfer applies the customer's cash balance at
-         * once. With no handle to ask Stripe by, a person looks it up. */
+        /* A start that can move money before the payer does anything, as
+         * confirming a Stripe bank transfer applies the customer's cash
+         * balance at once. With no handle to ask by, a person looks it up. */
         decisions.push(neverHandled(payment.reference, session));
       } else {
         /* A form-post provider that sent no IPN in a week, or a start whose
@@ -184,7 +184,7 @@ export async function reconcilePayment({
     if (signal.type === 'pending') {
       if (pastDeadline) {
         decisions.push(
-          session.gateway === GATEWAY.stripeBankTransfer
+          adapter.reconcile.timedFrom === 'start'
             ? `Payment ${payment.reference}: the bank transfer ${session.sessionRef} has been awaiting the payer's bank since ${session.createdOn.toISOString()}; ask the payer, or cancel the transfer`
             : `Payment ${payment.reference}: ${session.gateway} still reports session ${session.sessionRef} as pending past its expiry; look it up in the provider's back office, then record an out-of-band capture or cancel`,
         );

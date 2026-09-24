@@ -578,15 +578,17 @@ export const paypalAdapter: GatewayAdapter = {
 
   capabilities: {
     queryable: true,
-    lookupByReference: false,
     /* Our server makes the capture, so the browser leg is how the outcome is
      * learnt first-hand; the webhook is the backstop. */
     settlesOnReturn: true,
     partialCapture: false,
-    reportsRefunds: true,
-    reportsDisputes: true,
-    resolvesBy: 'reference',
-    idempotency: 'provider-key',
+    chargesOnStart: false,
+  },
+
+  reconcile: {
+    timedFrom: 'expiry',
+    recheckMs: 60 * 60 * 1000,
+    decideAfterExpiryMs: 24 * 60 * 60 * 1000,
   },
 
   isConfigured(config) {

@@ -15,28 +15,58 @@ export class SessionNotFoundError extends Error {
 }
 
 export type GatewayCapabilities = {
-  /** Can we ask the provider what became of a session? */
+  /**
+   * Can we ask the provider what became of a session? The reconcile job asks
+   * a queryable one; one that is not is closed as "no answer" once its
+   * deadline passes, for finance to check.
+   */
   queryable: boolean;
-  /** Can we ask the provider by our own reference? */
-  lookupByReference: boolean;
   /** May the browser leg settle, for speed? Turning it off must change nothing but latency. */
   settlesOnReturn: boolean;
+  /**
+   * Can a session be funded in part and stay open for the rest, as a bank
+   * transfer is? Such a session keeps its reconcile check while the payment
+   * reads partially captured, though the session itself reads captured.
+   */
   partialCapture: boolean;
-  reportsRefunds: boolean;
-  reportsDisputes: boolean;
-  /** Which handle the provider echoes on the capture leg. */
-  resolvesBy: 'reference' | 'sessionRef';
-  /** What makes a repeated create call harmless at the provider. */
-  idempotency: 'provider-key' | 'reference';
+  /**
+   * Can creating the session move money before the payer does anything, as
+   * confirming a Stripe bank transfer applies a customer's cash balance at
+   * once? A start of one whose handoff never came back goes to a person past
+   * its deadline, rather than being closed as "no answer".
+   */
+  chargesOnStart: boolean;
 };
+
+/**
+ * When the reconcile job looks at a session of this provider, and when an
+ * unresolved one goes to a person. Most sessions are payable until an
+ * expiry, and timed from it; a transfer the payer sends at leisure has no
+ * expiry, and is timed from its start.
+ */
+export type ReconcilePolicy =
+  | {
+      timedFrom: 'expiry';
+      /** How long before a provider that still says pending is asked again. */
+      recheckMs: number;
+      /** Past the session's expiry, how long before a person decides. */
+      decideAfterExpiryMs: number;
+    }
+  | {
+      timedFrom: 'start';
+      recheckMs: number;
+      /** After the start, when it is first looked at. */
+      firstCheckAfterMs: number;
+      /** After the start, how long before a person decides. */
+      decideAfterMs: number;
+    };
 
 /** What the button does after the server created the session. */
 export type Handoff =
   | {kind: 'redirect'; url: string}
   | {kind: 'form-post'; url: string; fields: Record<string, string>}
   /** The provider's in-page SDK approves the order; the button then sends the browser to `completeUrl` with the order id appended as `token`. */
-  | {kind: 'sdk'; orderId: string; completeUrl: string}
-  | {kind: 'instructions'; details: Record<string, string>};
+  | {kind: 'sdk'; orderId: string; completeUrl: string};
 
 export type GatewayContext = {
   tenantId: string;
@@ -98,14 +128,15 @@ export type CreatedSession = {
  * One provider, behind one interface. Adapters are server-only and nothing
  * outside the payment module imports them.
  *
- * Both legs produce the same {@link GatewaySignal}, carrying the event key and
- * the correlation references the settle needs; producing those is part of the
+ * Both legs produce the same {@link GatewaySignal}, carrying the provider's
+ * id for the event and the correlation references the settle needs; producing those is part of the
  * contract, so a new provider cannot get them wrong in production on a
  * chargeback.
  */
 export interface GatewayAdapter {
   readonly gateway: Gateway;
   readonly capabilities: GatewayCapabilities;
+  readonly reconcile: ReconcilePolicy;
 
   /** Whether the tenant's configuration lets this gateway be offered. */
   isConfigured(config: TenantConfig): boolean;

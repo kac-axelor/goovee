@@ -105,8 +105,16 @@ function performHandoff(handoff: Handoff): boolean {
       form.submit();
       return true;
     }
-    default:
+    /* Taken by the provider's own button, which drives its SDK; one reaching
+     * a plain button is a gateway offered through the wrong control. */
+    case 'sdk':
       return false;
+    default: {
+      /* Every kind a start can answer with is handled above; a new one fails
+       * the type check here rather than doing nothing in the browser. */
+      const unhandled: never = handoff;
+      return unhandled;
+    }
   }
 }
 

@@ -12,8 +12,11 @@ import {payboxAdapter} from './paybox';
 import {up2payAdapter} from './up2pay';
 import {hubpispAdapter} from './hubpisp';
 
-/* Adding a provider is one adapter and one entry here. */
-const adapters: Partial<Record<Gateway, GatewayAdapter>> = {
+/* Adding a provider is one adapter and one entry here. The type asks for an
+ * entry per gateway, and the check below asks again when the module loads:
+ * the build does not type-check, so the check is what stops a gateway
+ * shipped without its adapter. */
+const adapters: Record<Gateway, GatewayAdapter> = {
   [GATEWAY.stripeCard]: stripeCardAdapter,
   [GATEWAY.stripeBankTransfer]: stripeBankTransferAdapter,
   [GATEWAY.paypal]: paypalAdapter,
@@ -22,12 +25,22 @@ const adapters: Partial<Record<Gateway, GatewayAdapter>> = {
   [GATEWAY.hubpisp]: hubpispAdapter,
 };
 
+for (const gateway of Object.values(GATEWAY)) {
+  if (adapters[gateway]?.gateway !== gateway) {
+    throw new Error(
+      `The payment adapter registry has no adapter for gateway "${gateway}"`,
+    );
+  }
+}
+
 export const GatewaySchema = z.enum(
   Object.values(GATEWAY) as [Gateway, ...Gateway[]],
 );
 
+/* A gateway read from a row or a request is only typed as one: an unknown
+ * value still reaches here, and is refused by name. */
 export function getAdapter(gateway: Gateway): GatewayAdapter {
-  const adapter = adapters[gateway];
+  const adapter = adapters[gateway] as GatewayAdapter | undefined;
   if (!adapter) {
     throw new Error(`No adapter for gateway "${gateway}"`);
   }
@@ -35,9 +48,7 @@ export function getAdapter(gateway: Gateway): GatewayAdapter {
 }
 
 export function listAdapters(): GatewayAdapter[] {
-  return Object.values(adapters).filter((adapter): adapter is GatewayAdapter =>
-    Boolean(adapter),
-  );
+  return Object.values(adapters);
 }
 
 /**

@@ -491,15 +491,20 @@ export const hubpispAdapter: GatewayAdapter = {
 
   capabilities: {
     queryable: true,
-    lookupByReference: false,
     /* The report address the bank sends the browser to carries nothing the
      * server can verify; the webhook and the reconciler learn the outcome. */
     settlesOnReturn: false,
     partialCapture: false,
-    reportsRefunds: false,
-    reportsDisputes: false,
-    resolvesBy: 'reference',
-    idempotency: 'reference',
+    chargesOnStart: false,
+  },
+
+  /* A credit transfer the bank has accepted is asked every six hours; a
+   * standard SEPA credit transfer takes business days, more over a weekend or
+   * a bank holiday, so a person looks five days past its expiry. */
+  reconcile: {
+    timedFrom: 'expiry',
+    recheckMs: 6 * 60 * 60 * 1000,
+    decideAfterExpiryMs: 5 * 24 * 60 * 60 * 1000,
   },
 
   isConfigured(config) {

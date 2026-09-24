@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import {findReference} from '../domain/reference';
 import {EVENT_TYPE, type EventType} from '../domain/types';
+import type {ReconcilePolicy} from './types';
 
 /*
  * Shared by the two Verifone-family gateways, Paybox System and Crédit
@@ -255,3 +256,20 @@ export function eventIdFor(
   }
   return `${attempt}:${code ?? 'unknown'}`;
 }
+
+/*
+ * How long past its expiry a Paybox or Up2Pay session waits for its IPN
+ * before it is closed as "no answer". Verifone calls the IPN server to server
+ * as the payer validates and does not retry a failed call — it mails the
+ * merchant a warning instead (Paybox System integration manual 8.3, §5.3) —
+ * so a card payment's IPN comes within minutes or not at all. Only a method
+ * awaiting validation (code 99999: PayPal, Oney, iDeal through Paybox) is
+ * called again, "quelques heures à quelques jours" later (§5.2). A week covers
+ * those with room to spare, and a late IPN still settles the payment. Neither
+ * gateway can be asked, so the recheck is never used.
+ */
+export const VERIFONE_RECONCILE: ReconcilePolicy = {
+  timedFrom: 'expiry',
+  recheckMs: 60 * 60 * 1000,
+  decideAfterExpiryMs: 7 * 24 * 60 * 60 * 1000,
+};

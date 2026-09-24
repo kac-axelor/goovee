@@ -17,6 +17,7 @@ import type {
 import {
   commandFor,
   eventIdFor,
+  VERIFONE_RECONCILE,
   eventTypeForCode,
   fieldValue,
   numericCurrency,
@@ -180,14 +181,12 @@ export const up2payAdapter: GatewayAdapter = {
 
   capabilities: {
     queryable: false,
-    lookupByReference: false,
     settlesOnReturn: true,
     partialCapture: false,
-    reportsRefunds: false,
-    reportsDisputes: false,
-    resolvesBy: 'reference',
-    idempotency: 'reference',
+    chargesOnStart: false,
   },
+
+  reconcile: VERIFONE_RECONCILE,
 
   isConfigured(config) {
     const up2pay = config.payments?.up2pay;

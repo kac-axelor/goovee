@@ -97,6 +97,15 @@ export interface PaymentSourceHandler<TIntent = unknown> {
    * transaction: goovee-owned or ERP rows written through the client, never an
    * HTTP call. Undeliverable still commits the capture and is a human's to
    * decide.
+   *
+   * Settle runs on whichever leg saw the capture first: the payer's return,
+   * the provider's webhook, or a job from the clock. So this must not read the
+   * session, the cookies or the headers — on a webhook they are the
+   * provider's, in a job there are none — and must take everything about the
+   * payer from `payment` and `snapshot`. Text it writes, such as an
+   * undeliverable reason, is for the ERP's operators: `t()` renders it in the
+   * request's language on the return leg, and in the default locale on a
+   * webhook or in a job, so keep it plain rather than per-payer.
    */
   deliver(args: {
     payment: DeliveredPayment;
@@ -108,10 +117,12 @@ export interface PaymentSourceHandler<TIntent = unknown> {
   /**
    * Tells the payer, and whoever else the source names, that the payment was
    * captured and delivered. Runs as a `notify` job, outside any transaction and
-   * often outside any request — from the job clock — so it must not call
-   * `t()`, read the session or headers, or use a formatter that does:
-   * translate with `getTranslation` given a locale and the tenant. Throwing
-   * runs the whole notification again later.
+   * often outside any request — from the job clock — so it must not read the
+   * session, the cookies or the headers, or use a formatter that does. `t()`
+   * does not throw there: jobs run in a background scope, where it renders the
+   * portal's default locale. A payer's own language is not in that scope, so
+   * translate what the payer reads with `getTranslation` given their locale and
+   * the tenant. Throwing runs the whole notification again later.
    */
   notify?(args: {
     payment: NotifiedPayment;

@@ -2,8 +2,8 @@ import 'server-only';
 
 import type {Client} from '@/goovee/.generated/client';
 import type {Tenant} from '@/tenant';
+import {getAdapter} from './adapters/registry';
 import {
-  GATEWAY,
   JOB_KIND,
   PAYMENT_STATUS,
   SESSION_STATUS,
@@ -20,48 +20,21 @@ import {
 const FIRST_CHECK_GRACE_MS = 5 * 60 * 1000;
 /** A session whose provider call never came back has no expiry to wait for. */
 const UNSTARTED_WAIT_MS = 30 * 60 * 1000;
-/** A provider that still says pending is asked again after this. */
-const RECHECK_MS = 60 * 60 * 1000;
-/** A bank transfer is asked daily. */
-const TRANSFER_RECHECK_MS = 24 * 60 * 60 * 1000;
-/** A HUB PISP credit transfer the bank has accepted is asked every six hours. */
-const HUBPISP_RECHECK_MS = 6 * 60 * 60 * 1000;
-/** Past its expiry, how long a payment may stay unresolved before a person looks. */
-const DECIDE_AFTER_EXPIRY_MS = 24 * 60 * 60 * 1000;
-/** A standard SEPA credit transfer takes business days, more over a weekend or a bank holiday. */
-const HUBPISP_DECIDE_AFTER_EXPIRY_MS = 5 * 24 * 60 * 60 * 1000;
-/** A bank transfer still awaiting this long after it was started goes to a person. */
-const TRANSFER_DECIDE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
-/*
- * How long past its expiry a Paybox or Up2Pay session waits for its IPN
- * before it is closed as "no answer". Verifone calls the IPN server to server
- * as the payer validates and does not retry a failed call — it mails the
- * merchant a warning instead (Paybox System integration manual 8.3, §5.3) —
- * so a card payment's IPN comes within minutes or not at all. Only a method
- * awaiting validation (code 99999: PayPal, Oney, iDeal through Paybox) is
- * called again, "quelques heures à quelques jours" later (§5.2). A week covers
- * those with room to spare, and a late IPN still settles the payment.
- */
-const NO_ANSWER_AFTER_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+/* An open payment found without a reconcile row is checked at once, and goes
+ * to a person a day later if its sessions still have not been answered. */
+const ADOPTED_DECIDE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 export type ReconcileSchedule = {firstCheck: Date; decideAt: Date};
 
-function decideAfterExpiry(gateway: Gateway): number {
-  if (gateway === GATEWAY.hubpisp) return HUBPISP_DECIDE_AFTER_EXPIRY_MS;
-  if (gateway === GATEWAY.paybox || gateway === GATEWAY.up2pay) {
-    return NO_ANSWER_AFTER_EXPIRY_MS;
-  }
-  return DECIDE_AFTER_EXPIRY_MS;
-}
-
 /** How long before a provider that still says pending is asked again. */
 export function recheckAfter(gateway: Gateway): number {
-  if (gateway === GATEWAY.stripeBankTransfer) return TRANSFER_RECHECK_MS;
-  if (gateway === GATEWAY.hubpisp) return HUBPISP_RECHECK_MS;
-  return RECHECK_MS;
+  return getAdapter(gateway).reconcile.recheckMs;
 }
 
-/** When a session is first looked at, and when an unresolved one goes to a person. */
+/**
+ * When a session is first looked at, and when an unresolved one goes to a
+ * person, by its provider's own reconcile policy.
+ */
 export function reconcileSchedule({
   gateway,
   startedOn,
@@ -71,17 +44,18 @@ export function reconcileSchedule({
   startedOn: Date;
   expiresOn: Date | null;
 }): ReconcileSchedule {
-  if (gateway === GATEWAY.stripeBankTransfer) {
+  const policy = getAdapter(gateway).reconcile;
+  if (policy.timedFrom === 'start') {
     return {
-      firstCheck: new Date(startedOn.getTime() + TRANSFER_RECHECK_MS),
-      decideAt: new Date(startedOn.getTime() + TRANSFER_DECIDE_AFTER_MS),
+      firstCheck: new Date(startedOn.getTime() + policy.firstCheckAfterMs),
+      decideAt: new Date(startedOn.getTime() + policy.decideAfterMs),
     };
   }
   const payableUntil =
     expiresOn?.getTime() ?? startedOn.getTime() + UNSTARTED_WAIT_MS;
   return {
     firstCheck: new Date(payableUntil + FIRST_CHECK_GRACE_MS),
-    decideAt: new Date(payableUntil + decideAfterExpiry(gateway)),
+    decideAt: new Date(payableUntil + policy.decideAfterExpiryMs),
   };
 }
 
@@ -207,7 +181,7 @@ export async function adoptOpenPayments(tenant: Tenant): Promise<number> {
       PAYMENT_STATUS.awaiting,
       PAYMENT_STATUS.partiallyCaptured,
     ],
-    DECIDE_AFTER_EXPIRY_MS / 1000,
+    ADOPTED_DECIDE_AFTER_MS / 1000,
   );
   return Array.isArray(result) ? result.length : 0;
 }

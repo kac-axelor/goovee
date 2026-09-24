@@ -18,6 +18,7 @@ import type {
 import {
   commandFor,
   eventIdFor,
+  VERIFONE_RECONCILE,
   eventTypeForCode,
   fieldValue,
   numericCurrency,
@@ -145,14 +146,12 @@ export const payboxAdapter: GatewayAdapter = {
     /* Paybox System offers no way to ask what became of a payment: the IPN is
      * the only durable confirmation, which makes it load-bearing. */
     queryable: false,
-    lookupByReference: false,
     settlesOnReturn: true,
     partialCapture: false,
-    reportsRefunds: false,
-    reportsDisputes: false,
-    resolvesBy: 'reference',
-    idempotency: 'reference',
+    chargesOnStart: false,
   },
+
+  reconcile: VERIFONE_RECONCILE,
 
   isConfigured(config) {
     const paybox = config.payments?.paybox;

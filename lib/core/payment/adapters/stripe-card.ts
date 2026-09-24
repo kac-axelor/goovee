@@ -22,13 +22,17 @@ export const stripeCardAdapter: GatewayAdapter = {
 
   capabilities: {
     queryable: true,
-    lookupByReference: false,
     settlesOnReturn: true,
     partialCapture: false,
-    reportsRefunds: true,
-    reportsDisputes: true,
-    resolvesBy: 'reference',
-    idempotency: 'provider-key',
+    chargesOnStart: false,
+  },
+
+  /* A card checkout is decided within its session; one still open a day
+   * past its expiry is a person's to look up. */
+  reconcile: {
+    timedFrom: 'expiry',
+    recheckMs: 60 * 60 * 1000,
+    decideAfterExpiryMs: 24 * 60 * 60 * 1000,
   },
 
   isConfigured(config) {
