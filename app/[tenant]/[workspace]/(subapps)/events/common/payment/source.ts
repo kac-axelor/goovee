@@ -7,7 +7,6 @@ import {accessMessage} from '@/access/denial';
 import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
 import {getTranslation, t} from '@/locale/server';
 import {tenantURLs} from '@/url/scope';
-import {findGooveeUserByEmail} from '@/orm/partner';
 import {
   formatAmount,
   payerLocale,
@@ -126,9 +125,7 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
 
     /* A signed-in payer pays with their account's address; a guest with the one
      * they typed, which is also where the confirmation goes. */
-    const payer = user
-      ? (await findGooveeUserByEmail(user.email, client))?.emailAddress?.address
-      : intent.values.emailAddress;
+    const payer = user ? user.email : intent.values.emailAddress;
     if (!payer) {
       return {error: true, message: await t('Email is required for payment')};
     }

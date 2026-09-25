@@ -9,7 +9,6 @@ import {MAIN_PRICE, SUBAPP_CODES} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
 import {getTranslation, t} from '@/locale/server';
 import {tenantURLs} from '@/url/scope';
-import {findGooveeUserByEmail} from '@/orm/partner';
 import {shouldHidePricesAndPurchase} from '@/orm/product';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
@@ -160,11 +159,7 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
       formatNumber,
     });
 
-    const payer = (await findGooveeUserByEmail(user.email, client))
-      ?.emailAddress?.address;
-    if (!payer) {
-      return {error: true, message: await t('Email is required for payment')};
-    }
+    const payer = user.email;
 
     const currency = await resolveCurrency(client, cartCurrency.code);
     /* Both figures are rounded to the ERP currency's scale, and only here. The

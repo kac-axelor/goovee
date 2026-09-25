@@ -7,7 +7,6 @@ import {accessMessage} from '@/access/denial';
 import {SUBAPP_CODES} from '@/constants';
 import {getTranslation, t} from '@/locale/server';
 import {tenantURLs} from '@/url/scope';
-import {findGooveeUserByEmail} from '@/orm/partner';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
@@ -117,14 +116,7 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
       }
       const cart = cartResult.data;
 
-      const buyer = await findGooveeUserByEmail(access.user.email, client);
-      const payer = buyer?.emailAddress?.address;
-      if (!payer) {
-        return {
-          error: true,
-          message: await t('Buyer email could not be resolved.'),
-        };
-      }
+      const payer = access.user.email;
 
       const currency = await resolveCurrency(client, cart.currencyCodeISO);
       const snapshot: MarketplaceSnapshot = {
