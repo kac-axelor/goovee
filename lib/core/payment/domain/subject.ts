@@ -18,9 +18,24 @@ export type SubjectModel = (typeof SUBJECT_MODEL)[keyof typeof SUBJECT_MODEL];
 
 export type Subject = {model: SubjectModel; id: string};
 
+/* A shop purchase becomes an order request; a sale order is its subject only
+ * when a person honoured the purchase by hand in the ERP. */
+type SubjectModelsBySource = {
+  [PAYMENT_SOURCE.invoices]: typeof SUBJECT_MODEL.invoice;
+  [PAYMENT_SOURCE.events]: typeof SUBJECT_MODEL.registration;
+  [PAYMENT_SOURCE.marketplace]: typeof SUBJECT_MODEL.marketplaceOrder;
+  [PAYMENT_SOURCE.shop]:
+    | typeof SUBJECT_MODEL.orderRequest
+    | typeof SUBJECT_MODEL.saleOrder;
+};
+
+/** A subject of one of the models the source pays for. */
+export type SubjectOf<Source extends PaymentSource> = {
+  model: SubjectModelsBySource[Source];
+  id: string;
+};
+
 type SubjectSpec = {
-  /** The table the record lives in, to check that it exists. */
-  table: string;
   /**
    * Whether the record can carry only one payment. An invoice takes several:
    * partial payments, or a shop order's balance paid after its advance.
@@ -29,35 +44,12 @@ type SubjectSpec = {
 };
 
 const SUBJECTS: Record<SubjectModel, SubjectSpec> = {
-  [SUBJECT_MODEL.invoice]: {table: 'account_invoice', exclusive: false},
-  [SUBJECT_MODEL.registration]: {table: 'portal_registration', exclusive: true},
-  [SUBJECT_MODEL.marketplaceOrder]: {
-    table: 'portal_marketplace_product_order',
-    exclusive: true,
-  },
-  [SUBJECT_MODEL.orderRequest]: {
-    table: 'portal_portal_order_request',
-    exclusive: true,
-  },
-  [SUBJECT_MODEL.saleOrder]: {table: 'sale_sale_order', exclusive: true},
+  [SUBJECT_MODEL.invoice]: {exclusive: false},
+  [SUBJECT_MODEL.registration]: {exclusive: true},
+  [SUBJECT_MODEL.marketplaceOrder]: {exclusive: true},
+  [SUBJECT_MODEL.orderRequest]: {exclusive: true},
+  [SUBJECT_MODEL.saleOrder]: {exclusive: true},
 };
-
-/* A shop purchase becomes an order request; a sale order is its subject only
- * when a person honoured the purchase by hand in the ERP. */
-const MODELS_BY_SOURCE: Record<PaymentSource, readonly SubjectModel[]> = {
-  [PAYMENT_SOURCE.invoices]: [SUBJECT_MODEL.invoice],
-  [PAYMENT_SOURCE.events]: [SUBJECT_MODEL.registration],
-  [PAYMENT_SOURCE.marketplace]: [SUBJECT_MODEL.marketplaceOrder],
-  [PAYMENT_SOURCE.shop]: [SUBJECT_MODEL.orderRequest, SUBJECT_MODEL.saleOrder],
-};
-
-export function allowsSubject(source: PaymentSource, model: string): boolean {
-  return MODELS_BY_SOURCE[source].some(allowed => allowed === model);
-}
-
-export function subjectTable(model: SubjectModel): string {
-  return SUBJECTS[model].table;
-}
 
 /** The columns a subject is written to: its exclusive id is empty for one that takes several payments. */
 export function subjectColumns(subject: Subject) {

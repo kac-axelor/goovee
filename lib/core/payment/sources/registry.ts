@@ -12,7 +12,9 @@ import type {PaymentSourceHandler} from './types';
 /* Adding a source is one handler and one entry here. The invoices source
  * reaches settle, which imports this registry, so only this registry imports
  * the source modules; anything else asks it for a handler. */
-const handlers: Record<PaymentSource, PaymentSourceHandler> = {
+const handlers: {
+  [Source in PaymentSource]: PaymentSourceHandler<unknown, Source>;
+} = {
   [PAYMENT_SOURCE.invoices]: invoicesPaymentSource,
   [PAYMENT_SOURCE.marketplace]: marketplacePaymentSource,
   [PAYMENT_SOURCE.events]: eventsPaymentSource,
@@ -24,7 +26,7 @@ export const PaymentSourceSchema = z.enum(
 );
 
 export function getSourceHandler(source: PaymentSource): PaymentSourceHandler {
-  const handler = handlers[source] as PaymentSourceHandler | undefined;
+  const handler: PaymentSourceHandler | undefined = handlers[source];
   if (!handler) {
     throw new Error(`No payment source handler for "${source}"`);
   }

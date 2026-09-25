@@ -45,7 +45,10 @@ type InvoiceSnapshot = z.infer<typeof InvoiceSnapshotSchema>;
  * the start and nothing goovee-local happens on capture; the ERP records the
  * invoice payment when it projects.
  */
-export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
+export const invoicesPaymentSource: PaymentSourceHandler<
+  InvoiceIntent,
+  typeof PAYMENT_SOURCE.invoices
+> = {
   source: PAYMENT_SOURCE.invoices,
 
   intentSchema: InvoiceIntentSchema,

@@ -34,7 +34,7 @@ import {
 import {getSourceHandler} from './sources/registry';
 import type {PreparedIntent} from './sources/types';
 import {paymentPageUrl} from './urls';
-import {allowsSubject, subjectColumns} from './domain/subject';
+import {subjectColumns} from './domain/subject';
 
 export type StartResult = {
   reference: string;
@@ -367,7 +367,7 @@ async function createPayment(
       gateway,
       deliveryStatus: DELIVERY_STATUS.pending,
       ...paymentModeLink(prepared, gateway),
-      ...subjectLinks(source, prepared),
+      ...subjectLinks(prepared),
     },
     select: {id: true, reference: true},
   });
@@ -424,14 +424,6 @@ function paymentModeLink(prepared: PreparedIntent, gateway: Gateway) {
 
 /* The subject a source knows before any money moves, such as the invoice
  * being paid: its prepare step has just read and authorised the record. */
-function subjectLinks(source: PaymentSource, prepared: PreparedIntent) {
-  if (!prepared.subject) {
-    return {};
-  }
-  if (!allowsSubject(source, prepared.subject.model)) {
-    throw new Error(
-      `A ${source} payment cannot be for a ${prepared.subject.model}`,
-    );
-  }
-  return subjectColumns(prepared.subject);
+function subjectLinks(prepared: PreparedIntent) {
+  return prepared.subject ? subjectColumns(prepared.subject) : {};
 }

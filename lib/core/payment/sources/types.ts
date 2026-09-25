@@ -5,7 +5,7 @@ import type {Client} from '@/goovee/.generated/client';
 import type {PaymentConfig} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
 import type {ActionResponse} from '@/types/action';
-import type {Subject} from '../domain/subject';
+import type {Subject, SubjectOf} from '../domain/subject';
 import type {Gateway, Money, PaymentSource} from '../domain/types';
 import type {BillingDetails} from '../adapters/types';
 
@@ -17,7 +17,7 @@ export type IntentSnapshot = JsonObject;
  * Produced on the server from the client's `{source, subjectRef}` and nothing
  * else the client sent.
  */
-export type PreparedIntent = {
+export type PreparedIntent<Source extends PaymentSource = PaymentSource> = {
   money: Money;
   payer: string;
   subjectLabel: string;
@@ -26,15 +26,15 @@ export type PreparedIntent = {
   /** The workspace and the app configuration the checkout ran under; the ERP builds its records from the latter. */
   workspace: {id: string; url: string; configId: string};
   /** The subject when it exists before delivery, such as the invoice being paid. */
-  subject: Subject | null;
+  subject: SubjectOf<Source> | null;
   snapshot: IntentSnapshot;
   /** Where known; some providers ask for it. */
   billing?: BillingDetails;
 };
 
-export type DeliveryResult =
+export type DeliveryResult<Source extends PaymentSource = PaymentSource> =
   /** Null keeps the subject the payment was started with, such as the invoice being paid. */
-  | {delivered: true; subject: Subject | null}
+  | {delivered: true; subject: SubjectOf<Source> | null}
   | {delivered: false; reason: string};
 
 export type DeliveredPayment = {
@@ -62,10 +62,14 @@ export type NotifiedPayment = {
 /**
  * One payment source: what it sells, how it prices it, and what goovee-local
  * work a capture unlocks. Adding a source is one handler and one registry
- * entry; nothing in the core knows what a source sells.
+ * entry; nothing in the core knows what a source sells. A source's subjects
+ * are only ever of the models it pays for.
  */
-export interface PaymentSourceHandler<TIntent = unknown> {
-  source: PaymentSource;
+export interface PaymentSourceHandler<
+  TIntent = unknown,
+  Source extends PaymentSource = PaymentSource,
+> {
+  source: Source;
 
   /** The shape of the client's intent. Only references; the server prices. */
   intentSchema: z.ZodType<TIntent>;
@@ -90,7 +94,7 @@ export interface PaymentSourceHandler<TIntent = unknown> {
   prepare(args: {
     intent: TIntent;
     tenant: Tenant;
-  }): ActionResponse<PreparedIntent>;
+  }): ActionResponse<PreparedIntent<Source>>;
 
   /**
    * The goovee-local work a full capture unlocks, inside the settle
@@ -112,7 +116,7 @@ export interface PaymentSourceHandler<TIntent = unknown> {
     snapshot: IntentSnapshot;
     txClient: Client;
     tenant: Tenant;
-  }): Promise<DeliveryResult>;
+  }): Promise<DeliveryResult<Source>>;
 
   /**
    * Tells the payer, and whoever else the source names, that the payment was

@@ -53,7 +53,10 @@ type EventSnapshot = z.infer<typeof EventSnapshotSchema>;
  * capture: delivery re-checks the event's rules and writes the registration
  * and its participants, and the ERP invoices it when it projects.
  */
-export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
+export const eventsPaymentSource: PaymentSourceHandler<
+  EventIntent,
+  typeof PAYMENT_SOURCE.events
+> = {
   source: PAYMENT_SOURCE.events,
 
   intentSchema: EventIntentSchema,

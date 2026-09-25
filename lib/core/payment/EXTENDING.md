@@ -79,9 +79,10 @@ In goovee:
 
 1. Add the source's value to `PAYMENT_SOURCE` in `domain/types.ts`.
 2. Register what its payments are for in `domain/subject.ts`: the model in
-   `SUBJECT_MODEL`, its table and whether it carries one payment only in
-   `SUBJECTS`, and the source's models in `MODELS_BY_SOURCE`.
-3. Write a handler implementing `PaymentSourceHandler` (`sources/types.ts`):
+   `SUBJECT_MODEL`, whether it carries one payment only in `SUBJECTS`, and the
+   source's models in `SubjectModelsBySource`.
+3. Write a handler implementing `PaymentSourceHandler` (`sources/types.ts`),
+   typed with the source, so its subjects can only be of its own models:
    - `intentSchema` and `gateways`, and `requiresPaymentMode` where the ERP
      cannot book a payment without one;
    - `prepare` — authorise the caller and price the purchase; a record that

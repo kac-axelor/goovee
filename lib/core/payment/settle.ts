@@ -17,10 +17,8 @@ import {
 } from './domain/status';
 import {
   SUBJECT_MODEL,
-  allowsSubject,
   readSubject,
   subjectColumns,
-  subjectTable,
   type Subject,
 } from './domain/subject';
 import {
@@ -36,7 +34,6 @@ import {
   SESSION_STATUS,
   UNMATCHED_STATUS,
   type EventType,
-  type PaymentSource,
   type PaymentStatus,
   type SessionStatus,
 } from './domain/types';
@@ -55,19 +52,26 @@ const DELIVERY_REASON_MAX_LENGTH = 2000;
  * lock not available, statement cancelled by a timeout. */
 const RETRYABLE_SQLSTATES = new Set(['40P01', '40001', '55P03', '57014']);
 
-/* The driver's error carries the SQLSTATE as `code`, on the error itself or on
- * the driver error the query layer wraps. */
-function isRetryableDatabaseError(error: unknown): boolean {
-  const codeOf = (value: unknown): unknown =>
-    typeof value === 'object' && value !== null && 'code' in value
-      ? (value as {code: unknown}).code
+/* A field of the driver's error, on the error itself or on the driver error
+ * the query layer wraps: the SQLSTATE is `code`, Postgres's explanation of a
+ * violated key is `detail`. */
+function driverFieldOf(error: unknown, field: 'code' | 'detail'): string[] {
+  const fieldOf = (value: unknown): unknown =>
+    typeof value === 'object' && value !== null && field in value
+      ? (value as Record<string, unknown>)[field]
       : null;
   const driverError =
     typeof error === 'object' && error !== null && 'driverError' in error
       ? (error as {driverError: unknown}).driverError
       : null;
-  return [codeOf(error), codeOf(driverError)].some(
-    code => typeof code === 'string' && RETRYABLE_SQLSTATES.has(code),
+  return [fieldOf(error), fieldOf(driverError)].filter(
+    (value): value is string => typeof value === 'string',
+  );
+}
+
+function isRetryableDatabaseError(error: unknown): boolean {
+  return driverFieldOf(error, 'code').some(code =>
+    RETRYABLE_SQLSTATES.has(code),
   );
 }
 
@@ -318,7 +322,6 @@ export async function settlePayment({
 
     let deliveryStatus = payment.deliveryStatus;
     let deliveryReason: string | null = null;
-    let subject: Subject | null = null;
     let projectionQueued = false;
     let gooveeJobsQueued = false;
 
@@ -351,16 +354,14 @@ export async function settlePayment({
           tenant,
         });
 
-        const misfit =
-          delivery.delivered && delivery.subject
-            ? await subjectMisfit(txClient, payment, delivery.subject)
-            : null;
-        if (misfit) {
-          deliveryStatus = DELIVERY_STATUS.undeliverable;
-          deliveryReason = misfit;
-        } else if (delivery.delivered) {
+        if (delivery.delivered) {
           deliveryStatus = DELIVERY_STATUS.delivered;
-          subject = delivery.subject;
+          /* Inside the savepoint: a subject another payment already holds
+           * breaks its unique key here, and that is rolled back with the
+           * delivery, the capture kept. */
+          if (delivery.subject && !payment.subject) {
+            await writeSubject(txClient, payment.id, delivery.subject);
+          }
           await upsertJob(
             txClient,
             payment.id,
@@ -394,10 +395,12 @@ export async function settlePayment({
           throw error;
         }
         deliveryStatus = DELIVERY_STATUS.undeliverable;
+        /* Postgres's detail names the key and value a violated unique key
+         * refused, such as a subject another payment is already for. */
+        const [detail] = driverFieldOf(error, 'detail');
         deliveryReason = `Delivery failed: ${
           error instanceof Error ? error.message : String(error)
-        }`.slice(0, DELIVERY_REASON_MAX_LENGTH);
-        subject = null;
+        }${detail ? ` (${detail})` : ''}`.slice(0, DELIVERY_REASON_MAX_LENGTH);
         projectionQueued = false;
         gooveeJobsQueued = false;
         console.error(
@@ -468,7 +471,6 @@ export async function settlePayment({
         ...(overCaptureMessage && {lastError: overCaptureMessage}),
         ...(resolvedMessage &&
           resolvedMessage === payment.lastError && {lastError: null}),
-        ...(subject && !payment.subject && subjectColumns(subject)),
       },
       select: {id: true},
     });
@@ -753,6 +755,26 @@ async function latestSession(
   return (sessions[0]?.status as SessionStatus | undefined) ?? null;
 }
 
+/* Written without moving the version on: the payment's own update later in
+ * the same transaction does, against the version read under the lock. */
+async function writeSubject(
+  txClient: Client,
+  paymentId: string,
+  subject: Subject,
+): Promise<void> {
+  const {subjectModel, subjectId, exclusiveSubjectId} = subjectColumns(subject);
+  await txClient.$raw(
+    `UPDATE portal_portal_payment
+        SET subject_model = $2, subject_id = $3, exclusive_subject_id = $4,
+            updated_on = now()
+      WHERE id = $1`,
+    paymentId,
+    subjectModel,
+    subjectId,
+    exclusiveSubjectId,
+  );
+}
+
 /* One row per kind per payment. A second capture on a payment whose job is
  * still open makes it due again rather than queueing a second one, and moves
  * its version on, so a run that claimed the job before cannot then finish it:
@@ -883,48 +905,6 @@ async function replayUnmatched(
     paymentId,
   );
   return ids.length;
-}
-
-/*
- * Why a subject a source delivered cannot be this payment's, or null when it
- * can: a model its source does not pay for, a record that is not there, or one
- * another payment is already for. The source built the record from this
- * payment's own payer and workspace in this transaction, so those fit by
- * construction; what can still go wrong is the source naming the wrong thing.
- * A payment that fails this keeps its money and waits for a person, as any
- * undeliverable one does.
- */
-async function subjectMisfit(
-  txClient: Client,
-  payment: LockedPayment,
-  subject: Subject,
-): Promise<string | null> {
-  if (!allowsSubject(payment.source as PaymentSource, subject.model)) {
-    return `The ${payment.source} source delivered a ${subject.model}, which a ${payment.source} payment cannot be for`;
-  }
-  const found: unknown = await txClient.$raw(
-    `SELECT id FROM ${subjectTable(subject.model)} WHERE id = $1`,
-    subject.id,
-  );
-  if (!Array.isArray(found) || !found.length) {
-    return `The ${payment.source} source delivered ${subject.model} ${subject.id}, which does not exist`;
-  }
-  const {exclusiveSubjectId} = subjectColumns(subject);
-  if (exclusiveSubjectId) {
-    const taken: unknown = await txClient.$raw(
-      `SELECT reference FROM portal_portal_payment
-        WHERE subject_model = $1 AND exclusive_subject_id = $2 AND id <> $3`,
-      subject.model,
-      exclusiveSubjectId,
-      payment.id,
-    );
-    const row: unknown = Array.isArray(taken) ? taken[0] : null;
-    if (typeof row === 'object' && row !== null) {
-      const {reference} = row as Record<string, unknown>;
-      return `${subject.model} ${subject.id} is already what payment ${String(reference)} is for`;
-    }
-  }
-  return null;
 }
 
 const FINANCE_EVENT_TYPES: EventType[] = [

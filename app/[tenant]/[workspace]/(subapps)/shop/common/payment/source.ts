@@ -89,7 +89,10 @@ async function findOwnAddress({
  * records the order request and its lines at the prices charged, and the ERP
  * builds the sale order and the invoice from those rows when it projects.
  */
-export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
+export const shopPaymentSource: PaymentSourceHandler<
+  ShopIntent,
+  typeof PAYMENT_SOURCE.shop
+> = {
   source: PAYMENT_SOURCE.shop,
 
   intentSchema: ShopIntentSchema,
