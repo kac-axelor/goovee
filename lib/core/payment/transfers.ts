@@ -13,8 +13,7 @@ import {
 } from './domain/transfers';
 import {
   EVENT_TYPE,
-  FINANCE_KIND,
-  FINANCE_STATUS,
+  JOB_KIND,
   PAYMENT_SOURCE,
   PAYMENT_STATUS,
   SESSION_STATUS,
@@ -208,18 +207,19 @@ export async function findPartlyFundedTransfer({
 /**
  * What the invoice still needs, in minor units at `scale`: the ERP's
  * remaining amount, less money the ledger holds for the invoice that the ERP
- * has not recorded yet, plus money the ERP still counts as paid that was
- * refunded after it was recorded and that finance has not booked yet. A
- * capture reaches the ERP only when the payment is projected, and a transfer
- * funded in part not until it completes; a refund reaches it only when
- * finance books it and closes its item, and a chargeback never does.
+ * has not recorded yet, each payment's up to its own amount, which is what its
+ * projection books. A capture reaches the ERP only when the payment is
+ * projected, and a transfer funded in part not until it completes. A payment
+ * a person resolved in the ERP is booked there by hand, so it is not held,
+ * unless its projection is still to run and will book it.
  *
  * Read in one statement, so it is one snapshot: read in two, a projection
  * committing in between would leave the money counted by neither half.
  *
- * Only ever errs towards more still owed, so it never withdraws a transfer
- * the invoice needs: money in another currency is not counted, and an
- * invoice with a disputed payment is not judged at all.
+ * Money in another currency is not counted, which errs towards more still
+ * owed. A refund made at the provider is not seen here: until finance reverses
+ * the invoice payment in the ERP, the ERP's remaining amount, and so this, reads
+ * less owed than the invoice really is.
  */
 export async function invoiceRemaining({
   client,
@@ -236,21 +236,17 @@ export async function invoiceRemaining({
     `SELECT ROUND(invoice.amount_remaining * (10::numeric ^ $4::int))::bigint::text AS erp_remaining,
             currency.codeiso AS currency_code,
             COALESCE(SUM(CASE WHEN payment.projected_invoice_payment IS NULL
+                                AND (payment.resolved_on IS NULL
+                                     OR EXISTS (SELECT 1 FROM portal_portal_payment_job AS job
+                                                 WHERE job.payment = payment.id
+                                                   AND job.kind = $8))
                                 AND payment.status IN ($5, $6)
-                              THEN payment.captured_amount - COALESCE(payment.refunded_amount, 0)
-                         END), 0)::text AS held,
-            COALESCE(SUM(CASE WHEN payment.projected_invoice_payment IS NOT NULL
-                              THEN (SELECT COALESCE(SUM(item.amount), 0)
-                                      FROM portal_portal_payment_finance_item AS item
-                                     WHERE item.payment = payment.id
-                                       AND item.kind = $9 AND item.status = $10
-                                       AND item.erp_note IS NULL)
-                         END), 0)::text AS refunded_after,
-            COALESCE(BOOL_OR(payment.status = $7), false) AS disputed
+                              THEN LEAST(payment.captured_amount, payment.amount)
+                         END), 0)::text AS held
        FROM account_invoice AS invoice
        LEFT JOIN base_currency AS currency ON currency.id = invoice.currency
        LEFT JOIN portal_portal_payment AS payment
-              ON payment.subject_model = $8
+              ON payment.subject_model = $7
              AND payment.subject_id = invoice.id
              AND payment.source = $2
              AND payment.currency_code = $3
@@ -263,17 +259,14 @@ export async function invoiceRemaining({
     scale,
     PAYMENT_STATUS.captured,
     PAYMENT_STATUS.partiallyCaptured,
-    PAYMENT_STATUS.chargedBack,
     SUBJECT_MODEL.invoice,
-    FINANCE_KIND.refund,
-    FINANCE_STATUS.open,
+    JOB_KIND.project,
   );
   const row: unknown = Array.isArray(rows) ? rows[0] : null;
   if (typeof row !== 'object' || row === null) {
     return {skipped: 'the invoice was not found'};
   }
-  const {erp_remaining, currency_code, held, refunded_after, disputed} =
-    row as Record<string, unknown>;
+  const {erp_remaining, currency_code, held} = row as Record<string, unknown>;
   if (currency_code !== currencyCode) {
     return {skipped: `the invoice is not in ${currencyCode}`};
   }
@@ -281,13 +274,7 @@ export async function invoiceRemaining({
   if (erp_remaining == null) {
     return {skipped: 'the invoice has no remaining amount'};
   }
-  if (disputed === true) {
-    return {skipped: 'a payment on the invoice is disputed'};
-  }
-  return {
-    remaining:
-      Number(erp_remaining) - Number(held ?? 0) + Number(refunded_after ?? 0),
-  };
+  return {remaining: Number(erp_remaining) - Number(held ?? 0)};
 }
 
 export type WithdrawalReport = Record<CancelResult['outcome'], number>;

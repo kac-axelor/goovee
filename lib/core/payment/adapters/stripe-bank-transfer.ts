@@ -221,7 +221,6 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
       handoff: {kind: 'redirect', url: completeUrl.toString()},
       sessionRef: paymentIntent.id,
       expiresOn: new Date(Date.now() + INTENT_LIFETIME_MS),
-      correlationRefs: [paymentIntent.id],
     };
   },
 

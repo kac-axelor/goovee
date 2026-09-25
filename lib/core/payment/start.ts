@@ -311,16 +311,6 @@ export async function startPayment({
       created.expiresOn,
       SESSION_STATUS.initiated,
     );
-    for (const ref of new Set(created.correlationRefs)) {
-      await txClient.$raw(
-        `INSERT INTO portal_portal_payment_correlation_ref (id, version, created_on, session, gateway, ref)
-         VALUES (nextval('portal_portal_payment_correlation_ref_seq'), 0, now(), $1, $2, $3)
-         ON CONFLICT (gateway, ref) DO NOTHING`,
-        sessionId,
-        gateway,
-        ref,
-      );
-    }
     /* Conditional, because a gateway that captures during its own session
      * creation may already have settled this payment: a capture that landed
      * in between must not be written back to awaiting. */
@@ -360,7 +350,6 @@ async function createPayment(
       payer: prepared.payer,
       amount: String(prepared.money.amount),
       capturedAmount: '0',
-      refundedAmount: '0',
       currencyCode: prepared.money.currencyCode,
       currencyScale: prepared.money.currencyScale,
       status: PAYMENT_STATUS.initiated,

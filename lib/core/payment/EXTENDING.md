@@ -38,8 +38,8 @@ In goovee:
      ledger by one rule, `eventKeyOf` in `domain/signal.ts`. Where one provider
      id names several events of one kind, make the id compound, as HUB PISP's
      `<request>:CANC` does. Amounts are minor units at the currency's ISO
-     scale. `correlationRefs` lists every id a later refund or dispute may
-     name.
+     scale. Refunds and disputes are left to the provider's own dashboard and
+     booked in the ERP by hand; an adapter reports neither.
 3. Register the adapter in the `adapters` record of `adapters/registry.ts`, and
    give it a case in `paymentOptionFor` and a value in `PaymentOption`
    (`types/index.ts`).
@@ -110,12 +110,5 @@ In axelor-portal:
    `portal.payment.subject.select`.
 2. Write a `PortalPaymentProjector` for the source, which books a captured
    payment into the ERP, and bind it in the projector set in `PortalModule`.
-3. Write a `PortalPaymentSubject<T>` for the model — the sources that pay for
-   it, whether it carries one payment only, how a record picked by hand is
-   checked, how its own ERP links agree with those booked by hand, and the
-   customers it names — and bind it in the subject set in `PortalModule`. The
-   binding order is the order a person is offered the models in. An app paying
-   for a model that already has one adds its source to that subject's
-   `sources()` instead.
-4. Add the _Portal payments_ dashlet, `action.portal.payment.for.subject`, to
+3. Add the _Portal payments_ dashlet, `action.portal.payment.for.subject`, to
    the subject's form.

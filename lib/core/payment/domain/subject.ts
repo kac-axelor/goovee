@@ -11,22 +11,19 @@ export const SUBJECT_MODEL = {
   registration: 'com.axelor.apps.portal.db.Registration',
   marketplaceOrder: 'com.axelor.apps.portal.db.MarketplaceProductOrder',
   orderRequest: 'com.axelor.apps.portal.db.PortalOrderRequest',
-  saleOrder: 'com.axelor.apps.sale.db.SaleOrder',
 } as const;
 
 export type SubjectModel = (typeof SUBJECT_MODEL)[keyof typeof SUBJECT_MODEL];
 
 export type Subject = {model: SubjectModel; id: string};
 
-/* A shop purchase becomes an order request; a sale order is its subject only
- * when a person honoured the purchase by hand in the ERP. */
+/* A shop purchase becomes an order request, which the ERP builds its sale
+ * order from. */
 type SubjectModelsBySource = {
   [PAYMENT_SOURCE.invoices]: typeof SUBJECT_MODEL.invoice;
   [PAYMENT_SOURCE.events]: typeof SUBJECT_MODEL.registration;
   [PAYMENT_SOURCE.marketplace]: typeof SUBJECT_MODEL.marketplaceOrder;
-  [PAYMENT_SOURCE.shop]:
-    | typeof SUBJECT_MODEL.orderRequest
-    | typeof SUBJECT_MODEL.saleOrder;
+  [PAYMENT_SOURCE.shop]: typeof SUBJECT_MODEL.orderRequest;
 };
 
 /** A subject of one of the models the source pays for. */
@@ -48,7 +45,6 @@ const SUBJECTS: Record<SubjectModel, SubjectSpec> = {
   [SUBJECT_MODEL.registration]: {exclusive: true},
   [SUBJECT_MODEL.marketplaceOrder]: {exclusive: true},
   [SUBJECT_MODEL.orderRequest]: {exclusive: true},
-  [SUBJECT_MODEL.saleOrder]: {exclusive: true},
 };
 
 /** The columns a subject is written to: its exclusive id is empty for one that takes several payments. */

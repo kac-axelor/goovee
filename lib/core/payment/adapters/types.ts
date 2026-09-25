@@ -121,7 +121,6 @@ export type CreatedSession = {
   sessionRef: string | null;
   /** When the handoff stops being payable. Null where the provider sets no limit. */
   expiresOn: Date | null;
-  correlationRefs: string[];
 };
 
 /**
@@ -129,9 +128,7 @@ export type CreatedSession = {
  * outside the payment module imports them.
  *
  * Both legs produce the same {@link GatewaySignal}, carrying the provider's
- * id for the event and the correlation references the settle needs; producing those is part of the
- * contract, so a new provider cannot get them wrong in production on a
- * chargeback.
+ * id for the event, which is what makes the two legs land as one row.
  */
 export interface GatewayAdapter {
   readonly gateway: Gateway;

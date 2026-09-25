@@ -8,13 +8,11 @@ import {
 /**
  * How a provider callback names the payment it is about. Always a value we
  * already hold: our reference where the provider echoes it, the session
- * reference where it does not, and a correlation reference recorded from an
- * earlier capture for refunds and disputes.
+ * reference where it does not.
  */
 export type SignalResolution =
   | {by: 'reference'; reference: string}
-  | {by: 'sessionRef'; sessionRef: string}
-  | {by: 'correlationRef'; correlationRef: string};
+  | {by: 'sessionRef'; sessionRef: string};
 
 /**
  * What a provider told us, in one vocabulary for every provider and both legs.
@@ -34,9 +32,9 @@ export type GatewaySignal = {
   type: EventType | 'pending';
   /**
    * The provider's own id for the event, identical whichever leg observed it:
-   * the payment intent a capture is of, a refund's id. Where one provider id
-   * names several events of the same kind, the adapter makes it compound
-   * (an attempt and the code it ended with). Null only for a pending signal.
+   * the payment intent a capture is of. Where one provider id names several
+   * events of the same kind, the adapter makes it compound (an attempt and the
+   * code it ended with). Null only for a pending signal.
    */
   eventId: string | null;
   /** Minor units as the provider reports them. Null when the event carries no amount. */
@@ -46,12 +44,8 @@ export type GatewaySignal = {
   providerRef: string | null;
   /** The provider's handle for the session, where the signal carries one. */
   sessionRef: string | null;
-  /** Every provider id a later event may name. Persisted on the session. */
-  correlationRefs: string[];
-  /** The provider's reason on a refusal or a dispute. */
+  /** The provider's reason on a refusal. */
   reason: string | null;
-  /** By when the provider needs our answer: a dispute's deadline for evidence. */
-  deadline: Date | null;
   observedVia: ObservedVia;
   observedOn: Date;
   /** The signal's source material, kept for support. Must be JSON-serialisable. */
@@ -74,9 +68,7 @@ export function pendingSignal(input: {
     currencyCode: null,
     providerRef: null,
     sessionRef: input.sessionRef ?? null,
-    correlationRefs: [],
     reason: null,
-    deadline: null,
     observedVia: input.observedVia,
     observedOn: new Date(),
     payload: input.payload,
@@ -98,11 +90,6 @@ const KEY_PREFIX: Record<EventType, string> = {
   [EVENT_TYPE.refused]: 'ended',
   [EVENT_TYPE.cancelled]: 'ended',
   [EVENT_TYPE.expired]: 'expire',
-  [EVENT_TYPE.refunded]: 'refund',
-  [EVENT_TYPE.disputed]: 'dispute',
-  [EVENT_TYPE.disputeWon]: 'dispute-won',
-  [EVENT_TYPE.disputeLost]: 'dispute-lost',
-  [EVENT_TYPE.disputeClosed]: 'dispute-closed',
 };
 
 /** The ledger's key for an event: its type's prefix and the provider's id. */

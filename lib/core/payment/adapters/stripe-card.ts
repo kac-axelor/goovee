@@ -92,7 +92,6 @@ export const stripeCardAdapter: GatewayAdapter = {
       expiresOn: session.expires_at
         ? new Date(session.expires_at * 1000)
         : null,
-      correlationRefs: [session.id],
     };
   },
 

@@ -48,10 +48,6 @@
       "name": "capturedAmount"
     },
     {
-      "type": "BigInt",
-      "name": "refundedAmount"
-    },
-    {
       "type": "String",
       "name": "currencyCode",
       "required": true
@@ -139,6 +135,10 @@
       "name": "jobList",
       "target": "AOSPortalPaymentJob",
       "mappedBy": "payment"
+    },
+    {
+      "type": "DateTime",
+      "name": "resolvedOn"
     }
   ],
   "uniques": [

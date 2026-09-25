@@ -29,8 +29,6 @@ export const PAYMENT_STATUS = {
   refused: 'refused',
   cancelled: 'cancelled',
   expired: 'expired',
-  refunded: 'refunded',
-  chargedBack: 'charged_back',
   /**
    * No answer from a provider that cannot be asked, long past the time it
    * would have sent one. Not expired and not cancelled: we do not know that it
@@ -63,17 +61,6 @@ export const EVENT_TYPE = {
   refused: 'refused',
   cancelled: 'cancelled',
   expired: 'expired',
-  refunded: 'refunded',
-  disputed: 'disputed',
-  /** The provider decided a dispute for us: the money stays. */
-  disputeWon: 'dispute_won',
-  /** The provider decided a dispute for the payer: the money is gone. */
-  disputeLost: 'dispute_lost',
-  /**
-   * A dispute closed with no decision, replaced by a new one on the same
-   * transaction, which opens with its own event.
-   */
-  disputeClosed: 'dispute_closed',
 } as const;
 
 export type EventType = (typeof EVENT_TYPE)[keyof typeof EVENT_TYPE];
@@ -98,41 +85,19 @@ export const JOB_KIND = {
   /**
    * More was captured than the payment was for. Not run by anyone: it is
    * written already parked for a decision, so the payment needs attention
-   * until a human refunds or places the excess.
+   * until a person resolves it in the ERP.
    */
   overCaptured: 'over_captured',
 } as const;
 
 export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];
 
-/** Where an event that named no payment stands: waiting, matched to one, or dismissed as not ours. */
-export const UNMATCHED_STATUS = {
-  open: 'open',
-  matched: 'matched',
-  dismissed: 'dismissed',
-} as const;
-
-/** Money that left a payment after it was taken, parked for finance to book in the ERP by hand. */
-export const FINANCE_KIND = {
-  refund: 'refund',
-  dispute: 'dispute',
-} as const;
-
-export const FINANCE_STATUS = {
-  open: 'open',
-  closed: 'closed',
-} as const;
-
-export const DISPUTE_OUTCOME = {
-  won: 'won',
-  lost: 'lost',
-  withdrawn: 'withdrawn',
-} as const;
-
 export const DELIVERY_STATUS = {
   pending: 'pending',
   delivered: 'delivered',
   undeliverable: 'undeliverable',
+  /** A person settled an undeliverable purchase outside the portal and said why, in the ERP. */
+  resolved: 'resolved',
 } as const;
 
 export type DeliveryStatus =

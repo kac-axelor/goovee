@@ -414,9 +414,7 @@ async function signalForLink(
       eventId: link.resourceId,
       amount: null,
       providerRef: null,
-      correlationRefs: [link.resourceId],
       reason: null,
-      deadline: null,
       payload: {...payload, consentStatus: link.consentStatus},
     };
   }
@@ -447,7 +445,6 @@ async function signalForLink(
     transactionStatus: status,
     statusReasonInformation: reason,
   };
-  const correlationRefs = [link.resourceId, requestId];
 
   switch (status) {
     case 'ACSC': {
@@ -462,9 +459,7 @@ async function signalForLink(
             ? toMinorUnits(amount, scaleOfCurrency(currency))
             : null,
         providerRef: requestId,
-        correlationRefs,
         reason: null,
-        deadline: null,
         payload: detail,
       };
     }
@@ -475,9 +470,7 @@ async function signalForLink(
         eventId: `${requestId}:CANC`,
         amount: null,
         providerRef: requestId,
-        correlationRefs,
         reason,
-        deadline: null,
         payload: detail,
       };
     case 'RJCT':
@@ -487,9 +480,7 @@ async function signalForLink(
         eventId: `${requestId}:RJCT`,
         amount: null,
         providerRef: requestId,
-        correlationRefs,
         reason: reason ?? 'RJCT',
-        deadline: null,
         payload: detail,
       };
     default:
@@ -630,7 +621,6 @@ export const hubpispAdapter: GatewayAdapter = {
       handoff: {kind: 'redirect', url: created._links.consent.href},
       sessionRef: created.resourceId,
       expiresOn: new Date(Date.now() + CONSENT_LIFETIME_SECONDS * 1000),
-      correlationRefs: [created.resourceId],
     };
   },
 

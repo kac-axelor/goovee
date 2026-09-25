@@ -116,10 +116,6 @@ const HANDLED_EVENTS = new Set([
   'CHECKOUT.ORDER.APPROVED',
   'PAYMENT.CAPTURE.COMPLETED',
   'PAYMENT.CAPTURE.DENIED',
-  'PAYMENT.CAPTURE.REFUNDED',
-  'PAYMENT.CAPTURE.REVERSED',
-  'CUSTOMER.DISPUTE.CREATED',
-  'CUSTOMER.DISPUTE.RESOLVED',
 ]);
 
 type WebhookEvent = {
@@ -173,14 +169,12 @@ function base(
   | 'currencyCode'
   | 'providerRef'
   | 'sessionRef'
-  | 'correlationRefs'
   | 'reason'
 > {
   return {
     gateway: GATEWAY.paypal,
     resolution,
     type,
-    deadline: null,
     observedVia,
     observedOn: new Date(),
     payload,
@@ -218,7 +212,6 @@ function signalForOrder(
       currencyCode: captureCurrency,
       providerRef: capture.id,
       sessionRef: order.id,
-      correlationRefs: [order.id, capture.id],
       reason: null,
     };
   }
@@ -234,7 +227,6 @@ function signalForOrder(
       currencyCode: captureCurrency,
       providerRef: capture?.id ?? null,
       sessionRef: order.id,
-      correlationRefs: capture?.id ? [order.id, capture.id] : [order.id],
       reason: declinedIssue ?? 'DECLINED',
     };
   }
@@ -247,7 +239,6 @@ function signalForOrder(
       currencyCode: null,
       providerRef: null,
       sessionRef: order.id,
-      correlationRefs: [order.id],
       reason: null,
     };
   }
@@ -278,7 +269,6 @@ function cancelledSignal(
     currencyCode: null,
     providerRef: null,
     sessionRef: orderId,
-    correlationRefs: [orderId],
     reason: null,
   };
 }
@@ -452,138 +442,13 @@ export function signalsForWebhookEvent(
           currencyCode: amount?.currency_code?.toUpperCase() ?? null,
           providerRef: id,
           sessionRef: orderId,
-          correlationRefs: [orderId, id].filter((ref): ref is string =>
-            Boolean(ref),
-          ),
           reason: completed ? null : deniedReason(resource.status_details),
-        },
-      ];
-    }
-    case 'PAYMENT.CAPTURE.REFUNDED':
-    case 'PAYMENT.CAPTURE.REVERSED': {
-      const captureId = upLinkId(resource);
-      if (!captureId || !id) return [];
-      return [
-        {
-          ...base(
-            EVENT_TYPE.refunded,
-            {by: 'correlationRef', correlationRef: captureId},
-            OBSERVED_VIA.webhook,
-            payload,
-          ),
-          eventId: id,
-          amount: minor(amount?.value, amount?.currency_code),
-          currencyCode: amount?.currency_code?.toUpperCase() ?? null,
-          providerRef: id,
-          sessionRef: null,
-          correlationRefs: [],
-          reason:
-            event.event_type === 'PAYMENT.CAPTURE.REVERSED' ? 'REVERSED' : null,
-        },
-      ];
-    }
-    case 'CUSTOMER.DISPUTE.CREATED': {
-      const disputeId =
-        typeof resource.dispute_id === 'string' ? resource.dispute_id : null;
-      const transactions = resource.disputed_transactions as
-        | {seller_transaction_id?: string}[]
-        | undefined;
-      const captureId = transactions?.[0]?.seller_transaction_id ?? null;
-      const disputeAmount = resource.dispute_amount as PaypalMoney | undefined;
-      if (!disputeId || !captureId) return [];
-      return [
-        {
-          ...base(
-            EVENT_TYPE.disputed,
-            {by: 'correlationRef', correlationRef: captureId},
-            OBSERVED_VIA.webhook,
-            payload,
-          ),
-          eventId: disputeId,
-          amount: minor(disputeAmount?.value, disputeAmount?.currency_code),
-          currencyCode: disputeAmount?.currency_code?.toUpperCase() ?? null,
-          providerRef: disputeId,
-          sessionRef: null,
-          correlationRefs: [],
-          reason: typeof resource.reason === 'string' ? resource.reason : null,
-          deadline: dateOf(resource.seller_response_due_date),
-        },
-      ];
-    }
-    case 'CUSTOMER.DISPUTE.RESOLVED': {
-      const disputeId =
-        typeof resource.dispute_id === 'string' ? resource.dispute_id : null;
-      const transactions = resource.disputed_transactions as
-        | {seller_transaction_id?: string}[]
-        | undefined;
-      const captureId = transactions?.[0]?.seller_transaction_id ?? null;
-      const disputeAmount = resource.dispute_amount as PaypalMoney | undefined;
-      const outcome = resource.dispute_outcome as
-        | {outcome_code?: string}
-        | undefined;
-      const code = outcome?.outcome_code ?? null;
-      const type = disputeOutcomeType(code);
-      if (!disputeId || !captureId) return [];
-      return [
-        {
-          ...base(
-            type,
-            {by: 'correlationRef', correlationRef: captureId},
-            OBSERVED_VIA.webhook,
-            payload,
-          ),
-          eventId: disputeId,
-          amount: minor(disputeAmount?.value, disputeAmount?.currency_code),
-          currencyCode: disputeAmount?.currency_code?.toUpperCase() ?? null,
-          providerRef: disputeId,
-          sessionRef: null,
-          correlationRefs: [],
-          reason: code,
         },
       ];
     }
     default:
       return [];
   }
-}
-
-type DisputeOutcomeType =
-  | typeof EVENT_TYPE.disputeWon
-  | typeof EVENT_TYPE.disputeLost
-  | typeof EVENT_TYPE.disputeClosed;
-
-/**
- * PayPal's resolution of a dispute. Decided for us, cancelled by the buyer,
- * or paid out of PayPal's own protection, the money stays with us; decided for
- * the buyer, it is gone. NONE means a new dispute on the same transaction took
- * this one's place and opens on its own. ACCEPTED and DENIED are PayPal's
- * older words for the buyer's and our favour. A code PayPal adds later is read
- * as lost, which keeps the payment charged back and its item open with the
- * code for finance to read, rather than releasing money we cannot vouch for.
- */
-export function disputeOutcomeType(code: string | null): DisputeOutcomeType {
-  switch (code) {
-    case 'RESOLVED_SELLER_FAVOUR':
-    case 'CANCELED_BY_BUYER':
-    case 'RESOLVED_WITH_PAYOUT':
-    case 'DENIED':
-      return EVENT_TYPE.disputeWon;
-    case 'NONE':
-      return EVENT_TYPE.disputeClosed;
-    case 'RESOLVED_BUYER_FAVOUR':
-    case 'ACCEPTED':
-    default:
-      return EVENT_TYPE.disputeLost;
-  }
-}
-
-/* An RFC 3339 date as PayPal sends it, or null for anything unreadable. */
-function dateOf(value: unknown): Date | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export const paypalAdapter: GatewayAdapter = {
@@ -656,7 +521,6 @@ export const paypalAdapter: GatewayAdapter = {
       },
       sessionRef: order.id,
       expiresOn: new Date(Date.now() + APPROVAL_WINDOW_MS),
-      correlationRefs: [order.id],
     };
   },
 

@@ -5,7 +5,6 @@ import {getAdapter} from './adapters/registry';
 import {SessionNotFoundError} from './adapters/types';
 import {
   EVENT_TYPE,
-  GATEWAY,
   PAYMENT_STATUS,
   SESSION_STATUS,
   type Gateway,
@@ -200,9 +199,9 @@ export async function reconcilePayment({
     }
     /* The provider answered, but what it said was not recorded on this
      * payment: the row must not end while the payment is still open. */
-    if (outcome.outcome === 'rejected' || outcome.outcome === 'unmatched') {
+    if (outcome.outcome === 'rejected') {
       decisions.push(
-        `Payment ${payment.reference}: ${session.gateway} reported session ${session.sessionRef} as ${signal.type}, which was not recorded on this payment (${outcome.outcome === 'rejected' ? outcome.reason : 'unmatched'}); look it up in the provider's back office, then record it by hand`,
+        `Payment ${payment.reference}: ${session.gateway} reported session ${session.sessionRef} as ${signal.type}, which was not recorded on this payment (${outcome.reason}); look it up in the provider's back office, then record it by hand`,
       );
       continue;
     }

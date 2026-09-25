@@ -32,10 +32,6 @@
       "name": "reason"
     },
     {
-      "type": "DateTime",
-      "name": "deadline"
-    },
-    {
       "type": "String",
       "name": "eventKey",
       "required": true,
@@ -45,11 +41,6 @@
       "type": "String",
       "name": "gateway",
       "required": true
-    },
-    {
-      "type": "ManyToOne",
-      "name": "unmatchedEvent",
-      "target": "AOSPortalPaymentUnmatchedEvent"
     },
     {
       "type": "String",

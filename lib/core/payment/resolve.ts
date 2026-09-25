@@ -15,11 +15,11 @@ export type Resolved =
 
 /**
  * Finds the payment a signal is about, always against a value already held:
- * our reference, a session reference, or a correlation reference recorded
- * from an earlier capture. Never a retrieve.
+ * our reference, or the session reference the provider handed us. Never a
+ * retrieve.
  *
- * The tenant marker in the reference is checked here, on every path, so no
- * handler can forget it.
+ * The tenant marker in the reference is checked here, so no handler can
+ * forget it.
  */
 export async function resolvePayment({
   resolution,
@@ -28,50 +28,35 @@ export async function resolvePayment({
   client,
 }: {
   resolution: SignalResolution;
-  /** Needed for a session or correlation reference, which are scoped by provider. */
+  /** Needed for a session reference, which is scoped by provider. */
   gateway?: Gateway;
   tenantId: string;
   client: Client;
 }): Promise<Resolved> {
-  if (resolution.by !== 'reference' && !gateway) {
-    throw new Error(`A ${resolution.by} lookup needs the gateway`);
+  if (resolution.by === 'sessionRef') {
+    if (!gateway) {
+      throw new Error('A session reference lookup needs the gateway');
+    }
+    const session = await client.aOSPortalPaymentSession.findOne({
+      where: {gateway, sessionRef: resolution.sessionRef},
+      select: {payment: {id: true}},
+    });
+    return session?.payment
+      ? {kind: 'found', paymentId: session.payment.id}
+      : {kind: 'not-found'};
   }
-  switch (resolution.by) {
-    case 'reference': {
-      const parsed = parseReference(resolution.reference);
-      if (!parsed) {
-        return {kind: 'not-ours'};
-      }
-      if (parsed.tenantId !== tenantId) {
-        return {kind: 'other-tenant', tenantId: parsed.tenantId};
-      }
-      const payment = await client.aOSPortalPayment.findOne({
-        where: {reference: parsed.reference},
-        select: {id: true},
-      });
-      return payment
-        ? {kind: 'found', paymentId: payment.id}
-        : {kind: 'not-found'};
-    }
-    case 'sessionRef': {
-      const session = await client.aOSPortalPaymentSession.findOne({
-        where: {gateway, sessionRef: resolution.sessionRef},
-        select: {payment: {id: true}},
-      });
-      return session?.payment
-        ? {kind: 'found', paymentId: session.payment.id}
-        : {kind: 'not-found'};
-    }
-    case 'correlationRef': {
-      const correlation = await client.aOSPortalPaymentCorrelationRef.findOne({
-        where: {gateway, ref: resolution.correlationRef},
-        select: {session: {payment: {id: true}}},
-      });
-      return correlation?.session?.payment
-        ? {kind: 'found', paymentId: correlation.session.payment.id}
-        : {kind: 'not-found'};
-    }
+  const parsed = parseReference(resolution.reference);
+  if (!parsed) {
+    return {kind: 'not-ours'};
   }
+  if (parsed.tenantId !== tenantId) {
+    return {kind: 'other-tenant', tenantId: parsed.tenantId};
+  }
+  const payment = await client.aOSPortalPayment.findOne({
+    where: {reference: parsed.reference},
+    select: {id: true},
+  });
+  return payment ? {kind: 'found', paymentId: payment.id} : {kind: 'not-found'};
 }
 
 /** The reference of the payment a signal names, or null when it names none of ours. */

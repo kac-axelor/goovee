@@ -20,8 +20,7 @@ comes last.
 The previous release tracked a payment in progress as a payment context. This
 release completes none of them: the addresses the previous release gave its
 payments, under `/<tenant>/api/payment/`, are gone, a buyer returning from one
-is not recorded, and a provider's notification for one is recorded as unmatched
-or refused. While the previous release is still running, run this against each
+is not recorded, and a provider's notification for one is refused. While the previous release is still running, run this against each
 tenant's database:
 
 ```sql
@@ -131,16 +130,10 @@ The tables the module adds:
   payment's events name and clear `session_ref` on the other.
 
 - `portal_portal_payment_event` — the ledger, unique on `(gateway, event_key)`,
-  with `currency_scale` and `deadline`.
+  with `currency_scale`.
 - `portal_portal_payment_job` — outstanding work, unique on `(payment, kind)`.
-- `portal_portal_payment_correlation_ref` — the provider ids a later refund or
-  dispute names, unique on `(gateway, ref)`.
-- `portal_portal_payment_unmatched_event` — provider events that named no
-  payment yet, with `currency_scale`, `reason` and `deadline`.
 - `portal_portal_payment_recorded_event` — events entered by hand in the ERP,
-  unique on `event_key`, with `deadline`.
-- `portal_portal_payment_finance_item` — refunds and disputes waiting to be
-  booked, unique on `ledger_event`.
+  unique on `event_key`.
 - `portal_portal_order_request` and `portal_portal_order_request_line` — the
   shop purchases the ERP builds its sale orders from.
 
@@ -164,16 +157,13 @@ WHERE
     'portal_portal_payment_session',
     'portal_portal_payment_event',
     'portal_portal_payment_job',
-    'portal_portal_payment_correlation_ref',
-    'portal_portal_payment_unmatched_event',
     'portal_portal_payment_recorded_event',
-    'portal_portal_payment_finance_item',
     'portal_portal_order_request',
     'portal_portal_order_request_line'
   );
 ```
 
-It returns 10.
+It returns 7.
 
 A tenant whose views were not reloaded — the selections of the payment form
 missing, or the _Portal › Payments_ menu absent — restores them instead, with
@@ -274,6 +264,69 @@ A unique-constraint error on the update means two payments name the same
 registration, marketplace order or order request; resolve the pair by hand
 before running it again.
 
+A pre-release database also keeps what earlier builds tracked about refunds,
+disputes and provider events that named no payment, and the by-hand fields of
+the payment. Nothing reads them, and every column is nullable, so they can stay.
+To remove them:
+
+```sql
+DROP TABLE IF EXISTS portal_portal_payment_finance_item;
+
+ALTER TABLE portal_portal_payment_recorded_event
+DROP COLUMN IF EXISTS unmatched_event,
+DROP COLUMN IF EXISTS deadline;
+
+DROP TABLE IF EXISTS portal_portal_payment_unmatched_event;
+
+DROP TABLE IF EXISTS portal_portal_payment_correlation_ref;
+
+ALTER TABLE portal_portal_payment_event
+DROP COLUMN IF EXISTS deadline;
+
+ALTER TABLE portal_portal_payment
+DROP COLUMN IF EXISTS refunded_amount,
+DROP COLUMN IF EXISTS delivered_by_hand_by,
+DROP COLUMN IF EXISTS delivered_by_hand_on,
+DROP COLUMN IF EXISTS booked_by_hand_by,
+DROP COLUMN IF EXISTS booked_by_hand_on;
+```
+
+A payment an earlier build left as refunded or charged back keeps that status,
+which the ERP no longer lists, until an event comes for it. Its captured amount
+is what its captures add up to, refunds never taken off, so the status the
+ledger gives it now follows from that amount alone. Once, per tenant:
+
+```sql
+UPDATE portal_portal_payment
+SET
+  status = CASE
+    WHEN captured_amount >= amount
+    AND amount > 0 THEN 'captured'
+    WHEN captured_amount > 0 THEN 'partially_captured'
+    ELSE status
+  END,
+  version = COALESCE(version, 0) + 1,
+  updated_on = now()
+WHERE
+  status IN ('refunded', 'charged_back');
+```
+
+A row with nothing captured keeps its status; look it up at the provider.
+
+Restoring the views does not remove what earlier builds loaded: the _To book in
+the ERP_ and _Unmatched events_ menus stay under _Portal › Payments_ and open
+views of models that are gone. Delete both menus in _Administration › Menus_,
+or per tenant:
+
+```sql
+DELETE FROM meta_menu
+WHERE
+  name IN (
+    'menu-portal-payment-finance',
+    'menu-portal-payment-unmatched'
+  );
+```
+
 ## 4. Configure AOS
 
 - **Permission.** The AOS user the portal authenticates as needs WRITE on
@@ -308,10 +361,6 @@ Add a webhook endpoint at `/<tenant>/api/webhooks/stripe` and subscribe it to:
 - `payment_intent.succeeded`
 - `payment_intent.partially_funded`
 - `payment_intent.canceled`
-- `charge.refunded`
-- `charge.refund.updated`
-- `charge.dispute.created`
-- `charge.dispute.closed`
 
 Put its signing secret in `PORTAL_TENANT_<ID>_PAYMENTS_STRIPE_WEBHOOK_SECRET`.
 Without it the webhook is refused and bank transfer is not offered.
@@ -327,16 +376,11 @@ subscribed to:
 - `CHECKOUT.ORDER.APPROVED`
 - `PAYMENT.CAPTURE.COMPLETED`
 - `PAYMENT.CAPTURE.DENIED`
-- `PAYMENT.CAPTURE.REFUNDED`
-- `PAYMENT.CAPTURE.REVERSED`
-- `CUSTOMER.DISPUTE.CREATED`
-- `CUSTOMER.DISPUTE.RESOLVED`
 
 Put the webhook's id in `PORTAL_TENANT_<ID>_PAYMENTS_PAYPAL_WEBHOOK_ID`. PayPal
 signs each notification and the portal checks the signature against this id;
 without it, PayPal's notifications are refused and a payment is recorded only
-when the buyer comes back to the site, so its refunds and disputes are never
-seen.
+when the buyer comes back to the site.
 
 ### Paybox and Up2Pay
 
@@ -392,34 +436,33 @@ DROP TABLE IF EXISTS portal_payment_context;
 
 What the ERP's _Portal › Payments_ menu shows, and what finance does with it.
 
-- _Needs attention_ — a payment whose delivery failed while it still holds
-  money, a job past its time, or a refund or dispute not booked yet.
-- _To book in the ERP_ — every refund and every dispute, one entry each.
-  Nothing is booked in the ERP automatically: finance books the credit note, the
-  reversal or the loss by hand, then closes the entry with _Refund booked in the
-  ERP_ or _Dispute booked in the ERP_. A dispute can be closed once the provider
-  has decided it; until then, answer it at the provider before the date the
-  entry shows.
+- _Needs attention_ — a payment whose delivery failed, or a job past its time.
+  Settle it outside the portal, then press _Resolve_ on the payment with what
+  was done: the purchase honoured another way, the excess given back at the
+  provider, the booking made in the ERP by hand. The payment then stops
+  waiting; the reason, who and when are kept on it.
 - _Unconfirmed_ — payments whose provider never answered.
 - _Confirmed by the browser only_ — captures the provider's webhook never
   confirmed, grouped by provider.
 - _Jobs past their time_ — every payment job still open past its time, by kind.
-- _Unmatched events_ — a refund or dispute that named no payment the portal
-  knew, to match to its payment or dismiss.
 
-### A refund or dispute on a payment made before the upgrade
+### Refunds and disputes
 
-A payment taken by the previous release has no record among the new payments,
-so the portal cannot attach a later refund or dispute to it:
+The portal does not track them. A refund is made, and a dispute answered, at
+the provider, from its dashboard or back office; finance books the ERP side by
+hand, as for any payment. Neither changes what the portal delivered.
 
-- **PayPal** — the refund or dispute arrives under _Unmatched events_ with
-  nothing to match it to. Dismiss it there with _Dismiss as not ours_, then book
-  it in the ERP by hand.
-- **Stripe** — it is not recorded at all: the portal reads Stripe's events only
-  for payments it recorded. Watch refunds and disputes on charges made before
-  the upgrade in the Stripe dashboard, and book them in the ERP by hand.
-- **Paybox, Up2Pay and HUB PISP** report no refunds or disputes; take them from
-  the provider's back office, as before.
+Reverse a refunded invoice payment in the ERP promptly: until then the portal
+reads the invoice as paid, refusing a new payment of it and withdrawing a bank
+transfer the payer started on it.
+
+### More captured than the payment was for
+
+Two sessions of one payment can both take the money, a payer who paid by card
+and by transfer for instance. The payment is booked in the ERP for the amount
+it was for, at most, shows the excess on its form, and waits under _Needs
+attention_: give the excess back at the provider, then _Resolve_ the payment.
+Its booking, if still to run, runs as usual.
 
 ### A Paybox or Up2Pay notification that never came
 
@@ -435,9 +478,8 @@ unpaid, and the payer may pay again.
   settled as the notification would have settled it.
 - Check _Unconfirmed_ against the provider's back office weekly, for example
   every Monday, which covers the week a payment waits before it lands there.
-- A payer who paid twice has one payment refunded at the provider, then recorded
-  on the payment with _Record an out-of-band refund_, with the refund's
-  reference.
+- A payer who paid twice has one payment refunded at the provider, and the ERP
+  side booked by hand.
 
 ### After changing PayPal credentials
 
@@ -473,13 +515,6 @@ whole booking of a shop or marketplace payment fails with it; it waits under
 _Needs attention_ until the template is set and _Retry projection_ is pressed.
 A booking that fails after its mails were queued may send them again when
 retried.
-
-### Dispute fees
-
-A dispute's entry carries the amount disputed, not the fee the provider charges
-for it: Stripe charges one per dispute and refunds it on some wins, PayPal per
-its own terms. Book the fee from the provider's balance report or payout
-statement.
 
 ### Money for a withdrawn bank transfer
 

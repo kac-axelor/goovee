@@ -3,18 +3,33 @@ import 'server-only';
 import type {Tenant} from '@/tenant';
 import {minorUnitsOf} from './domain/money';
 import {eventIdOf, type GatewaySignal} from './domain/signal';
-import {OBSERVED_VIA, type EventType, type Gateway} from './domain/types';
+import {
+  EVENT_TYPE,
+  OBSERVED_VIA,
+  type EventType,
+  type Gateway,
+} from './domain/types';
 import {triggerProjection} from './project';
 import {settlePayment} from './settle';
 
 /*
  * The `apply_recorded` job: what a person entered by hand in the ERP — a
- * capture seen in a back office, a refund made in a provider's dashboard, a
- * cancellation, an unmatched provider event matched to its payment — turned
+ * capture seen in a back office, or a cancellation — turned
  * into the same signal the provider's own notification would have been and
  * settled like one. Nothing downstream tells the two apart: the ledger event,
  * the status, the delivery, the projection and the confirmation all follow.
  */
+
+/* What a person may enter by hand; an entry of another type, left pending by an
+ * earlier build, names an event the ledger no longer has. */
+const HAND_ENTRY_TYPES: readonly EventType[] = [
+  EVENT_TYPE.captured,
+  EVENT_TYPE.cancelled,
+];
+
+function isHandEntryType(type: string): type is EventType {
+  return HAND_ENTRY_TYPES.some(allowed => allowed === type);
+}
 
 const RECORDED_STATUS = {
   pending: 'pending',
@@ -39,7 +54,6 @@ export async function applyRecordedEvents({
       occurredOn: true,
       providerRef: true,
       reason: true,
-      deadline: true,
       eventKey: true,
       gateway: true,
       payment: {reference: true, currencyCode: true},
@@ -48,24 +62,33 @@ export async function applyRecordedEvents({
   });
 
   for (const entry of entries) {
+    const type = entry.type;
+    if (!isHandEntryType(type)) {
+      await client.aOSPortalPaymentRecordedEvent.update({
+        data: {
+          id: entry.id,
+          version: entry.version,
+          status: RECORDED_STATUS.rejected,
+          error: `A ${type} entry can no longer be applied: only a capture or a cancellation is entered by hand. Nothing was applied.`,
+        },
+        select: {id: true},
+      });
+      continue;
+    }
     const signal: GatewaySignal = {
       gateway: entry.gateway as Gateway,
       /* By the payment's own reference: the person entered it on this
        * payment, so there is nothing to resolve. */
       resolution: {by: 'reference', reference: entry.payment.reference},
-      type: entry.type as EventType,
+      type: type,
       /* The ERP keyed the entry by the same rule, so its id is recovered from
        * the key and settle makes the key again, unchanged. */
-      eventId: eventIdOf(entry.type as EventType, entry.eventKey),
+      eventId: eventIdOf(type, entry.eventKey),
       amount: entry.amount == null ? null : minorUnitsOf(entry.amount),
       currencyCode: entry.amount == null ? null : entry.payment.currencyCode,
       providerRef: entry.providerRef,
       sessionRef: null,
-      /* Kept on the session, so a later provider event naming the same
-       * reference finds this payment. */
-      correlationRefs: entry.providerRef ? [entry.providerRef] : [],
       reason: entry.reason,
-      deadline: entry.deadline,
       observedVia: OBSERVED_VIA.admin,
       observedOn: entry.occurredOn ?? new Date(),
       payload: {source: 'admin', recordedEventId: entry.id},

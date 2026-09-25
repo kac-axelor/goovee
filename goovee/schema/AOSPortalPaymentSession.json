@@ -48,12 +48,6 @@
     {
       "type": "DateTime",
       "name": "expiresOn"
-    },
-    {
-      "type": "OneToMany",
-      "name": "correlationRefList",
-      "target": "AOSPortalPaymentCorrelationRef",
-      "mappedBy": "session"
     }
   ],
   "uniques": [

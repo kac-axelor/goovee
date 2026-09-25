@@ -130,9 +130,7 @@ function signalFromQuery(
     currencyCode: null,
     providerRef: transactionKey,
     sessionRef: marker,
-    correlationRefs: transactionKey ? [transactionKey] : [],
     reason: type === EVENT_TYPE.refused ? code : null,
-    deadline: null,
     observedVia,
     observedOn: new Date(),
     payload,
@@ -199,7 +197,6 @@ export const payboxAdapter: GatewayAdapter = {
        * what later legs name. */
       sessionRef: input.idempotencyKey,
       expiresOn: new Date(Date.now() + SESSION_LIFETIME_MS),
-      correlationRefs: [],
     };
   },
 

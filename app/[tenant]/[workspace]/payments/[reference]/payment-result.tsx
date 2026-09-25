@@ -8,7 +8,7 @@ import {i18n} from '@/locale';
 import {formatDateTime} from '@/locale/formatters';
 import {Button} from '@/ui/components';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
-import {PAYMENT_STATUS} from '@/payment/domain/types';
+import {DELIVERY_STATUS, PAYMENT_STATUS} from '@/payment/domain/types';
 import type {PaymentView} from '@/payment/view';
 import {
   formatMoney,
@@ -40,7 +40,12 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
 
   switch (view.status) {
     case PAYMENT_STATUS.captured:
-      if (view.deliveryStatus === 'undeliverable') {
+      /* Resolved is an undeliverable purchase a person settled by hand: the
+       * payer reads the same, since the portal did not complete it. */
+      if (
+        view.deliveryStatus === DELIVERY_STATUS.undeliverable ||
+        view.deliveryStatus === DELIVERY_STATUS.resolved
+      ) {
         return {
           tone: 'pending',
           heading: i18n.t('Payment received'),
@@ -113,21 +118,6 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
         heading: i18n.t('Waiting for confirmation'),
         body: i18n.t(
           'We have not heard back from your payment provider yet. We will email you once the payment of {0} is confirmed.',
-          amount,
-        ),
-      };
-    case PAYMENT_STATUS.refunded:
-      return {
-        tone: 'neutral',
-        heading: i18n.t('Payment refunded'),
-        body: i18n.t('This payment of {0} has been refunded.', amount),
-      };
-    case PAYMENT_STATUS.chargedBack:
-      return {
-        tone: 'failure',
-        heading: i18n.t('Payment disputed'),
-        body: i18n.t(
-          'This payment of {0} is under dispute. Please contact support.',
           amount,
         ),
       };

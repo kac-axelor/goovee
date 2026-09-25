@@ -174,9 +174,7 @@ function signalFromQuery(
     currencyCode: null,
     providerRef: transactionKey,
     sessionRef: marker,
-    correlationRefs: transactionKey ? [transactionKey] : [],
     reason: type === EVENT_TYPE.refused ? code : null,
-    deadline: null,
     observedVia,
     observedOn: new Date(),
     payload,
@@ -258,7 +256,6 @@ export const up2payAdapter: GatewayAdapter = {
       handoff: {kind: 'redirect', url: paymentUrl.toString()},
       sessionRef: input.idempotencyKey,
       expiresOn: new Date(Date.now() + SESSION_LIFETIME_MS),
-      correlationRefs: [],
     };
   },
 

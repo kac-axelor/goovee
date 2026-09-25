@@ -9,8 +9,7 @@ import {readSubject} from './domain/subject';
 
 /**
  * The `notify` job: runs a captured payment's confirmation through its
- * source. A payment that was never captured and delivered, or has been
- * refunded since, owes none.
+ * source. A payment that was never captured and delivered owes none.
  */
 export async function notifyPayment({
   tenant,
