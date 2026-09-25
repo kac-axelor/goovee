@@ -19,10 +19,7 @@ import {IdSchema} from '@/utils/validators';
 import {scale} from '@/utils';
 
 import {validateRegistration} from '../actions/validation';
-import {
-  RegistrationValuesSchema,
-  type RegistrationValues,
-} from '../actions/validators';
+import {RegistrationValuesSchema} from '../actions/validators';
 import {getEventsConfig} from '../orm/config';
 import {findEvent} from '../orm/event';
 import {registerParticipants} from '../orm/registration';

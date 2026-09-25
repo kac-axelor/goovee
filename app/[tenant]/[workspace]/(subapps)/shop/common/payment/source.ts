@@ -287,13 +287,9 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
         ...(payment.paymentModeId && {
           paymentMode: {select: {id: payment.paymentModeId}},
         }),
-        ...(deliveryAddressId && {
-          deliveryPartnerAddress: {select: {id: deliveryAddressId}},
-        }),
-        ...(invoicingAddressId && {
-          invoicingPartnerAddress: {select: {id: invoicingAddressId}},
-        }),
-        inAti: Boolean(inAti),
+        deliveryPartnerAddress: {select: {id: deliveryAddressId}},
+        invoicingPartnerAddress: {select: {id: invoicingAddressId}},
+        inAti,
         currency: {select: {codeISO: currencyCode}},
         total: new BigDecimal(total),
         paidAmount: new BigDecimal(paidAmount),

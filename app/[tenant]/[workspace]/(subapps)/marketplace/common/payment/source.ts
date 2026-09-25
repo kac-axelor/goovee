@@ -19,7 +19,6 @@ import {
   CartProductIdsSchema,
   recheckCartAvailability,
   validateCart,
-  type ValidatedCart,
 } from '../utils/cart';
 import {SUBJECT_MODEL, subjectIdOf} from '@/payment/domain/subject';
 
@@ -198,7 +197,7 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
         })),
         currencyCodeISO: cart.currencyCodeISO,
         paidAmount: cart.total,
-        companyId: companyId ?? null,
+        companyId,
         paymentModeId: payment.paymentModeId,
         invoicingAddress: invoicingAddress?.address ?? null,
       });

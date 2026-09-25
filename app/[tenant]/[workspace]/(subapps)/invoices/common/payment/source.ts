@@ -226,7 +226,6 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
     });
     const invoiceNumber = String(invoice?.invoiceId ?? invoiceId);
 
-    /* The mail is handed to the mail service first, and the push follows. */
     const translate = getTranslation.bind(null, {
       locale: await payerLocale(tenant, payment.payer),
       tenant: tenant.id,

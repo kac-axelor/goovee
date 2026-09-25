@@ -25,7 +25,8 @@ import {withdrawUnneededTransfers} from './transfers';
 
 /*
  * Longer than any handler can run, or a job still running is claimed and run a
- * second time. The handlers' longest waits are the providers' own calls.
+ * second time. The handlers' longest waits are the providers' calls and the
+ * push.
  */
 const LEASE_SECONDS = 15 * 60;
 const FIRST_RETRY_SECONDS = 60;
