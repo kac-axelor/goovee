@@ -6,13 +6,13 @@ import {ensureAccess} from '@/access/ensure-access';
 import {accessMessage} from '@/access/denial';
 import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
 import {t} from '@/locale/server';
+import {tenantURLs} from '@/url/scope';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {
   formatAmount,
   payerLocale,
   sendPaymentConfirmation,
   translatorFor,
-  workspaceLink,
 } from '@/payment/confirmation';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
@@ -271,7 +271,11 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
           tenant,
           payment,
           title: await translate('Payment received'),
-          link: link && workspaceLink(tenant, payment.workspaceUrl, link),
+          link:
+            link &&
+            tenantURLs(tenant.id)
+              .workspaceByKey(payment.workspaceUrl)
+              .forExternal(link),
           translate,
         });
       },

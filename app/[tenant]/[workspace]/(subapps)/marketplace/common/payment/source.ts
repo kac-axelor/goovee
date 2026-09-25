@@ -6,6 +6,7 @@ import {ensureAccess} from '@/access/ensure-access';
 import {accessMessage} from '@/access/denial';
 import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
+import {tenantURLs} from '@/url/scope';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
@@ -15,7 +16,6 @@ import {
   payerLocale,
   sendPaymentConfirmation,
   translatorFor,
-  workspaceLink,
 } from '@/payment/confirmation';
 import {getPartnerId} from '@/utils';
 
@@ -235,7 +235,11 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
         tenant,
         payment,
         title: await translate('Purchase complete'),
-        link: link && workspaceLink(tenant, payment.workspaceUrl, link),
+        link:
+          link &&
+          tenantURLs(tenant.id)
+            .workspaceByKey(payment.workspaceUrl)
+            .forExternal(link),
         translate,
       });
     },

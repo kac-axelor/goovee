@@ -4,6 +4,7 @@ import {z} from 'zod';
 
 import {IdSchema} from '@/utils/validators';
 import {currentWorkspace} from '@/url/current';
+import {tenantURLs} from '@/url/scope';
 import {t} from '@/locale/server';
 import {SUBAPP_CODES} from '@/constants';
 import {
@@ -19,7 +20,6 @@ import {
   payerLocale,
   sendPaymentConfirmation,
   translatorFor,
-  workspaceLink,
 } from '@/payment/confirmation';
 import {notifyInvoicePaymentSuccess} from '@/subapps/invoices/common/utils/notify';
 import {
@@ -244,7 +244,11 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
       tenant,
       payment,
       title: await translate('Payment received for invoice {0}', invoiceNumber),
-      link: link && workspaceLink(tenant, payment.workspaceUrl, link),
+      link:
+        link &&
+        tenantURLs(tenant.id)
+          .workspaceByKey(payment.workspaceUrl)
+          .forExternal(link),
       translate,
     });
 

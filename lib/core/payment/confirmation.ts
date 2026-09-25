@@ -5,7 +5,6 @@ import {getTranslation} from '@/locale/server';
 import NotificationManager, {NotificationType} from '@/notification';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import type {Tenant} from '@/tenant';
-import {tenantURLs} from '@/url/scope';
 import {escapeHtml} from '@/utils/template-string';
 import {fromMinorUnits} from './domain/money';
 import type {NotifiedPayment} from './sources/types';
@@ -45,17 +44,6 @@ export async function payerLocale(
   }
   const user = await findGooveeUserByEmail(payer, tenant.client);
   return user?.localization?.code || DEFAULT_LOCALE;
-}
-
-/** The absolute address of a workspace page, for a mail or a push. */
-export function workspaceLink(
-  tenant: Tenant,
-  workspaceUrl: string,
-  subPath: `/${string}`,
-): string {
-  return tenantURLs(tenant.id)
-    .workspaceByKey(workspaceUrl)
-    .forExternal(subPath);
 }
 
 /** "106.80 EUR": the amount as the ledger holds it, the same in every language. */
