@@ -26,10 +26,5 @@ export async function register() {
    * failing never holds up the rest. Payments left open when the server last
    * stopped are the payment jobs' to look at, not something resumed here. */
   const {startTenants} = await import('@/tenant/startup');
-  const {probeTenantPayments} = await import('@/payment/schema-probe');
-
-  /* Each tenant's database is checked for the payment schema as soon as it is
-   * connected, so a stale one is reported at boot rather than at the first
-   * checkout; its payments stay off until it matches. */
-  startTenants(probeTenantPayments);
+  startTenants();
 }

@@ -17,7 +17,6 @@ import {
   type OpenTransferSession,
 } from '@/payment/transfers';
 import {paymentPageUrl} from '@/payment/urls';
-import {paymentsReady} from '@/payment/schema-probe';
 
 /** A transfer started on the invoice that the payer's bank has not finished. */
 export type PendingTransfer = {
@@ -67,11 +66,6 @@ export async function findPendingTransfers({
   cookies: ReadonlyRequestCookies;
   viewerEmail: string | null;
 }): Promise<PendingTransfer[]> {
-  /* None to show while the tenant's database lacks the payment schema: the
-   * invoice still renders, without its payment part. */
-  if (!(await paymentsReady(tenant))) {
-    return [];
-  }
   const sessions = await findOpenTransferSessions({
     client: tenant.client,
     invoiceId,

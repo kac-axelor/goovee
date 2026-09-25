@@ -15,7 +15,6 @@ import {
 import {readSnapshot} from './intent';
 import {getSourceHandler} from './sources/registry';
 import {readSubject} from './domain/subject';
-import {paymentsReady} from './schema-probe';
 
 /** What the result page shows. Nothing here mutates. */
 export type PaymentView = {
@@ -47,11 +46,6 @@ export async function findPaymentView(
   tenant: Tenant,
   reference: string,
 ): Promise<PaymentView | null> {
-  /* Unknown, as any reference would be, while the tenant's database lacks
-   * the payment schema: the page and its poll answer not found, not an error. */
-  if (!(await paymentsReady(tenant))) {
-    return null;
-  }
   const {client} = tenant;
   const payment = await client.aOSPortalPayment.findOne({
     where: {reference},

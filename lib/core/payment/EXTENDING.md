@@ -71,9 +71,8 @@ In axelor-portal:
    its option in `portal.payment.event.type.select`.
 
 Nothing else: an event entered by hand is keyed as the provider's own, the
-currency-scale check covers every provider, and the schema check at startup
-needs no change. Document the provider's notification address and events in
-CONFIGURATION.md and the upgrade's runbook.
+currency-scale check covers every provider. Document the provider's
+notification address and events in CONFIGURATION.md and the upgrade's runbook.
 
 ## Adding an app that takes payments
 
@@ -101,11 +100,9 @@ In goovee:
    invoices handler reaches settle, which imports the registry, so importing a
    handler first fails the check at startup.
 5. On the app's checkout page, render `PaymentMethods` with
-   `await offeredGateways({source, paymentOptions, tenant})`. It offers nothing
-   while the tenant's database fails the schema check.
+   `await offeredGateways({source, paymentOptions, tenant})`.
 6. For a subject entity new to goovee, add its schema mirror with
-   `"synchronize": false`; if payments write it, add it to `PAYMENT_SCHEMAS` in
-   `schema-probe.ts`.
+   `"synchronize": false`.
 
 In axelor-portal:
 

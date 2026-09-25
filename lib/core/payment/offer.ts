@@ -7,7 +7,6 @@ import {getPaymentModeId, isPaymentOptionAvailable} from '@/utils/payment';
 import {isHubPispOption, type HubPispOption} from './adapters/hubpisp';
 import {listAdapters, paymentOptionFor} from './adapters/registry';
 import {GATEWAY, type Gateway, type PaymentSource} from './domain/types';
-import {paymentsReady} from './schema-probe';
 import {getSourceHandler} from './sources/registry';
 
 /** One button: a gateway, and for a gateway that comes in variants, which one. */
@@ -35,10 +34,8 @@ export function hubPispOptions(
 
 /**
  * The gateways a checkout may offer: accepted by the source, named by the
- * workspace's online payment methods and configured on the tenant. None at all
- * while the tenant's database lacks the payment schema, so the buttons render
- * nothing. Computed on the server, so the button component never reads tenant
- * configuration.
+ * workspace's online payment methods and configured on the tenant. Computed
+ * on the server, so the button component never reads tenant configuration.
  */
 export async function offeredGateways({
   source,
@@ -49,9 +46,6 @@ export async function offeredGateways({
   paymentOptions: PaymentConfig['paymentOptionSet'] | undefined;
   tenant: Tenant;
 }): Promise<OfferedGateway[]> {
-  if (!(await paymentsReady(tenant))) {
-    return [];
-  }
   const tenantConfig = tenant.config;
   const handler = getSourceHandler(source);
   /* A source with no fallback payment mode is not offered a method the

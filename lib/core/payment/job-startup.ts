@@ -5,7 +5,6 @@ import {listTenantIds} from '@/tenant/config';
 import {reportPaymentHealth} from './health';
 import {runPaymentJobs} from './jobs';
 import {adoptOpenPayments} from './reconcile-schedule';
-import {paymentsReady} from './schema-probe';
 
 /* A capture's own request runs its jobs straight away; this is what runs the
  * ones that request never got to — the process stopped, the provider was
@@ -40,9 +39,6 @@ async function runForEveryTenant(): Promise<void> {
     try {
       const tenant = await manager.getTenant(tenantId);
       if (!tenant) continue;
-      /* A database without the payment schema's shape would fail every job;
-       * the probe has said so, loudly, and says so again until it is fixed. */
-      if (!(await paymentsReady(tenant))) continue;
       if (!adopted.has(tenantId)) {
         const count = await adoptOpenPayments(tenant);
         adopted.add(tenantId);

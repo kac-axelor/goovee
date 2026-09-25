@@ -95,8 +95,7 @@ AOS normally, which does the same for the default database. Leave
 `application.multi-tenancy` as it is: only the default connection is used at
 startup. Each boot creates the tables below and loads the new views, selections
 and menus. Do it before the new portal is deployed: the portal writes these
-tables from its first payment, and refuses to take payments where they are
-missing (step 6).
+tables from its first payment.
 
 The tables the module adds:
 
@@ -108,8 +107,8 @@ The tables the module adds:
 - `portal_portal_payment_session` — one row per attempt at a provider, with the
   `amount`, `currency_code` and `currency_scale` it asked for, unique on
   `(gateway, session_ref)`. A tenant that ran a pre-release build may hold two
-  sessions naming the same provider session; AOS then cannot add the key and
-  the portal disables payments (step 6). Check before the upgrade — this lists
+  sessions naming the same provider session, and AOS then skips the key without
+  saying so. Check before the upgrade — this lists
   none on a clean database:
 
   ```sql
@@ -174,8 +173,7 @@ WHERE
   );
 ```
 
-It returns 10. The portal checks every column and unique key itself when it
-starts (step 6).
+It returns 10.
 
 A tenant whose views were not reloaded — the selections of the payment form
 missing, or the _Portal › Payments_ menu absent — restores them instead, with
@@ -359,20 +357,7 @@ CONFIGURATION.md §9.5 describes, and deploy the tenant's `client.crt` and
 
 ## 6. Deploy the portal and verify
 
-Deploy the new portal. As each tenant connects, its log says whether its
-database has what payments need:
-
-```
-[PAYMENT][PROBE] tenant "acme": the payment schema matches (11 tables); payments are enabled
-```
-
-A tenant whose database is missing a table, a column or a unique key logs
-`PAYMENTS ARE DISABLED` with each problem instead: no payment method is shown
-for it and none can start, while the rest of the portal works. Apply step 3 to
-that tenant's database; it is checked again every five minutes, and payments
-come back without a restart.
-
-Then, per tenant:
+Deploy the new portal. Then, per tenant:
 
 1. Pay an invoice by card. The result page at
    `/<tenant>/<workspace>/payments/<reference>` reads paid, and the payment is under _Portal › Payments › All payments_ in

@@ -35,7 +35,6 @@ import {getSourceHandler} from './sources/registry';
 import type {PreparedIntent} from './sources/types';
 import {paymentPageUrl} from './urls';
 import {allowsSubject, subjectColumns} from './domain/subject';
-import {paymentsReady} from './schema-probe';
 
 export type StartResult = {
   reference: string;
@@ -71,14 +70,6 @@ export async function startPayment({
   /** A variant of the gateway the buyer chose, where the gateway offers any. */
   option?: HubPispOption;
 }): ActionResponse<StartResult> {
-  /* A database without the payment schema's shape would fail part-way
-   * through a start, possibly after a provider session was opened. */
-  if (!(await paymentsReady(tenant))) {
-    return {
-      error: true,
-      message: await t('This payment method is not available'),
-    };
-  }
   const handler = getSourceHandler(source);
   /* Checked before anything is priced or written: the offer is only what the
    * page rendered, and a start can name any gateway. */
