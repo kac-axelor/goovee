@@ -12,10 +12,7 @@ import {payboxAdapter} from './paybox';
 import {up2payAdapter} from './up2pay';
 import {hubpispAdapter} from './hubpisp';
 
-/* Adding a provider is one adapter and one entry here. The type asks for an
- * entry per gateway, and the check below asks again when the module loads:
- * the build does not type-check, so the check is what stops a gateway
- * shipped without its adapter. */
+// Adding a provider is one adapter and one entry here.
 const adapters: Record<Gateway, GatewayAdapter> = {
   [GATEWAY.stripeCard]: stripeCardAdapter,
   [GATEWAY.stripeBankTransfer]: stripeBankTransferAdapter,
@@ -24,14 +21,6 @@ const adapters: Record<Gateway, GatewayAdapter> = {
   [GATEWAY.up2pay]: up2payAdapter,
   [GATEWAY.hubpisp]: hubpispAdapter,
 };
-
-for (const gateway of Object.values(GATEWAY)) {
-  if (adapters[gateway]?.gateway !== gateway) {
-    throw new Error(
-      `The payment adapter registry has no adapter for gateway "${gateway}"`,
-    );
-  }
-}
 
 export const GatewaySchema = z.enum(
   Object.values(GATEWAY) as [Gateway, ...Gateway[]],

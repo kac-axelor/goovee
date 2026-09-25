@@ -42,8 +42,7 @@ In goovee:
      name.
 3. Register the adapter in the `adapters` record of `adapters/registry.ts`, and
    give it a case in `paymentOptionFor` and a value in `PaymentOption`
-   (`types/index.ts`). The registry is checked when it loads, since the build
-   does not type-check.
+   (`types/index.ts`).
 4. Add its notification route, `app/[tenant]/api/webhooks/<provider>/route.ts`,
    calling `handleNotification`.
 5. Add its settings to `lib/core/config/schema.ts` and run
@@ -95,10 +94,10 @@ In goovee:
    - `notify` — the confirmation, run as a job; translate what the payer reads
      with `getTranslation` in their locale;
    - `onwardLink` — where the result page sends the payer next.
-4. Register the handler in the `handlers` record of `sources/registry.ts`, which
-   is checked when it loads. Import a handler only through the registry: the
-   invoices handler reaches settle, which imports the registry, so importing a
-   handler first fails the check at startup.
+4. Register the handler in the `handlers` record of `sources/registry.ts`.
+   Only the registry imports handler modules; anything else asks it for a
+   handler. The invoices handler reaches settle, which imports the registry, so
+   importing a handler directly can load the two in the wrong order.
 5. On the app's checkout page, render `PaymentMethods` with
    `await offeredGateways({source, paymentOptions, tenant})`.
 6. For a subject entity new to goovee, add its schema mirror with
