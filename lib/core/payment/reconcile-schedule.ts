@@ -1,7 +1,6 @@
 import 'server-only';
 
 import type {Client} from '@/goovee/.generated/client';
-import type {Tenant} from '@/tenant';
 import {getAdapter} from './adapters/registry';
 import {
   JOB_KIND,
@@ -20,9 +19,6 @@ import {
 const FIRST_CHECK_GRACE_MS = 5 * 60 * 1000;
 /** A session whose provider call never came back has no expiry to wait for. */
 const UNSTARTED_WAIT_MS = 30 * 60 * 1000;
-/* An open payment found without a reconcile row is checked at once, and goes
- * to a person a day later if its sessions still have not been answered. */
-const ADOPTED_DECIDE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 export type ReconcileSchedule = {firstCheck: Date; decideAt: Date};
 
@@ -154,34 +150,4 @@ export async function dropReconcileIfSettled(
     JOB_KIND.reconcile,
     [SESSION_STATUS.initiated, SESSION_STATUS.awaiting],
   );
-}
-
-/**
- * Gives every payment still open a reconcile row, for payments that began
- * before rows were written in T1, or whose row was lost. Run once per tenant
- * when the job clock starts; a payment that already has one is left as it is.
- * Returns how many it gave one.
- */
-export async function adoptOpenPayments(tenant: Tenant): Promise<number> {
-  const result: unknown = await tenant.client.$raw(
-    `INSERT INTO portal_portal_payment_job
-       (id, version, created_on, payment, kind, next_attempt_on, escalate_on, attempts)
-     SELECT nextval('portal_portal_payment_job_seq'), 0, now(), payment.id, $1::text, now(),
-            now() + make_interval(secs => $3), 0
-       FROM portal_portal_payment AS payment
-      WHERE payment.status = ANY($2::text[])
-        AND NOT EXISTS (
-          SELECT 1 FROM portal_portal_payment_job AS job
-           WHERE job.payment = payment.id AND job.kind = $1::text)
-     ON CONFLICT (payment, kind) DO NOTHING
-     RETURNING id`,
-    JOB_KIND.reconcile,
-    [
-      PAYMENT_STATUS.initiated,
-      PAYMENT_STATUS.awaiting,
-      PAYMENT_STATUS.partiallyCaptured,
-    ],
-    ADOPTED_DECIDE_AFTER_MS / 1000,
-  );
-  return Array.isArray(result) ? result.length : 0;
 }

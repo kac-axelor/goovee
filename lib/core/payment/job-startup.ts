@@ -3,7 +3,6 @@ import 'server-only';
 import {manager} from '@/tenant';
 import {listTenantIds} from '@/tenant/config';
 import {runPaymentJobs} from './jobs';
-import {adoptOpenPayments} from './reconcile-schedule';
 
 /* A capture's own request runs its jobs straight away; this is what runs the
  * ones that request never got to — the process stopped, the provider was
@@ -13,11 +12,6 @@ const TICK_MS = 60 * 1000;
 const FIRST_TICK_MS = 30 * 1000;
 
 let started = false;
-
-/* Tenants whose open payments were checked for a reconcile row since this
- * process started: once each, since every payment begun afterwards gets its
- * row when it starts. */
-const adopted = new Set<string>();
 
 async function runForEveryTenant(): Promise<void> {
   let tenantIds: string[];
@@ -31,15 +25,6 @@ async function runForEveryTenant(): Promise<void> {
     try {
       const tenant = await manager.getTenant(tenantId);
       if (!tenant) continue;
-      if (!adopted.has(tenantId)) {
-        const count = await adoptOpenPayments(tenant);
-        adopted.add(tenantId);
-        if (count) {
-          console.log(
-            `[PAYMENT][JOB] tenant "${tenantId}": ${count} open payments given a reconcile check`,
-          );
-        }
-      }
       const {completed, failed} = await runPaymentJobs({tenant});
       if (completed || failed) {
         console.log(
