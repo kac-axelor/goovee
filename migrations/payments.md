@@ -102,37 +102,15 @@ The tables the module adds:
   record id, `subject_model` and `subject_id`, with `exclusive_subject_id` set
   for a subject that carries one payment only. It has a unique constraint on
   `(subject_model, exclusive_subject_id)`, an index on
-  `(subject_model, subject_id)`, and unique `reference` and `submit_token`.
+  `(subject_model, subject_id)`, and unique `reference` and `checkout_token`.
 - `portal_portal_payment_session` — one row per attempt at a provider, with the
   `amount`, `currency_code` and `currency_scale` it asked for, unique on
-  `(gateway, session_ref)`. A tenant that ran a pre-release build may hold two
-  sessions naming the same provider session, and AOS then skips the key without
-  saying so. Check before the upgrade — this lists
-  none on a clean database:
-
-  ```sql
-  SELECT
-    gateway,
-    session_ref,
-    count(*)
-  FROM
-    portal_portal_payment_session
-  WHERE
-    session_ref IS NOT NULL
-  GROUP BY
-    1,
-    2
-  HAVING
-    count(*) > 1;
-  ```
-
-  Each pair it lists is one provider session recorded twice; keep the row the
-  payment's events name and clear `session_ref` on the other.
+  `(gateway, session_ref)`.
 
 - `portal_portal_payment_event` — the ledger, unique on `(gateway, event_key)`,
   with `currency_scale`.
-- `portal_portal_payment_job` — outstanding work, unique on `(payment, kind)`.
-- `portal_portal_payment_recorded_event` — events entered by hand in the ERP,
+- `portal_portal_payment_task` — outstanding work, unique on `(payment, kind)`.
+- `portal_portal_payment_manual_entry` — events entered by hand in the ERP,
   unique on `event_key`.
 - `portal_portal_order_request` and `portal_portal_order_request_line` — the
   shop purchases the ERP builds its sale orders from.
@@ -156,8 +134,8 @@ WHERE
     'portal_portal_payment',
     'portal_portal_payment_session',
     'portal_portal_payment_event',
-    'portal_portal_payment_job',
-    'portal_portal_payment_recorded_event',
+    'portal_portal_payment_task',
+    'portal_portal_payment_manual_entry',
     'portal_portal_order_request',
     'portal_portal_order_request_line'
   );
@@ -187,248 +165,11 @@ curl -s -b /tmp/aos.txt -H "X-CSRF-Token: $CSRF" -H 'Content-Type: application/j
 
 Restoring discards view customizations.
 
-### A database that ran a pre-release build
-
-A database that ran a build of this change before its release may still carry a
-payment's subject in four columns this release no longer has. A database
-upgraded from 2.3.x never had them; check first:
-
-```sql
-SELECT
-  column_name
-FROM
-  information_schema.columns
-WHERE
-  table_name = 'portal_portal_payment'
-  AND column_name IN (
-    'invoice',
-    'registration',
-    'marketplace_product_order',
-    'shop_order_request'
-  );
-```
-
-With no rows, skip to step 4. With rows, move the subjects onto the new columns
-and drop the old ones, after the boot above has created the new columns:
-
-```sql
-BEGIN;
-
-UPDATE portal_portal_payment
-SET
-  subject_model = CASE
-    WHEN invoice IS NOT NULL THEN 'com.axelor.apps.account.db.Invoice'
-    WHEN registration IS NOT NULL THEN 'com.axelor.apps.portal.db.Registration'
-    WHEN marketplace_product_order IS NOT NULL THEN 'com.axelor.apps.portal.db.MarketplaceProductOrder'
-    WHEN shop_order_request IS NOT NULL THEN 'com.axelor.apps.portal.db.PortalOrderRequest'
-  END,
-  subject_id = COALESCE(
-    invoice,
-    registration,
-    marketplace_product_order,
-    shop_order_request
-  ),
-  exclusive_subject_id = CASE
-    WHEN invoice IS NULL THEN COALESCE(
-      registration,
-      marketplace_product_order,
-      shop_order_request
-    )
-  END,
-  projected_invoice = CASE
-    WHEN source = 'invoices'
-    AND projected_invoice_payment IS NOT NULL THEN COALESCE(projected_invoice, invoice)
-    ELSE projected_invoice
-  END,
-  version = version + 1,
-  updated_on = now()
-WHERE
-  subject_id IS NULL
-  AND COALESCE(
-    invoice,
-    registration,
-    marketplace_product_order,
-    shop_order_request
-  ) IS NOT NULL;
-
-ALTER TABLE portal_portal_payment
-DROP COLUMN invoice,
-DROP COLUMN registration,
-DROP COLUMN marketplace_product_order,
-DROP COLUMN shop_order_request;
-
-COMMIT;
-```
-
-A unique-constraint error on the update means two payments name the same
-registration, marketplace order or order request; resolve the pair by hand
-before running it again.
-
-A pre-release database also keeps what earlier builds tracked about refunds,
-disputes and provider events that named no payment, and the by-hand fields of
-the payment. Nothing reads them, and every column is nullable, so they can stay.
-To remove them:
-
-```sql
-DROP TABLE IF EXISTS portal_portal_payment_finance_item;
-
-ALTER TABLE portal_portal_payment_recorded_event
-DROP COLUMN IF EXISTS unmatched_event,
-DROP COLUMN IF EXISTS deadline;
-
-DROP TABLE IF EXISTS portal_portal_payment_unmatched_event;
-
-DROP TABLE IF EXISTS portal_portal_payment_correlation_ref;
-
-ALTER TABLE portal_portal_payment_event
-DROP COLUMN IF EXISTS deadline;
-
-ALTER TABLE portal_portal_payment
-DROP COLUMN IF EXISTS refunded_amount,
-DROP COLUMN IF EXISTS delivered_by_hand_by,
-DROP COLUMN IF EXISTS delivered_by_hand_on,
-DROP COLUMN IF EXISTS booked_by_hand_by,
-DROP COLUMN IF EXISTS booked_by_hand_on;
-```
-
-A payment an earlier build left as refunded or charged back keeps that status,
-which the ERP no longer lists, until an event comes for it. Its captured amount
-is what its captures add up to, refunds never taken off, so the status the
-ledger gives it now follows from that amount alone. Once, per tenant:
-
-```sql
-UPDATE portal_portal_payment
-SET
-  status = CASE
-    WHEN captured_amount >= amount
-    AND amount > 0 THEN 'captured'
-    WHEN captured_amount > 0 THEN 'partially_captured'
-    ELSE status
-  END,
-  version = COALESCE(version, 0) + 1,
-  updated_on = now()
-WHERE
-  status IN ('refunded', 'charged_back');
-```
-
-A row with nothing captured keeps its status; look it up at the provider.
-
-An earlier build marked a bank transfer funded in part as captured, so the
-portal no longer follows it to the end of its 14 days. Put such sessions back
-to awaiting, once, per tenant:
-
-```sql
-UPDATE portal_portal_payment_session AS session
-SET
-  status = 'awaiting',
-  version = COALESCE(session.version, 0) + 1,
-  updated_on = now()
-WHERE
-  session.status = 'captured'
-  AND session.gateway = 'stripe_bank_transfer'
-  AND NOT EXISTS (
-    SELECT
-      1
-    FROM
-      portal_portal_payment_event AS event
-    WHERE
-      event.session = session.id
-      AND event.type <> 'partially_captured'
-  )
-  AND EXISTS (
-    SELECT
-      1
-    FROM
-      portal_portal_payment_event AS event
-    WHERE
-      event.session = session.id
-      AND event.type = 'partially_captured'
-  );
-```
-
-An earlier build also handed a payment its reconcile job could not settle to a
-person, parking the job. The job now closes such a session itself, as
-unconfirmed or cancelled at the provider. Put the parked jobs back on the queue,
-once, per tenant:
-
-```sql
-UPDATE portal_portal_payment_job
-SET
-  classification = NULL,
-  last_error = NULL,
-  attempts = 0,
-  next_attempt_on = now(),
-  version = COALESCE(version, 0) + 1,
-  updated_on = now()
-WHERE
-  kind = 'reconcile'
-  AND classification = 'needs_decision';
-```
-
-Restoring the views does not remove what earlier builds loaded: the _To book in
-the ERP_, _Unmatched events_ and _Unconfirmed_ menus stay under _Portal ›
-Payments_, the first two opening views of models that are gone and the last a
-list _All payments_ now has as its _No answer from the provider_ filter. Delete
-the three menus in _Administration › Menus_, or per tenant, with the groups and
-roles that point at them, and the actions they opened:
-
-```sql
-BEGIN;
-
-DELETE FROM meta_menu_groups
-WHERE
-  meta_menu_id IN (
-    SELECT
-      id
-    FROM
-      meta_menu
-    WHERE
-      name IN (
-        'menu-portal-payment-finance',
-        'menu-portal-payment-unmatched',
-        'menu-portal-payment-unconfirmed'
-      )
-  );
-
-DELETE FROM meta_menu_roles
-WHERE
-  menus IN (
-    SELECT
-      id
-    FROM
-      meta_menu
-    WHERE
-      name IN (
-        'menu-portal-payment-finance',
-        'menu-portal-payment-unmatched',
-        'menu-portal-payment-unconfirmed'
-      )
-  );
-
-DELETE FROM meta_menu
-WHERE
-  name IN (
-    'menu-portal-payment-finance',
-    'menu-portal-payment-unmatched',
-    'menu-portal-payment-unconfirmed'
-  );
-
-DELETE FROM meta_action
-WHERE
-  name IN (
-    'action.portal.payment.finance.open',
-    'action.portal.payment.unmatched',
-    'action.portal.payment.unconfirmed'
-  );
-
-COMMIT;
-```
-
 ## 4. Configure AOS
 
 - **Permission.** The AOS user the portal authenticates as needs WRITE on
   _Portal payment_ (`PortalPayment`): the portal asks AOS to book a captured
-  payment through `ws/portal/payments/drain`, which checks it.
+  payment through `ws/portal/payments/register`, which checks it.
 - **No scheduler.** `quartz.enable` is not needed. The portal asks AOS to book
   each payment as it is captured; one that could not be booked then — AOS
   unreachable, a configuration to fix — waits under _Payments to resolve_ for
@@ -436,9 +177,9 @@ COMMIT;
 - **One time zone.** Run the AOS JVM, the database and the portal in the same
   zone, for example UTC: `-Duser.timezone=UTC` on the JVM,
   `ALTER ROLE <role> SET timezone = 'UTC'` on the database role (or the
-  database), and `TZ=UTC` on the portal's host. Payment jobs record their times
+  database), and `TZ=UTC` on the portal's host. Payment tasks record their times
   without a zone, and each side compares them with the database's clock; with
-  the zones apart, jobs fall due, escalate and are reconciled late or early by
+  the zones apart, tasks fall due, become overdue and are reconciled late or early by
   exactly the difference.
 
 ## 5. Register the providers
@@ -550,7 +291,7 @@ What the ERP's _Portal › Payments_ menu shows, and what finance does with it.
 - _Technical_:
   - _Missed webhooks_ — captures the provider's webhook never confirmed,
     grouped by provider.
-  - _Pending tasks_ — every payment job by kind, opened on the overdue ones,
+  - _Pending tasks_ — every payment task by kind, opened on the overdue ones,
     including the provider checks still waiting on an answer.
   - _Payment attempts_, _Provider notifications_ and _Manual entries_ — every
     payment's attempts at the provider, what the provider reported, and what a

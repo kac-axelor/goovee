@@ -17,7 +17,7 @@ import {purchaseKey} from './domain/purchase';
 import {mintReference} from './domain/reference';
 import {canRetry} from './domain/status';
 import {
-  DELIVERY_STATUS,
+  FULFILMENT_STATUS,
   GATEWAY,
   PAYMENT_STATUS,
   SESSION_STATUS,
@@ -49,7 +49,7 @@ export type StartResult = {
  * reconciler can find it; no session can exist at a provider without a row
  * here naming it.
  *
- * The submit token is minted when the checkout renders. A second press with
+ * The checkout token is minted when the checkout renders. A second press with
  * the same token and the same priced purchase finds the same payment: a
  * captured one is shown, an open one gets a new session at the chosen
  * gateway. A press that prices to anything else is a new payment.
@@ -58,14 +58,14 @@ export async function startPayment({
   tenant,
   gateway,
   source,
-  submitToken,
+  checkoutToken,
   intent,
   option,
 }: {
   tenant: Tenant;
   gateway: Gateway;
   source: PaymentSource;
-  submitToken: string;
+  checkoutToken: string;
   intent: unknown;
   /** A variant of the gateway the buyer chose, where the gateway offers any. */
   option?: HubPispOption;
@@ -101,7 +101,7 @@ export async function startPayment({
     };
   }
   /* For a source with no fallback mode, a method with no ERP payment mode
-   * would take the money and park every projection for a decision; better
+   * would take the money and park every registration for a decision; better
    * refused before anything is charged. */
   if (
     handler.requiresPaymentMode &&
@@ -150,14 +150,14 @@ export async function startPayment({
   }
 
   const {client} = tenant;
-  const key = purchaseKey(submitToken, {
+  const key = purchaseKey(checkoutToken, {
     source,
     money: prepared.data.money,
     subject: prepared.data.subject,
     snapshot: prepared.data.snapshot,
   });
   const existing = await client.aOSPortalPayment.findOne({
-    where: {submitToken: key},
+    where: {checkoutToken: key},
     select: {
       reference: true,
       status: true,
@@ -166,7 +166,7 @@ export async function startPayment({
     },
   });
 
-  /* A submit token belongs to one checkout; reused for another source it would
+  /* A checkout token belongs to one checkout; reused for another source it would
    * write that source's snapshot under this payment's row. */
   if (existing && existing.source !== source) {
     return {error: true, message: await t('Invalid payment request')};
@@ -335,14 +335,14 @@ async function createPayment(
   txClient: Client,
   tenantId: string,
   source: PaymentSource,
-  submitToken: string,
+  checkoutToken: string,
   prepared: PreparedIntent,
   gateway: Gateway,
 ) {
   return txClient.aOSPortalPayment.create({
     data: {
       reference: mintReference(tenantId),
-      submitToken,
+      checkoutToken,
       source,
       portalWorkspace: {select: {id: prepared.workspace.id}},
       portalAppConfig: {select: {id: prepared.workspace.configId}},
@@ -354,7 +354,7 @@ async function createPayment(
       currencyScale: prepared.money.currencyScale,
       status: PAYMENT_STATUS.initiated,
       gateway,
-      deliveryStatus: DELIVERY_STATUS.pending,
+      fulfilmentStatus: FULFILMENT_STATUS.pending,
       ...paymentModeLink(prepared, gateway),
       ...subjectLinks(prepared),
     },

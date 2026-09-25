@@ -13,8 +13,8 @@ import {pendingSignal, type GatewaySignal} from '../domain/signal';
 import {
   EVENT_TYPE,
   GATEWAY,
-  OBSERVED_VIA,
-  type ObservedVia,
+  RECEIVED_VIA,
+  type ReceivedVia,
 } from '../domain/types';
 import type {
   CreatedSession,
@@ -394,7 +394,7 @@ async function signalForLink(
   hubpisp: HubPispConfig,
   link: PaymentLink,
   reference: string,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   payload: Record<string, unknown>,
 ): Promise<GatewaySignal> {
   const resolution = {by: 'reference', reference} as const;
@@ -403,8 +403,8 @@ async function signalForLink(
     resolution,
     currencyCode: link.paymentDetails?.currency?.toUpperCase() ?? null,
     sessionRef: link.resourceId,
-    observedVia,
-    observedOn: new Date(),
+    receivedVia,
+    receivedOn: new Date(),
   };
 
   if (link.consentStatus === 'EXPIRED') {
@@ -425,7 +425,7 @@ async function signalForLink(
       gateway: GATEWAY.hubpisp,
       resolution,
       sessionRef: link.resourceId,
-      observedVia,
+      receivedVia,
       payload: {...payload, consentStatus: link.consentStatus},
     });
   }
@@ -488,7 +488,7 @@ async function signalForLink(
         gateway: GATEWAY.hubpisp,
         resolution,
         sessionRef: link.resourceId,
-        observedVia,
+        receivedVia,
         payload: detail,
       });
   }
@@ -498,7 +498,7 @@ async function describeLink(
   hubpisp: HubPispConfig,
   resourceId: string,
   tenantId: string,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   payload: Record<string, unknown>,
 ): Promise<GatewaySignal | null> {
   const link = await fetchLink(hubpisp, resourceId);
@@ -506,7 +506,7 @@ async function describeLink(
   if (!reference) {
     return null;
   }
-  return signalForLink(hubpisp, link, reference, observedVia, payload);
+  return signalForLink(hubpisp, link, reference, receivedVia, payload);
 }
 
 export const hubpispAdapter: GatewayAdapter = {
@@ -644,7 +644,7 @@ export const hubpispAdapter: GatewayAdapter = {
     return pendingSignal({
       gateway: GATEWAY.hubpisp,
       resolution: {by: 'reference', reference},
-      observedVia: OBSERVED_VIA.return,
+      receivedVia: RECEIVED_VIA.return,
       payload: {source: 'return', outcome: url.searchParams.get('outcome')},
     });
   },
@@ -673,7 +673,7 @@ export const hubpispAdapter: GatewayAdapter = {
           hubpisp,
           resourceId,
           context.tenantId,
-          OBSERVED_VIA.webhook,
+          RECEIVED_VIA.webhook,
           {source: 'webhook', resourceId},
         );
         return signal ? [signal] : [];
@@ -698,7 +698,7 @@ export const hubpispAdapter: GatewayAdapter = {
       hubPispConfig(context.config),
       sessionRef,
       context.tenantId,
-      OBSERVED_VIA.reconcile,
+      RECEIVED_VIA.reconcile,
       {source: 'reconcile', resourceId: sessionRef},
     );
     if (!signal) {

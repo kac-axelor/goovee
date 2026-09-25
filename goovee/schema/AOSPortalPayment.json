@@ -11,7 +11,7 @@
     },
     {
       "type": "String",
-      "name": "submitToken",
+      "name": "checkoutToken",
       "unique": true
     },
     {
@@ -81,11 +81,11 @@
     },
     {
       "type": "String",
-      "name": "deliveryStatus"
+      "name": "fulfilmentStatus"
     },
     {
       "type": "String",
-      "name": "deliveryReason"
+      "name": "fulfilmentIssue"
     },
     {
       "type": "String",
@@ -105,17 +105,17 @@
     },
     {
       "type": "ManyToOne",
-      "name": "projectedInvoice",
+      "name": "registeredInvoice",
       "target": "AOSInvoice"
     },
     {
       "type": "ManyToOne",
-      "name": "projectedSaleOrder",
+      "name": "registeredSaleOrder",
       "target": "AOSOrder"
     },
     {
       "type": "ManyToOne",
-      "name": "projectedInvoicePayment",
+      "name": "registeredInvoicePayment",
       "target": "AOSInvoicePayment"
     },
     {
@@ -132,8 +132,8 @@
     },
     {
       "type": "OneToMany",
-      "name": "jobList",
-      "target": "AOSPortalPaymentJob",
+      "name": "taskList",
+      "target": "AOSPortalPaymentTask",
       "mappedBy": "payment"
     },
     {

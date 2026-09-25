@@ -61,7 +61,7 @@ export function Total({
   token,
   pendingTransfers,
   gateways,
-  submitToken,
+  checkoutToken,
 }: TotalProps) {
   const {
     inTaxTotal,
@@ -354,7 +354,7 @@ export function Total({
               amount={currentAmount}
               token={token}
               gateways={gateways}
-              submitToken={submitToken}
+              checkoutToken={checkoutToken}
             />
           </div>
         </>

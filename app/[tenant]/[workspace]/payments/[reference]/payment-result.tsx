@@ -8,7 +8,11 @@ import {i18n} from '@/locale';
 import {formatDateTime} from '@/locale/formatters';
 import {Button} from '@/ui/components';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
-import {DELIVERY_STATUS, GATEWAY, PAYMENT_STATUS} from '@/payment/domain/types';
+import {
+  FULFILMENT_STATUS,
+  GATEWAY,
+  PAYMENT_STATUS,
+} from '@/payment/domain/types';
 import type {PaymentView} from '@/payment/view';
 import {
   formatMoney,
@@ -55,8 +59,8 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
       /* Resolved is an undeliverable purchase a person settled by hand: the
        * payer reads the same, since the portal did not complete it. */
       if (
-        view.deliveryStatus === DELIVERY_STATUS.undeliverable ||
-        view.deliveryStatus === DELIVERY_STATUS.resolved
+        view.fulfilmentStatus === FULFILMENT_STATUS.undeliverable ||
+        view.fulfilmentStatus === FULFILMENT_STATUS.resolved
       ) {
         return {
           tone: 'pending',
@@ -67,7 +71,7 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
           ),
         };
       }
-      if (!view.projected) {
+      if (!view.registered) {
         return {
           tone: 'success',
           heading: i18n.t('Payment received'),

@@ -5,9 +5,9 @@ export async function register() {
   const {startStagedUploadReaper} = await import('@/upload/startup');
   startStagedUploadReaper();
 
-  // Run the payment jobs goovee owns (non-blocking — just arms timers).
-  const {startPaymentJobs} = await import('@/payment/job-startup');
-  startPaymentJobs();
+  // Run the payment tasks goovee owns (non-blocking — just arms timers).
+  const {startPaymentTasks} = await import('@/payment/task-startup');
+  startPaymentTasks();
 
   // Report whether images can be resized. Never throws, never blocks startup.
   const {checkImageResizing} = await import('@/image/startup');
@@ -24,7 +24,7 @@ export async function register() {
   /* Prepares every database and connects every tenant in the background. A
    * database that is not reachable yet is retried with backoff, and one tenant
    * failing never holds up the rest. Payments left open when the server last
-   * stopped are the payment jobs' to look at, not something resumed here. */
+   * stopped are the payment tasks' to look at, not something resumed here. */
   const {startTenants} = await import('@/tenant/startup');
   startTenants();
 }

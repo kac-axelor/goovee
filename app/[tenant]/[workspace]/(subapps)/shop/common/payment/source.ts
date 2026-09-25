@@ -59,7 +59,7 @@ type ShopSnapshot = z.infer<typeof ShopSnapshotSchema>;
  * the role it was chosen for. The browser holds the chosen ids in its cart, so
  * an id it hands back proves nothing until the partner owns it here: the ERP
  * only makes the same check when it builds the sale order, by which time the
- * money is captured and the projection would park for a human.
+ * money is captured and the registration would park for a human.
  */
 async function findOwnAddress({
   addressId,
@@ -87,7 +87,7 @@ async function findOwnAddress({
 /**
  * Buying from the shop. Nothing exists in the ERP before the capture: delivery
  * records the order request and its lines at the prices charged, and the ERP
- * builds the sale order and the invoice from those rows when it projects.
+ * builds the sale order and the invoice from those rows when it registers the payment.
  */
 export const shopPaymentSource: PaymentSourceHandler<
   ShopIntent,
@@ -345,7 +345,7 @@ export const shopPaymentSource: PaymentSourceHandler<
    * may already have been taken for this cart, and the pay buttons there are
    * one click from taking it twice. A delivered payment goes on to its
    * confirmation, which reads the sale order off the request, so the link is
-   * right whether the ERP has projected the payment yet or not. */
+   * right whether the ERP has registered the payment yet or not. */
   onwardLink({subject}) {
     const requestId = subjectIdOf(subject, SUBJECT_MODEL.orderRequest);
     if (!requestId) {

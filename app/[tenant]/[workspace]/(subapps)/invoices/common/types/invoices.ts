@@ -146,5 +146,5 @@ export type TotalProps = {
   /** The gateways this tenant and workspace offer, decided on the server. */
   gateways: OfferedGateway[];
   /** Minted when the page rendered; a second press finds the same payment. */
-  submitToken: string;
+  checkoutToken: string;
 };

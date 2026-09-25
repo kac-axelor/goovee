@@ -2,7 +2,7 @@ import {
   EVENT_TYPE,
   type EventType,
   type Gateway,
-  type ObservedVia,
+  type ReceivedVia,
 } from './types';
 
 /**
@@ -46,8 +46,8 @@ export type GatewaySignal = {
   sessionRef: string | null;
   /** The provider's reason on a refusal. */
   reason: string | null;
-  observedVia: ObservedVia;
-  observedOn: Date;
+  receivedVia: ReceivedVia;
+  receivedOn: Date;
   /** The signal's source material, kept for support. Must be JSON-serialisable. */
   payload: unknown;
 };
@@ -56,7 +56,7 @@ export function pendingSignal(input: {
   gateway: Gateway;
   resolution: SignalResolution;
   sessionRef?: string | null;
-  observedVia: ObservedVia;
+  receivedVia: ReceivedVia;
   payload: unknown;
 }): GatewaySignal {
   return {
@@ -69,8 +69,8 @@ export function pendingSignal(input: {
     providerRef: null,
     sessionRef: input.sessionRef ?? null,
     reason: null,
-    observedVia: input.observedVia,
-    observedOn: new Date(),
+    receivedVia: input.receivedVia,
+    receivedOn: new Date(),
     payload: input.payload,
   };
 }

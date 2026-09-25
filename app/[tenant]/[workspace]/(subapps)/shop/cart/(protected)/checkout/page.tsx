@@ -10,7 +10,7 @@ import {shouldHidePricesAndPurchase} from '@/orm/product';
 import {t} from '@/locale/server';
 import {PAYMENT_SOURCE} from '@/payment/domain/types';
 import {offeredGateways} from '@/payment/offer';
-import {mintSubmitToken} from '@/payment/submit-token';
+import {mintCheckoutToken} from '@/payment/checkout-token';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -61,7 +61,7 @@ async function Checkout({
     <Content
       config={clone(config)}
       gateways={gateways}
-      submitToken={mintSubmitToken()}
+      checkoutToken={mintCheckoutToken()}
       labels={labels}
     />
   );

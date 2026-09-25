@@ -2,13 +2,13 @@ import 'server-only';
 
 import type {Tenant} from '@/tenant';
 import {minorUnitsOf} from './domain/money';
-import {DELIVERY_STATUS, PAYMENT_STATUS} from './domain/types';
+import {FULFILMENT_STATUS, PAYMENT_STATUS} from './domain/types';
 import {readSnapshot} from './intent';
 import {getSourceHandler} from './sources/registry';
 import {readSubject} from './domain/subject';
 
 /**
- * The `notify` job: runs a captured payment's confirmation through its
+ * The `notify` task: runs a captured payment's confirmation through its
  * source. A payment that was never captured and delivered owes none.
  */
 export async function notifyPayment({
@@ -24,7 +24,7 @@ export async function notifyPayment({
       reference: true,
       source: true,
       status: true,
-      deliveryStatus: true,
+      fulfilmentStatus: true,
       amount: true,
       currencyCode: true,
       currencyScale: true,
@@ -40,10 +40,10 @@ export async function notifyPayment({
   }
   if (
     payment.status !== PAYMENT_STATUS.captured ||
-    payment.deliveryStatus !== DELIVERY_STATUS.delivered
+    payment.fulfilmentStatus !== FULFILMENT_STATUS.delivered
   ) {
     console.warn(
-      `[PAYMENT][NOTIFY] payment ${payment.reference} is ${payment.status} / ${payment.deliveryStatus}; no confirmation sent`,
+      `[PAYMENT][NOTIFY] payment ${payment.reference} is ${payment.status} / ${payment.fulfilmentStatus}; no confirmation sent`,
     );
     return;
   }

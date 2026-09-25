@@ -10,7 +10,7 @@ import {useCart} from '@/app/[tenant]/[workspace]/(subapps)/shop/common/context/
 
 type ShopPaymentsProps = {
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
 };
 
 /**
@@ -19,7 +19,7 @@ type ShopPaymentsProps = {
  * shown by the payment page the gateway sends the browser back to, which
  * continues to the order confirmation.
  */
-export function ShopPayments({gateways, submitToken}: ShopPaymentsProps) {
+export function ShopPayments({gateways, checkoutToken}: ShopPaymentsProps) {
   const {toast} = useToast();
   const {cart, loaded} = useCart();
   const noAddress = !(cart?.invoicingAddress && cart?.deliveryAddress);
@@ -29,7 +29,7 @@ export function ShopPayments({gateways, submitToken}: ShopPaymentsProps) {
       gateways={gateways}
       source={PAYMENT_SOURCE.shop}
       intent={() => ({cart})}
-      submitToken={submitToken}
+      checkoutToken={checkoutToken}
       /* Pressing before the cart has been read sends no cart at all, which the
        * server can only refuse as an invalid request. */
       disabled={!loaded}

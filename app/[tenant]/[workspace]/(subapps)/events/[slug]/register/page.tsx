@@ -9,7 +9,7 @@ import {clone} from '@/utils';
 import {SUBAPP_CODES} from '@/constants';
 import {PAYMENT_SOURCE} from '@/payment/domain/types';
 import {offeredGateways} from '@/payment/offer';
-import {mintSubmitToken} from '@/payment/submit-token';
+import {mintCheckoutToken} from '@/payment/checkout-token';
 
 // ---- LOCAL IMPORTS ---- //
 import {RegistrationForm} from '@/subapps/events/common/ui/components';
@@ -99,7 +99,7 @@ export default async function Page(props: {
           config={clone(workspaceConfig)}
           user={partner}
           gateways={gateways}
-          submitToken={mintSubmitToken()}
+          checkoutToken={mintCheckoutToken()}
         />
       </div>
     </main>

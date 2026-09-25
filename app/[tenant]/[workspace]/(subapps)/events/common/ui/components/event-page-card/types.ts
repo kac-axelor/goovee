@@ -12,5 +12,5 @@ export interface EventPageCardProps {
   user?: Partner | null;
   /** The payment methods a priced registration may be paid with, decided on the server. */
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
 }

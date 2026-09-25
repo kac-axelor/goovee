@@ -1,6 +1,6 @@
 import 'server-only';
 
-import {EVENT_TYPE, GATEWAY, OBSERVED_VIA} from '../domain/types';
+import {EVENT_TYPE, GATEWAY, RECEIVED_VIA} from '../domain/types';
 import {
   getStripe,
   ourReference,
@@ -131,7 +131,7 @@ export const stripeCardAdapter: GatewayAdapter = {
     const signal = signalForSession(
       session,
       context.tenantId,
-      OBSERVED_VIA.return,
+      RECEIVED_VIA.return,
       {
         source: 'return',
         sessionId,
@@ -173,7 +173,7 @@ export const stripeCardAdapter: GatewayAdapter = {
     const signal = signalForSession(
       session,
       context.tenantId,
-      OBSERVED_VIA.reconcile,
+      RECEIVED_VIA.reconcile,
       {
         source: 'reconcile',
         sessionId: sessionRef,

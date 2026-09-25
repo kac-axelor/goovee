@@ -17,10 +17,10 @@ import {
   type Subject,
 } from './domain/subject';
 import {
-  DELIVERY_STATUS,
+  FULFILMENT_STATUS,
   EVENT_TYPE,
-  JOB_KIND,
-  OBSERVED_VIA,
+  TASK_KIND,
+  RECEIVED_VIA,
   PAYMENT_SOURCE,
   PAYMENT_STATUS,
   SESSION_STATUS,
@@ -34,13 +34,13 @@ import {getSourceHandler} from './sources/registry';
 import {readSnapshot} from './intent';
 
 /**
- * How long a projection job may stay open before the payment is listed under
+ * How long a registration task may stay open before the payment is listed under
  * Payments to resolve.
  */
-const PROJECTION_GRACE_SECONDS = 5 * 60;
+const REGISTRATION_GRACE_SECONDS = 5 * 60;
 
 /* How much of a delivery error is kept as the undeliverable reason. */
-const DELIVERY_REASON_MAX_LENGTH = 2000;
+const FULFILMENT_ISSUE_MAX_LENGTH = 2000;
 
 /* SQLSTATEs a second attempt can get past: deadlock, serialization failure,
  * lock not available, statement cancelled by a timeout. */
@@ -70,7 +70,7 @@ function isRetryableDatabaseError(error: unknown): boolean {
 }
 
 /* A transfer left open can be paid while the check waits, so the check is
- * listed under Pending tasks as overdue sooner than a projection would be. */
+ * listed under Pending tasks as overdue sooner than a registration would be. */
 const TRANSFER_CHECK_GRACE_SECONDS = 2 * 60;
 
 /* A confirmation still unsent after this is a payer who paid and heard
@@ -84,10 +84,10 @@ export type SettleOutcome =
       paymentId: string;
       reference: string;
       status: PaymentStatus;
-      /** A projection job was written; the caller may ask AOS to run it now. */
-      projectionQueued: boolean;
-      /** A job goovee runs itself was written; the caller may run it now. */
-      gooveeJobsQueued: boolean;
+      /** A registration task was written; the caller may ask AOS to run it now. */
+      registrationQueued: boolean;
+      /** A task goovee runs itself was written; the caller may run it now. */
+      gooveeTasksQueued: boolean;
     }
   /**
    * The financial event was already in the ledger. Nothing changed.
@@ -110,7 +110,7 @@ type LockedPayment = {
   currencyCode: string;
   currencyScale: number;
   status: PaymentStatus;
-  deliveryStatus: string | null;
+  fulfilmentStatus: string | null;
   lastError: string | null;
   payer: string | null;
   workspaceId: string;
@@ -122,7 +122,7 @@ type LockedPayment = {
 /**
  * T2. Records one provider event and everything that follows from it, in one
  * transaction: the row lock, the keyed insert, the status recompute, the
- * source's delivery and the projection job. Takes no request, session, user or
+ * source's delivery and the registration task. Takes no request, session, user or
  * cart, so it cannot behave differently for the leg that called it.
  *
  * The insert is the first write. Two legs observing the same capture both
@@ -172,7 +172,7 @@ export async function settlePayment({
     const inserted = await txClient.$raw(
       `INSERT INTO portal_portal_payment_event
          (id, version, created_on, payment, session, gateway, event_key, type, amount,
-          currency_code, currency_scale, observed_via, observed_on, provider_ref, reason, payload)
+          currency_code, currency_scale, received_via, received_on, provider_ref, reason, payload)
        VALUES (nextval('portal_portal_payment_event_seq'), 0, now(), $1, $2, $3, $4, $5, $6,
                $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (gateway, event_key) DO NOTHING
@@ -187,8 +187,8 @@ export async function settlePayment({
       signal.currencyCode
         ? scaleOfCurrency(signal.currencyCode)
         : payment.currencyScale,
-      signal.observedVia,
-      signal.observedOn,
+      signal.receivedVia,
+      signal.receivedOn,
       signal.providerRef,
       signal.reason,
       JSON.stringify(signal.payload ?? null),
@@ -199,7 +199,7 @@ export async function settlePayment({
        * about the money changes, but the event is now confirmed by the
        * provider's own transport, and leaves the ERP's Missed webhooks
        * list. */
-      if (signal.observedVia === OBSERVED_VIA.webhook) {
+      if (signal.receivedVia === RECEIVED_VIA.webhook) {
         await txClient.$raw(
           `UPDATE portal_portal_payment_event
              SET confirmed_on = now(), updated_on = now()
@@ -258,17 +258,17 @@ export async function settlePayment({
     /* Delivery happens once, on the capture that first completes the payment. */
     const firstCapture =
       newlyCaptured &&
-      (payment.deliveryStatus === DELIVERY_STATUS.pending ||
-        payment.deliveryStatus === null);
+      (payment.fulfilmentStatus === FULFILMENT_STATUS.pending ||
+        payment.fulfilmentStatus === null);
 
     const isCapture =
       eventType === EVENT_TYPE.captured ||
       eventType === EVENT_TYPE.partiallyCaptured;
 
-    let deliveryStatus = payment.deliveryStatus;
-    let deliveryReason: string | null = null;
-    let projectionQueued = false;
-    let gooveeJobsQueued = false;
+    let fulfilmentStatus = payment.fulfilmentStatus;
+    let fulfilmentIssue: string | null = null;
+    let registrationQueued = false;
+    let gooveeTasksQueued = false;
 
     if (firstCapture) {
       /* A delivery that throws must not take the capture with it: Postgres
@@ -300,35 +300,38 @@ export async function settlePayment({
         });
 
         if (delivery.delivered) {
-          deliveryStatus = DELIVERY_STATUS.delivered;
+          fulfilmentStatus = FULFILMENT_STATUS.delivered;
           /* Inside the savepoint: a subject another payment already holds
            * breaks its unique key here, and that is rolled back with the
            * delivery, the capture kept. */
           if (delivery.subject && !payment.subject) {
             await writeSubject(txClient, payment.id, delivery.subject);
           }
-          await upsertJob(
+          await upsertTask(
             txClient,
             payment.id,
-            JOB_KIND.project,
-            PROJECTION_GRACE_SECONDS,
+            TASK_KIND.register,
+            REGISTRATION_GRACE_SECONDS,
           );
-          projectionQueued = true;
+          registrationQueued = true;
           /* Written with the capture, so the confirmation survives whatever
            * becomes of this request. An undeliverable payment is a human's to
            * decide and is not confirmed. */
           if (handler.notify) {
-            await upsertJob(
+            await upsertTask(
               txClient,
               payment.id,
-              JOB_KIND.notify,
+              TASK_KIND.notify,
               NOTIFY_GRACE_SECONDS,
             );
-            gooveeJobsQueued = true;
+            gooveeTasksQueued = true;
           }
         } else {
-          deliveryStatus = DELIVERY_STATUS.undeliverable;
-          deliveryReason = delivery.reason.slice(0, DELIVERY_REASON_MAX_LENGTH);
+          fulfilmentStatus = FULFILMENT_STATUS.undeliverable;
+          fulfilmentIssue = delivery.reason.slice(
+            0,
+            FULFILMENT_ISSUE_MAX_LENGTH,
+          );
         }
         await txClient.$raw('RELEASE SAVEPOINT deliver');
       } catch (error) {
@@ -339,15 +342,15 @@ export async function settlePayment({
         if (isRetryableDatabaseError(error)) {
           throw error;
         }
-        deliveryStatus = DELIVERY_STATUS.undeliverable;
+        fulfilmentStatus = FULFILMENT_STATUS.undeliverable;
         /* Postgres's detail names the key and value a violated unique key
          * refused, such as a subject another payment is already for. */
         const [detail] = driverFieldOf(error, 'detail');
-        deliveryReason = `Delivery failed: ${
+        fulfilmentIssue = `Delivery failed: ${
           error instanceof Error ? error.message : String(error)
-        }${detail ? ` (${detail})` : ''}`.slice(0, DELIVERY_REASON_MAX_LENGTH);
-        projectionQueued = false;
-        gooveeJobsQueued = false;
+        }${detail ? ` (${detail})` : ''}`.slice(0, FULFILMENT_ISSUE_MAX_LENGTH);
+        registrationQueued = false;
+        gooveeTasksQueued = false;
         console.error(
           `[PAYMENT][DELIVER] ${payment.reference} delivery failed; the capture is kept and the payment is undeliverable`,
           error,
@@ -357,26 +360,26 @@ export async function settlePayment({
 
     /* Money on an invoice may leave another transfer on it unneeded. Checking
      * means asking the provider, which cannot happen here, so the check is a
-     * job written with the capture and run once this commits. */
+     * task written with the capture and run once this commits. */
     if (
       isCapture &&
       !currencyMismatch &&
       payment.source === PAYMENT_SOURCE.invoices &&
       payment.subject?.model === SUBJECT_MODEL.invoice
     ) {
-      await upsertJob(
+      await upsertTask(
         txClient,
         payment.id,
-        JOB_KIND.cancelTransfers,
+        TASK_KIND.cancelTransfers,
         TRANSFER_CHECK_GRACE_SECONDS,
       );
-      gooveeJobsQueued = true;
+      gooveeTasksQueued = true;
     }
 
     /* More captured than the payment was for: two of its sessions both took
      * the money. Said here, when the event is recorded, because a capture that
-     * lands after the payment was projected reaches nothing else — the
-     * projection has already run and will not run again. The excess is given
+     * lands after the payment was registered reaches nothing else — the
+     * registration has already run and will not run again. The excess is given
      * back at the provider, and the decision stays until a person resolves the
      * payment in the ERP. Only a capture that moved the total raises it, so an
      * event after that, a session's late expiry or a funding it had already
@@ -390,7 +393,7 @@ export async function settlePayment({
       await parkForDecision(
         txClient,
         payment.id,
-        JOB_KIND.overCaptured,
+        TASK_KIND.overCaptured,
         overCaptureMessage,
       );
     }
@@ -402,11 +405,11 @@ export async function settlePayment({
         status: derived.status,
         capturedAmount: String(derived.capturedAmount),
         ...(newlyCaptured &&
-          !payment.capturedOn && {capturedOn: signal.observedOn}),
+          !payment.capturedOn && {capturedOn: signal.receivedOn}),
         ...(isCapture &&
           signal.providerRef && {providerRef: signal.providerRef}),
-        ...(deliveryStatus && {deliveryStatus}),
-        ...(deliveryReason && {deliveryReason}),
+        ...(fulfilmentStatus && {fulfilmentStatus}),
+        ...(fulfilmentIssue && {fulfilmentIssue}),
         ...(currencyMismatch && {
           lastError: `Provider reported ${signal.currencyCode} for a payment in ${payment.currencyCode} at scale ${payment.currencyScale}; the event is recorded but not counted`,
         }),
@@ -424,8 +427,8 @@ export async function settlePayment({
       paymentId: payment.id,
       reference: payment.reference,
       status: derived.status,
-      projectionQueued,
-      gooveeJobsQueued,
+      registrationQueued,
+      gooveeTasksQueued,
     };
   });
 }
@@ -441,7 +444,7 @@ export async function settlePayment({
  *
  * Not an ending the provider's word must respect: a notification that comes
  * after this settles the session like any other (updateSession treats "no
- * answer" as still open), with delivery, projection and confirmation.
+ * answer" as still open), with delivery, registration and confirmation.
  */
 export async function closeUnanswered({
   tenant,
@@ -458,7 +461,7 @@ export async function closeUnanswered({
   }
   await tenant.client.$transaction(async txClient => {
     const payment = await lockPayment(txClient, paymentId);
-    /* Only sessions still waiting: one the provider answered since the job
+    /* Only sessions still waiting: one the provider answered since the task
      * read it keeps that answer. The reason goes before what the session
      * already said. */
     await txClient.$raw(
@@ -526,7 +529,7 @@ async function lockPayment(
       currencyCode: true,
       currencyScale: true,
       status: true,
-      deliveryStatus: true,
+      fulfilmentStatus: true,
       lastError: true,
       payer: true,
       capturedOn: true,
@@ -550,7 +553,7 @@ async function lockPayment(
     currencyCode: payment.currencyCode,
     currencyScale: payment.currencyScale,
     status: payment.status as PaymentStatus,
-    deliveryStatus: payment.deliveryStatus,
+    fulfilmentStatus: payment.fulfilmentStatus,
     lastError: payment.lastError,
     payer: payment.payer,
     workspaceId: payment.portalWorkspace.id,
@@ -707,32 +710,32 @@ async function writeSubject(
   );
 }
 
-/* One row per kind per payment. A second capture on a payment whose job is
+/* One row per kind per payment. A second capture on a payment whose task is
  * still open makes it due again rather than queueing a second one, and moves
- * its version on, so a run that claimed the job before cannot then finish it:
+ * its version on, so a run that claimed the task before cannot then finish it:
  * the fresh request must run. */
-async function upsertJob(
+async function upsertTask(
   txClient: Client,
   paymentId: string,
   kind: string,
   graceSeconds: number,
 ): Promise<void> {
   await txClient.$raw(
-    `INSERT INTO portal_portal_payment_job
-       (id, version, created_on, payment, kind, next_attempt_on, escalate_on, attempts)
-     VALUES (nextval('portal_portal_payment_job_seq'), 0, now(), $1, $2, now(),
+    `INSERT INTO portal_portal_payment_task
+       (id, version, created_on, payment, kind, next_retry_on, overdue_on, attempts)
+     VALUES (nextval('portal_portal_payment_task_seq'), 0, now(), $1, $2, now(),
              now() + make_interval(secs => $3), 0)
      ON CONFLICT (payment, kind) DO UPDATE
-       SET next_attempt_on = now(), escalate_on = EXCLUDED.escalate_on, attempts = 0,
+       SET next_retry_on = now(), overdue_on = EXCLUDED.overdue_on, attempts = 0,
            classification = NULL, last_error = NULL, updated_on = now(),
-           version = COALESCE(portal_portal_payment_job.version, 0) + 1`,
+           version = COALESCE(portal_portal_payment_task.version, 0) + 1`,
     paymentId,
     kind,
     graceSeconds,
   );
 }
 
-/* A job no one runs, written parked for a decision and due for attention at
+/* A task no one runs, written parked for a decision and due for attention at
  * once, so the payment is listed as needing a human until one clears it. */
 async function parkForDecision(
   txClient: Client,
@@ -741,14 +744,14 @@ async function parkForDecision(
   reason: string,
 ): Promise<void> {
   await txClient.$raw(
-    `INSERT INTO portal_portal_payment_job
-       (id, version, created_on, payment, kind, next_attempt_on, escalate_on, attempts,
+    `INSERT INTO portal_portal_payment_task
+       (id, version, created_on, payment, kind, next_retry_on, overdue_on, attempts,
         classification, last_error)
-     VALUES (nextval('portal_portal_payment_job_seq'), 0, now(), $1, $2, now(), now(), 0,
+     VALUES (nextval('portal_portal_payment_task_seq'), 0, now(), $1, $2, now(), now(), 0,
              'needs_decision', $3)
      ON CONFLICT (payment, kind) DO UPDATE
-       SET escalate_on = now(), classification = 'needs_decision', last_error = EXCLUDED.last_error,
-           updated_on = now(), version = COALESCE(portal_portal_payment_job.version, 0) + 1`,
+       SET overdue_on = now(), classification = 'needs_decision', last_error = EXCLUDED.last_error,
+           updated_on = now(), version = COALESCE(portal_portal_payment_task.version, 0) + 1`,
     paymentId,
     kind,
     reason,

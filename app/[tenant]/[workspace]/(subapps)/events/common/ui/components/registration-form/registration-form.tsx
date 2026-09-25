@@ -52,7 +52,7 @@ export const RegistrationForm = ({
   config,
   user,
   gateways,
-  submitToken,
+  checkoutToken,
 }: EventPageCardProps) => {
   const {
     defaultPrice = 0,
@@ -506,7 +506,7 @@ export const RegistrationForm = ({
                 }) => (
                   <EventPayments
                     gateways={gateways}
-                    submitToken={submitToken}
+                    checkoutToken={checkoutToken}
                     event={{
                       id: eventId,
                       displayAti: String(eventPrice),

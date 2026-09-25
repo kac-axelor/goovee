@@ -6,8 +6,8 @@ import {manager} from '@/tenant';
 import {RequestBodyTooLarge, readTextWithin} from '@/security/request-body';
 import {getAdapter} from './adapters/registry';
 import type {Gateway} from './domain/types';
-import {runPaymentJobs} from './jobs';
-import {triggerProjection} from './project';
+import {runPaymentTasks} from './tasks';
+import {triggerRegistration} from './register';
 import {settlePayment} from './settle';
 
 /** Largest notification body a webhook route will hold in memory. */
@@ -75,13 +75,13 @@ export async function handleNotification({
   for (const signal of signals) {
     const outcome = await settlePayment({signal, tenant});
     outcomes.push(outcome.outcome);
-    if (outcome.outcome === 'settled' && outcome.projectionQueued) {
+    if (outcome.outcome === 'settled' && outcome.registrationQueued) {
       const reference = outcome.reference;
-      after(() => triggerProjection({tenant, reference}));
+      after(() => triggerRegistration({tenant, reference}));
     }
-    if (outcome.outcome === 'settled' && outcome.gooveeJobsQueued) {
+    if (outcome.outcome === 'settled' && outcome.gooveeTasksQueued) {
       const {paymentId} = outcome;
-      after(() => runPaymentJobs({tenant, paymentId}));
+      after(() => runPaymentTasks({tenant, paymentId}));
     }
     if (outcome.outcome === 'rejected') {
       console.warn(

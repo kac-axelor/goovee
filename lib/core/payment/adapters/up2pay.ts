@@ -5,8 +5,8 @@ import {pendingSignal, type GatewaySignal} from '../domain/signal';
 import {
   EVENT_TYPE,
   GATEWAY,
-  OBSERVED_VIA,
-  type ObservedVia,
+  RECEIVED_VIA,
+  type ReceivedVia,
 } from '../domain/types';
 import type {
   CreatedSession,
@@ -116,7 +116,7 @@ export function isSignedByUp2pay(rawQuery: string): boolean {
 
 function signalFromQuery(
   rawQuery: string,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   outcome: string | null,
 ): GatewaySignal {
   if (!isSignedByUp2pay(rawQuery)) {
@@ -139,7 +139,7 @@ function signalFromQuery(
   }
   const resolution = {by: 'reference', reference} as const;
   const payload = {
-    source: observedVia,
+    source: receivedVia,
     outcome,
     montant: amount,
     trans: transaction,
@@ -157,7 +157,7 @@ function signalFromQuery(
       gateway: GATEWAY.up2pay,
       resolution,
       sessionRef: marker,
-      observedVia,
+      receivedVia,
       payload,
     });
   }
@@ -175,8 +175,8 @@ function signalFromQuery(
     providerRef: transactionKey,
     sessionRef: marker,
     reason: type === EVENT_TYPE.refused ? code : null,
-    observedVia,
-    observedOn: new Date(),
+    receivedVia,
+    receivedOn: new Date(),
     payload,
   };
 }
@@ -262,14 +262,14 @@ export const up2payAdapter: GatewayAdapter = {
     const url = new URL(request.url);
     return signalFromQuery(
       url.search,
-      OBSERVED_VIA.return,
+      RECEIVED_VIA.return,
       url.searchParams.get(OUTCOME_PARAM),
     );
   },
 
   async parseNotification(request) {
     return [
-      signalFromQuery(await rawQueryOf(request), OBSERVED_VIA.webhook, null),
+      signalFromQuery(await rawQueryOf(request), RECEIVED_VIA.webhook, null),
     ];
   },
 

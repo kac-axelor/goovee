@@ -10,7 +10,7 @@ import {
   transferDeadline,
   type WithdrawalRequest,
 } from '../domain/transfers';
-import {GATEWAY, OBSERVED_VIA, type ObservedVia} from '../domain/types';
+import {GATEWAY, RECEIVED_VIA, type ReceivedVia} from '../domain/types';
 import {
   gatewayOf,
   getStripe,
@@ -122,15 +122,15 @@ function instructionsOf(
 async function readIntent(
   intentId: string,
   context: GatewayContext,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
 ) {
   const stripe = getStripe(context.config);
   const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
   const signal = signalForPaymentIntent(
     paymentIntent,
     context.tenantId,
-    observedVia,
-    {source: observedVia, intentId, status: paymentIntent.status},
+    receivedVia,
+    {source: receivedVia, intentId, status: paymentIntent.status},
   );
   if (!signal) {
     throw new Error(`Stripe intent ${intentId} is not one of ours`);
@@ -232,7 +232,7 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
     if (!intentId) {
       throw new Error('Stripe bank transfer return carries no intent id');
     }
-    return readIntent(intentId, context, OBSERVED_VIA.return);
+    return readIntent(intentId, context, RECEIVED_VIA.return);
   },
 
   async parseNotification(request, context) {
@@ -245,7 +245,7 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
   },
 
   async fetchStatus(sessionRef, context) {
-    return readIntent(sessionRef, context, OBSERVED_VIA.reconcile);
+    return readIntent(sessionRef, context, RECEIVED_VIA.reconcile);
   },
 
   async describeAwaiting(sessionRef, context) {
@@ -348,7 +348,7 @@ export type TransferIntentClient = {
  * press on the same payment rewrites the payment's amount, while the intent
  * still asks for what it was created with.
  *
- * A cancel that fails is not caught: the job runs again, and its read then
+ * A cancel that fails is not caught: the task runs again, and its read then
  * finds the intent cancelled, funded or still open. The idempotency key is
  * fresh on every call, because Stripe replays the first answer to a key for a
  * day, failures included; repeating a cancel needs no key, since the read
@@ -412,7 +412,7 @@ function transferSignal(
   const signal = signalForPaymentIntent(
     paymentIntent,
     tenantId,
-    OBSERVED_VIA.reconcile,
+    RECEIVED_VIA.reconcile,
     {
       source: 'cancel',
       reason,

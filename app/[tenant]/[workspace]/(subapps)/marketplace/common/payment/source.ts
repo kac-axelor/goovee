@@ -60,7 +60,7 @@ type MarketplaceSnapshot = z.infer<typeof MarketplaceSnapshotSchema>;
  * Buying marketplace products. Nothing exists in the ERP before the capture:
  * delivery records the order and its lines, which is what grants the buyer
  * access, and the ERP builds the sale order and invoice from those rows when
- * it projects.
+ * it registers the payment.
  */
 export const marketplacePaymentSource: PaymentSourceHandler<
   MarketplaceIntent,

@@ -20,7 +20,7 @@ export const GATEWAY = {
 export type Gateway = (typeof GATEWAY)[keyof typeof GATEWAY];
 
 /* Describes the money and nothing else. Whether the ERP has caught up is the
- * job queue's business. */
+ * task queue's business. */
 export const PAYMENT_STATUS = {
   initiated: 'initiated',
   awaiting: 'awaiting',
@@ -65,23 +65,24 @@ export const EVENT_TYPE = {
 
 export type EventType = (typeof EVENT_TYPE)[keyof typeof EVENT_TYPE];
 
-export const OBSERVED_VIA = {
+export const RECEIVED_VIA = {
   return: 'return',
   webhook: 'webhook',
   reconcile: 'reconcile',
   admin: 'admin',
 } as const;
 
-export type ObservedVia = (typeof OBSERVED_VIA)[keyof typeof OBSERVED_VIA];
+export type ReceivedVia = (typeof RECEIVED_VIA)[keyof typeof RECEIVED_VIA];
 
-export const JOB_KIND = {
-  project: 'project',
+/* The keys name what a task does; the values are the stored codes. */
+export const TASK_KIND = {
+  register: 'project',
   notify: 'notify',
   reconcile: 'reconcile',
   /** After money lands on an invoice, withdraw the transfers it no longer needs. */
   cancelTransfers: 'cancel_transfers',
   /** Turn what a person entered by hand in the ERP into ledger events. */
-  applyRecorded: 'apply_recorded',
+  applyManualEntries: 'apply_recorded',
   /**
    * More was captured than the payment was for. Not run by anyone: it is
    * written already parked for a decision, so the payment is listed under
@@ -90,9 +91,9 @@ export const JOB_KIND = {
   overCaptured: 'over_captured',
 } as const;
 
-export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];
+export type TaskKind = (typeof TASK_KIND)[keyof typeof TASK_KIND];
 
-export const DELIVERY_STATUS = {
+export const FULFILMENT_STATUS = {
   pending: 'pending',
   delivered: 'delivered',
   undeliverable: 'undeliverable',
@@ -100,8 +101,8 @@ export const DELIVERY_STATUS = {
   resolved: 'resolved',
 } as const;
 
-export type DeliveryStatus =
-  (typeof DELIVERY_STATUS)[keyof typeof DELIVERY_STATUS];
+export type FulfilmentStatus =
+  (typeof FULFILMENT_STATUS)[keyof typeof FULFILMENT_STATUS];
 
 /** An amount in integer minor units of its currency: 1050 for EUR 10.50. */
 export type Money = {

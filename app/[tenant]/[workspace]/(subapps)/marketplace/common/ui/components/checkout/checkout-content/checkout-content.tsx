@@ -13,7 +13,7 @@ import {CartItemCard} from '../../cart/cart-item-card';
 
 type Props = {
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
 };
 
 function formatPrice(
@@ -33,7 +33,7 @@ function formatPrice(
  * are sent: the server revalidates the cart and prices it again, so the buyer
  * cannot influence what is charged. The outcome is shown by the payment page
  * the gateway sends the browser back to. */
-export function CheckoutContent({gateways, submitToken}: Props) {
+export function CheckoutContent({gateways, checkoutToken}: Props) {
   const {scope} = useWorkspace();
   const marketplaceBase = scope.forRouter(`/${SUBAPP_CODES.marketplace}`);
   const {cart, loaded} = useMarketplaceCart();
@@ -92,7 +92,7 @@ export function CheckoutContent({gateways, submitToken}: Props) {
           gateways={gateways}
           source={PAYMENT_SOURCE.marketplace}
           intent={{productIds}}
-          submitToken={submitToken}
+          checkoutToken={checkoutToken}
         />
       )}
     </div>

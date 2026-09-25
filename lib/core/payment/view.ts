@@ -8,7 +8,7 @@ import {isTerminal} from './domain/status';
 import {transferDeadline} from './domain/transfers';
 import {returnedToPayer} from './transfers';
 import {
-  DELIVERY_STATUS,
+  FULFILMENT_STATUS,
   GATEWAY,
   PAYMENT_STATUS,
   type Gateway,
@@ -32,9 +32,9 @@ export type PaymentView = {
   subjectLabel: string | null;
   payer: string | null;
   workspaceUrl: string;
-  deliveryStatus: string | null;
+  fulfilmentStatus: string | null;
   /** The ERP has recorded the payment; the onward link points at something that exists. */
-  projected: boolean;
+  registered: boolean;
   /** Nothing more will change without a new provider event and the ERP has caught up: the page may stop polling. */
   settled: boolean;
   /** Workspace sub-path to what was bought, once it exists. */
@@ -67,15 +67,15 @@ export async function findPaymentView(
       currencyScale: true,
       subjectLabel: true,
       payer: true,
-      deliveryStatus: true,
+      fulfilmentStatus: true,
       createdOn: true,
       capturedOn: true,
       portalWorkspace: {url: true},
       subjectModel: true,
       subjectId: true,
-      projectedInvoice: {id: true},
-      projectedSaleOrder: {id: true},
-      projectedInvoicePayment: {id: true},
+      registeredInvoice: {id: true},
+      registeredSaleOrder: {id: true},
+      registeredInvoicePayment: {id: true},
     },
   });
   if (!payment) {
@@ -83,12 +83,12 @@ export async function findPaymentView(
   }
 
   const status = payment.status as PaymentStatus;
-  const projected = Boolean(
-    payment.projectedInvoice ||
-      payment.projectedSaleOrder ||
-      payment.projectedInvoicePayment,
+  const registered = Boolean(
+    payment.registeredInvoice ||
+      payment.registeredSaleOrder ||
+      payment.registeredInvoicePayment,
   );
-  const delivered = payment.deliveryStatus === DELIVERY_STATUS.delivered;
+  const delivered = payment.fulfilmentStatus === FULFILMENT_STATUS.delivered;
   const captured = status === PAYMENT_STATUS.captured;
 
   /* Computed whatever the state: a captured payment links to what was bought,
@@ -125,9 +125,9 @@ export async function findPaymentView(
     subjectLabel: payment.subjectLabel,
     payer: payment.payer,
     workspaceUrl: payment.portalWorkspace.url ?? '',
-    deliveryStatus: payment.deliveryStatus,
-    projected,
-    settled: isTerminal(status) && (!captured || projected || !delivered),
+    fulfilmentStatus: payment.fulfilmentStatus,
+    registered,
+    settled: isTerminal(status) && (!captured || registered || !delivered),
     /* Asked of the provider, and only once the viewer may see the payment:
      * see findAwaitingInstructions. */
     instructions: null,

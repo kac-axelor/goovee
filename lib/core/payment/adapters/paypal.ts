@@ -16,9 +16,9 @@ import {parseReference} from '../domain/reference';
 import {
   GATEWAY,
   EVENT_TYPE,
-  OBSERVED_VIA,
+  RECEIVED_VIA,
   type EventType,
-  type ObservedVia,
+  type ReceivedVia,
 } from '../domain/types';
 import {
   pendingSignal,
@@ -160,7 +160,7 @@ function ourReference(order: Order, tenantId: string): string | null {
 function base(
   type: EventType | 'pending',
   resolution: SignalResolution,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   payload: unknown,
 ): Omit<
   GatewaySignal,
@@ -175,8 +175,8 @@ function base(
     gateway: GATEWAY.paypal,
     resolution,
     type,
-    observedVia,
-    observedOn: new Date(),
+    receivedVia,
+    receivedOn: new Date(),
     payload,
   };
 }
@@ -185,7 +185,7 @@ function base(
 function signalForOrder(
   order: Order,
   reference: string,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   payload: unknown,
   declinedIssue: string | null,
 ): GatewaySignal {
@@ -206,7 +206,7 @@ function signalForOrder(
     capture.status === 'COMPLETED'
   ) {
     return {
-      ...base(EVENT_TYPE.captured, resolution, observedVia, payload),
+      ...base(EVENT_TYPE.captured, resolution, receivedVia, payload),
       eventId: capture.id,
       amount: captureAmount,
       currencyCode: captureCurrency,
@@ -221,7 +221,7 @@ function signalForOrder(
    * one, so the DENIED webhook names the same refusal. */
   if (declinedIssue || capture?.status === 'DECLINED') {
     return {
-      ...base(EVENT_TYPE.refused, resolution, observedVia, payload),
+      ...base(EVENT_TYPE.refused, resolution, receivedVia, payload),
       eventId: capture?.id ?? `${order.id}:${declinedIssue ?? 'DECLINED'}`,
       amount: captureAmount,
       currencyCode: captureCurrency,
@@ -233,7 +233,7 @@ function signalForOrder(
 
   if (order.status === 'VOIDED') {
     return {
-      ...base(EVENT_TYPE.expired, resolution, observedVia, payload),
+      ...base(EVENT_TYPE.expired, resolution, receivedVia, payload),
       eventId: order.id,
       amount: null,
       currencyCode: null,
@@ -247,7 +247,7 @@ function signalForOrder(
     gateway: GATEWAY.paypal,
     resolution,
     sessionRef: order.id,
-    observedVia,
+    receivedVia,
     payload,
   });
 }
@@ -261,7 +261,7 @@ function cancelledSignal(
     ...base(
       EVENT_TYPE.cancelled,
       {by: 'reference', reference},
-      OBSERVED_VIA.return,
+      RECEIVED_VIA.return,
       payload,
     ),
     eventId: orderId,
@@ -317,7 +317,7 @@ async function settleOrder(
   controller: OrdersController,
   orderId: string,
   tenantId: string,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   payload: Record<string, unknown>,
   alreadyRead?: Order,
 ): Promise<GatewaySignal | null> {
@@ -333,7 +333,7 @@ async function settleOrder(
   return signalForOrder(
     order,
     reference,
-    observedVia,
+    receivedVia,
     {...payload, status: order.status, declinedIssue},
     declinedIssue,
   );
@@ -434,7 +434,7 @@ export function signalsForWebhookEvent(
           ...base(
             completed ? EVENT_TYPE.captured : EVENT_TYPE.refused,
             {by: 'reference', reference: parsed.reference},
-            OBSERVED_VIA.webhook,
+            RECEIVED_VIA.webhook,
             payload,
           ),
           eventId: id,
@@ -559,7 +559,7 @@ export const paypalAdapter: GatewayAdapter = {
       controller,
       orderId,
       context.tenantId,
-      OBSERVED_VIA.return,
+      RECEIVED_VIA.return,
       payload,
       alreadyRead,
     );
@@ -588,7 +588,7 @@ export const paypalAdapter: GatewayAdapter = {
         ordersController(paypal),
         orderId,
         context.tenantId,
-        OBSERVED_VIA.webhook,
+        RECEIVED_VIA.webhook,
         {source: 'webhook', eventId: event.id, type: event.event_type},
       );
       return signal ? [signal] : [];
@@ -605,7 +605,7 @@ export const paypalAdapter: GatewayAdapter = {
         ordersController(paypal),
         sessionRef,
         context.tenantId,
-        OBSERVED_VIA.reconcile,
+        RECEIVED_VIA.reconcile,
         {source: 'reconcile', orderId: sessionRef},
       );
     } catch (error) {

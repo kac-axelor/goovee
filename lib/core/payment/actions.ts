@@ -15,7 +15,7 @@ import {startPayment, type StartResult} from './start';
 const StartPaymentSchema = z.object({
   gateway: GatewaySchema,
   source: PaymentSourceSchema,
-  submitToken: z.string().min(16).max(128),
+  checkoutToken: z.string().min(16).max(128),
   intent: z.unknown(),
   /** A variant of the gateway, such as an instant or a standard transfer. */
   option: z.enum(HUBPISP_OPTIONS).optional(),

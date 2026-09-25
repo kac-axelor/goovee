@@ -51,7 +51,7 @@ type EventSnapshot = z.infer<typeof EventSnapshotSchema>;
 /**
  * Registering for a paid event. The registration does not exist before the
  * capture: delivery re-checks the event's rules and writes the registration
- * and its participants, and the ERP invoices it when it projects.
+ * and its participants, and the ERP invoices it when it registers the payment.
  */
 export const eventsPaymentSource: PaymentSourceHandler<
   EventIntent,
@@ -222,7 +222,7 @@ export const eventsPaymentSource: PaymentSourceHandler<
   /* What a free registration tells its participants, now that the paid one
    * has been captured and written: the push and the registration mail, the
    * payer's own carrying what was paid. The ERP's own template mail, where the
-   * workspace set one, still follows the projection. */
+   * workspace set one, still follows the registration. */
   async notify({payment, subject, snapshot, tenant}) {
     const registrationId = subjectIdOf(subject, SUBJECT_MODEL.registration);
     const parsed = EventSnapshotSchema.safeParse(snapshot);

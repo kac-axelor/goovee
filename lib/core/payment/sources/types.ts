@@ -76,7 +76,7 @@ export interface PaymentSourceHandler<
 
   /**
    * Whether a gateway may only be offered when the workspace maps it to an ERP
-   * payment mode. Sources whose projection has no fallback mode set this, so
+   * payment mode. Sources whose registration has no fallback mode set this, so
    * the refusal happens before any money is taken.
    */
   requiresPaymentMode?: boolean;
@@ -103,13 +103,13 @@ export interface PaymentSourceHandler<
    * decide.
    *
    * Settle runs on whichever leg saw the capture first: the payer's return,
-   * the provider's webhook, or a job from the clock. So this must not read the
+   * the provider's webhook, or a task from the clock. So this must not read the
    * session, the cookies or the headers — on a webhook they are the
-   * provider's, in a job there are none — and must take everything about the
+   * provider's, in a task there are none — and must take everything about the
    * payer from `payment` and `snapshot`. Text it writes, such as an
    * undeliverable reason, is for the ERP's operators: `t()` renders it in the
    * request's language on the return leg, and in the default locale on a
-   * webhook or in a job, so keep it plain rather than per-payer.
+   * webhook or in a task, so keep it plain rather than per-payer.
    */
   deliver(args: {
     payment: DeliveredPayment;
@@ -120,14 +120,14 @@ export interface PaymentSourceHandler<
 
   /**
    * Tells the payer, and whoever else the source names, that the payment was
-   * captured and delivered. Runs as a `notify` job, outside any transaction and
-   * often outside any request — from the job clock — so it must not read the
+   * captured and delivered. Runs as a `notify` task, outside any transaction and
+   * often outside any request — from the task clock — so it must not read the
    * session, the cookies or the headers, or use a formatter that does. `t()`
-   * does not throw there: jobs run in a background scope, where it renders the
+   * does not throw there: tasks run in a background scope, where it renders the
    * portal's default locale. A payer's own language is not in that scope, so
    * translate what the payer reads with `getTranslation` given their locale and
    * the tenant. Mail and push are handed off and not waited on, so their
-   * delivery never fails or holds the job; throwing runs the whole
+   * delivery never fails or holds the task; throwing runs the whole
    * notification again later.
    */
   notify?(args: {

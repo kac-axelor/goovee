@@ -31,7 +31,7 @@ interface ContentProps {
   token?: string;
   pendingTransfers: PendingTransfer[];
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
 }
 
 function getInvoiceStatusKey(invoice: Cloned<InvoiceType>): StatusKey {
@@ -70,7 +70,7 @@ export default function Content({
   token,
   pendingTransfers,
   gateways,
-  submitToken,
+  checkoutToken,
 }: ContentProps) {
   const {id, invoiceId, dueDate, invoiceDate, isUnpaid} = invoice;
 
@@ -152,7 +152,7 @@ export default function Content({
               token={token}
               pendingTransfers={pendingTransfers}
               gateways={gateways}
-              submitToken={submitToken}
+              checkoutToken={checkoutToken}
             />
           </div>
         </div>

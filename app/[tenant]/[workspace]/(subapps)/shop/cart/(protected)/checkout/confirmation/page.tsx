@@ -19,7 +19,7 @@ const SearchParamsSchema = z.object({
 
 /* Reached from the payment page once the order is paid, with the order request
  * the capture recorded. The sale order is read off the request rather than
- * carried in the URL, so the link appears as soon as the ERP has projected the
+ * carried in the URL, so the link appears as soon as the ERP has registered the
  * payment, whether that was before the buyer got here or after. */
 export default async function Page(props: {
   params: Promise<{tenant: string; workspace: string}>;

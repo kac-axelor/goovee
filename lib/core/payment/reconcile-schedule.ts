@@ -3,7 +3,7 @@ import 'server-only';
 import type {Client} from '@/goovee/.generated/client';
 import {getAdapter} from './adapters/registry';
 import {
-  JOB_KIND,
+  TASK_KIND,
   PAYMENT_STATUS,
   SESSION_STATUS,
   type Gateway,
@@ -11,7 +11,7 @@ import {
 
 /*
  * When a payment's reconcile row is due, and its deadline. Kept
- * apart from the job itself so the settle transaction and the start can
+ * apart from the task itself so the settle transaction and the start can
  * write the row without depending on the code that settles.
  */
 
@@ -108,20 +108,20 @@ export async function scheduleReconcile(
   {replace = false}: {replace?: boolean} = {},
 ): Promise<void> {
   await txClient.$raw(
-    `INSERT INTO portal_portal_payment_job
-       (id, version, created_on, payment, kind, next_attempt_on, escalate_on, attempts)
-     VALUES (nextval('portal_portal_payment_job_seq'), 0, now(), $1, $2, $3, $4, 0)
+    `INSERT INTO portal_portal_payment_task
+       (id, version, created_on, payment, kind, next_retry_on, overdue_on, attempts)
+     VALUES (nextval('portal_portal_payment_task_seq'), 0, now(), $1, $2, $3, $4, 0)
      ON CONFLICT (payment, kind) DO UPDATE
-       SET next_attempt_on = CASE
-             WHEN $5 OR portal_portal_payment_job.classification = 'needs_decision' THEN EXCLUDED.next_attempt_on
-             ELSE LEAST(portal_portal_payment_job.next_attempt_on, EXCLUDED.next_attempt_on) END,
-           escalate_on = CASE
-             WHEN $5 OR portal_portal_payment_job.classification = 'needs_decision' THEN EXCLUDED.escalate_on
-             ELSE LEAST(portal_portal_payment_job.escalate_on, EXCLUDED.escalate_on) END,
+       SET next_retry_on = CASE
+             WHEN $5 OR portal_portal_payment_task.classification = 'needs_decision' THEN EXCLUDED.next_retry_on
+             ELSE LEAST(portal_portal_payment_task.next_retry_on, EXCLUDED.next_retry_on) END,
+           overdue_on = CASE
+             WHEN $5 OR portal_portal_payment_task.classification = 'needs_decision' THEN EXCLUDED.overdue_on
+             ELSE LEAST(portal_portal_payment_task.overdue_on, EXCLUDED.overdue_on) END,
            classification = NULL, last_error = NULL, attempts = 0, updated_on = now(),
-           version = COALESCE(portal_portal_payment_job.version, 0) + 1`,
+           version = COALESCE(portal_portal_payment_task.version, 0) + 1`,
     paymentId,
-    JOB_KIND.reconcile,
+    TASK_KIND.reconcile,
     firstCheck,
     decideAt,
     replace,
@@ -141,13 +141,13 @@ export async function dropReconcileIfSettled(
     return;
   }
   await txClient.$raw(
-    `DELETE FROM portal_portal_payment_job
+    `DELETE FROM portal_portal_payment_task
       WHERE payment = $1 AND kind = $2
         AND NOT EXISTS (
           SELECT 1 FROM portal_portal_payment_session
            WHERE payment = $1 AND status = ANY($3::text[]))`,
     paymentId,
-    JOB_KIND.reconcile,
+    TASK_KIND.reconcile,
     [SESSION_STATUS.initiated, SESSION_STATUS.awaiting],
   );
 }

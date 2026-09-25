@@ -43,12 +43,12 @@
     },
     {
       "type": "String",
-      "name": "observedVia",
+      "name": "receivedVia",
       "required": true
     },
     {
       "type": "DateTime",
-      "name": "observedOn",
+      "name": "receivedOn",
       "required": true
     },
     {

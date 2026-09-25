@@ -2,7 +2,7 @@ import {SUBAPP_CODES} from '@/constants';
 import {t} from '@/locale/server';
 import {PAYMENT_SOURCE} from '@/payment/domain/types';
 import {offeredGateways} from '@/payment/offer';
-import {mintSubmitToken} from '@/payment/submit-token';
+import {mintCheckoutToken} from '@/payment/checkout-token';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -72,7 +72,7 @@ export default async function CheckoutPage(props: {
               })
             : []
         }
-        submitToken={mintSubmitToken()}
+        checkoutToken={mintCheckoutToken()}
       />
     </div>
   );

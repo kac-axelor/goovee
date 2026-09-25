@@ -40,7 +40,7 @@ function canonical(value: unknown): string {
 }
 
 /**
- * The key a payment is found again by: the page's submit token and the
+ * The key a payment is found again by: the page's checkout token and the
  * priced intent together. A second press of the same purchase — a double
  * click, another tab, a retry after a refusal — gives the same key and finds
  * the same payment. A press of anything else — another amount, another cart,
@@ -48,7 +48,10 @@ function canonical(value: unknown): string {
  * payment, so a payment's amount is never rewritten under a session still
  * open at a provider.
  */
-export function purchaseKey(submitToken: string, intent: PricedIntent): string {
+export function purchaseKey(
+  checkoutToken: string,
+  intent: PricedIntent,
+): string {
   const digest = createHash('sha256')
     .update(
       canonical({
@@ -61,5 +64,5 @@ export function purchaseKey(submitToken: string, intent: PricedIntent): string {
       }),
     )
     .digest('hex');
-  return `${submitToken}:${digest}`;
+  return `${checkoutToken}:${digest}`;
 }

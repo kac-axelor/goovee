@@ -11,19 +11,19 @@ import type {ShopCheckoutLabels} from '@/subapps/shop/common/ui/components';
 export default function Content({
   config,
   gateways,
-  submitToken,
+  checkoutToken,
   labels,
 }: {
   config: ShopConfig | Cloned<ShopConfig>;
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
   labels: ShopCheckoutLabels;
 }) {
   return (
     <ShopCheckout
       config={config}
       gateways={gateways}
-      submitToken={submitToken}
+      checkoutToken={checkoutToken}
       labels={labels}
     />
   );

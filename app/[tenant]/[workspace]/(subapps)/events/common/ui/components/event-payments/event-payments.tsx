@@ -30,7 +30,7 @@ export function EventPayments({
   metaFieldsFacilities,
   additionalFieldSet,
   gateways,
-  submitToken,
+  checkoutToken,
 }: {
   event: Pick<
     Cloned<FullEvent>,
@@ -41,7 +41,7 @@ export function EventPayments({
   metaFieldsFacilities: ModelField[];
   additionalFieldSet: ModelField[] | null | undefined;
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
 }) {
   const isValid =
     form.formState.isValid && !Object.keys(form.formState.errors || {}).length;
@@ -77,7 +77,7 @@ export function EventPayments({
       gateways={gateways}
       source={PAYMENT_SOURCE.events}
       intent={() => ({eventId: event.id, values: mappedParticipants()})}
-      submitToken={submitToken}
+      checkoutToken={checkoutToken}
       disabled={!isValid}
       onValidate={validate}
     />

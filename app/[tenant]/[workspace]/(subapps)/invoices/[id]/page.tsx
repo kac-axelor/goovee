@@ -14,7 +14,7 @@ import {PartnerKey} from '@/types';
 import {getWhereClauseForEntity} from '@/utils/filters';
 import {PAYMENT_SOURCE} from '@/payment/domain/types';
 import {offeredGateways} from '@/payment/offer';
-import {mintSubmitToken} from '@/payment/submit-token';
+import {mintCheckoutToken} from '@/payment/checkout-token';
 
 // ---- LOCAL IMPORTS ---- //
 import Content from './content';
@@ -88,7 +88,7 @@ async function Invoice({
           paymentOptions: config.paymentOptionSet,
           tenant: access.tenant,
         })}
-        submitToken={mintSubmitToken()}
+        checkoutToken={mintCheckoutToken()}
       />
     );
   }
@@ -140,7 +140,7 @@ async function Invoice({
         paymentOptions: config.paymentOptionSet,
         tenant: access.tenant,
       })}
-      submitToken={mintSubmitToken()}
+      checkoutToken={mintCheckoutToken()}
     />
   );
 }

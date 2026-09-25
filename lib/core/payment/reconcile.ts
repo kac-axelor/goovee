@@ -9,8 +9,8 @@ import {
   SESSION_STATUS,
   type Gateway,
 } from './domain/types';
-import type {JobOutcome} from './jobs';
-import {triggerProjection} from './project';
+import type {TaskOutcome} from './tasks';
+import {triggerRegistration} from './register';
 import {fromMinorUnits, scaleOfCurrency} from './domain/money';
 import {RECONCILE_GIVE_UP_AFTER_MS} from './domain/transfers';
 import {returnedToPayer} from './transfers';
@@ -18,7 +18,7 @@ import {recheckAfter, reconcileSchedule} from './reconcile-schedule';
 import {closeUnanswered, settlePayment} from './settle';
 
 /*
- * The `reconcile` job: a backstop for a payment its provider never told us
+ * The `reconcile` task: a backstop for a payment its provider never told us
  * the end of — a tab closed before the return, a webhook that never came, a
  * PayPal order approved but never captured. One row per payment, written with
  * the session in T1 and due when the handoff stops being payable, so the
@@ -53,7 +53,7 @@ type OpenSession = {
 };
 
 /**
- * The `reconcile` job for one payment. Looks at each session still open, asks
+ * The `reconcile` task for one payment. Looks at each session still open, asks
  * the providers that can be asked, settles what they attest, cancels a bank
  * transfer whose window is over, closes as no answer what no provider will
  * answer for, and says when to look again. Never hands the payment to a
@@ -65,7 +65,7 @@ export async function reconcilePayment({
 }: {
   tenant: Tenant;
   paymentId: string;
-}): Promise<JobOutcome> {
+}): Promise<TaskOutcome> {
   const {client} = tenant;
   const payment = await client.aOSPortalPayment.findOne({
     where: {id: paymentId},
@@ -180,8 +180,8 @@ export async function reconcilePayment({
         {tenantId: tenant.id, config: tenant.config},
       );
       const outcome = await settlePayment({signal: ended.signal, tenant});
-      if (outcome.outcome === 'settled' && outcome.projectionQueued) {
-        await triggerProjection({tenant, reference: outcome.reference});
+      if (outcome.outcome === 'settled' && outcome.registrationQueued) {
+        await triggerRegistration({tenant, reference: outcome.reference});
       }
       if (outcome.outcome === 'settled') {
         if (ended.signal.type === EVENT_TYPE.cancelled) {
@@ -291,8 +291,8 @@ export async function reconcilePayment({
     }
 
     const outcome = await settlePayment({signal, tenant});
-    if (outcome.outcome === 'settled' && outcome.projectionQueued) {
-      await triggerProjection({tenant, reference: outcome.reference});
+    if (outcome.outcome === 'settled' && outcome.registrationQueued) {
+      await triggerRegistration({tenant, reference: outcome.reference});
     }
     /* The provider answered with something this payment does not hold:
      * another tenant's reference, or none of ours. Asking again changes

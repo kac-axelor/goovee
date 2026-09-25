@@ -124,7 +124,7 @@ type IntentInput = Record<string, unknown> | (() => Record<string, unknown>);
 type StartArgs = {
   source: PaymentSource;
   intent: IntentInput;
-  submitToken: string;
+  checkoutToken: string;
 };
 
 type Starter = (offered: OfferedGateway) => Promise<Handoff | null>;
@@ -403,13 +403,13 @@ function keyOf(offered: OfferedGateway): string {
 /**
  * One button per gateway the server offers, except Stripe's, which share one.
  * The intent is opaque here: the component sends `{source, intent,
- * submitToken}` and the server prices it.
+ * checkoutToken}` and the server prices it.
  */
 export function PaymentMethods({
   gateways,
   source,
   intent,
-  submitToken,
+  checkoutToken,
   disabled,
   onValidate,
 }: StartArgs & {
@@ -440,7 +440,7 @@ export function PaymentMethods({
         option: offered.option,
         source,
         intent: typeof intent === 'function' ? intent() : intent,
-        submitToken,
+        checkoutToken,
       });
       if (result.error) {
         toast({variant: 'destructive', title: result.message});

@@ -8,8 +8,8 @@ import {canViewPayment} from '@/payment/access';
 import {getAdapter} from '@/payment/adapters/registry';
 import type {AwaitingInstructions} from '@/payment/adapters/types';
 import {GATEWAY, type Gateway} from '@/payment/domain/types';
-import {runPaymentJobs} from '@/payment/jobs';
-import {triggerProjection} from '@/payment/project';
+import {runPaymentTasks} from '@/payment/tasks';
+import {triggerRegistration} from '@/payment/register';
 import {settlePayment} from '@/payment/settle';
 import {
   findOpenTransferSessions,
@@ -164,11 +164,11 @@ async function stillOpen(
   const outcome = await settlePayment({signal, tenant});
   if (outcome.outcome === 'settled') {
     const {paymentId, reference} = outcome;
-    if (outcome.projectionQueued) {
-      after(() => triggerProjection({tenant, reference}));
+    if (outcome.registrationQueued) {
+      after(() => triggerRegistration({tenant, reference}));
     }
-    if (outcome.gooveeJobsQueued) {
-      after(() => runPaymentJobs({tenant, paymentId}));
+    if (outcome.gooveeTasksQueued) {
+      after(() => runPaymentTasks({tenant, paymentId}));
     }
   }
   /* Captured, expired, refused or cancelled: the link is finished either way. */

@@ -8,9 +8,9 @@ import {pendingSignal, type GatewaySignal} from '../domain/signal';
 import {
   EVENT_TYPE,
   GATEWAY,
-  OBSERVED_VIA,
+  RECEIVED_VIA,
   type Gateway,
-  type ObservedVia,
+  type ReceivedVia,
 } from '../domain/types';
 
 /*
@@ -80,7 +80,7 @@ export async function retrieveSession(stripe: Stripe, sessionId: string) {
 export function signalForSession(
   session: Stripe.Checkout.Session,
   tenantId: string,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   payload: unknown,
 ): GatewaySignal | null {
   const reference = ourReference(
@@ -112,8 +112,8 @@ export function signalForSession(
       providerRef: paymentIntentId,
       sessionRef: session.id,
       reason: null,
-      observedVia,
-      observedOn: new Date(),
+      receivedVia,
+      receivedOn: new Date(),
       payload,
     };
   }
@@ -129,8 +129,8 @@ export function signalForSession(
       providerRef: null,
       sessionRef: session.id,
       reason: null,
-      observedVia,
-      observedOn: new Date(),
+      receivedVia,
+      receivedOn: new Date(),
       payload,
     };
   }
@@ -139,7 +139,7 @@ export function signalForSession(
     gateway,
     resolution,
     sessionRef: session.id,
-    observedVia,
+    receivedVia,
     payload,
   });
 }
@@ -152,7 +152,7 @@ export function signalForSession(
 export function signalForPaymentIntent(
   paymentIntent: Stripe.PaymentIntent,
   tenantId: string,
-  observedVia: ObservedVia,
+  receivedVia: ReceivedVia,
   payload: unknown,
   sessionId: string | null = null,
 ): GatewaySignal | null {
@@ -170,8 +170,8 @@ export function signalForPaymentIntent(
     resolution,
     currencyCode,
     sessionRef,
-    observedVia,
-    observedOn: new Date(),
+    receivedVia,
+    receivedOn: new Date(),
     payload,
   };
 
@@ -219,7 +219,7 @@ export function signalForPaymentIntent(
     };
   }
 
-  return pendingSignal({gateway, resolution, sessionRef, observedVia, payload});
+  return pendingSignal({gateway, resolution, sessionRef, receivedVia, payload});
 }
 
 /** The Stripe events the shared parser turns into signals. Others are acknowledged and ignored. */
@@ -253,7 +253,7 @@ export async function signalsForStripeEvent(
       const signal = signalForSession(
         session,
         tenantId,
-        OBSERVED_VIA.webhook,
+        RECEIVED_VIA.webhook,
         payload,
       );
       return signal ? [signal] : [];
@@ -273,7 +273,7 @@ export async function signalsForStripeEvent(
       const signal = signalForPaymentIntent(
         paymentIntent,
         tenantId,
-        OBSERVED_VIA.webhook,
+        RECEIVED_VIA.webhook,
         payload,
         null,
       );

@@ -45,7 +45,7 @@ type InvoiceSnapshot = z.infer<typeof InvoiceSnapshotSchema>;
 /**
  * Paying an invoice that already exists in the ERP. The subject is known from
  * the start and nothing goovee-local happens on capture; the ERP records the
- * invoice payment when it projects.
+ * invoice payment when it registers the payment.
  */
 export const invoicesPaymentSource: PaymentSourceHandler<
   InvoiceIntent,
@@ -146,7 +146,7 @@ export const invoicesPaymentSource: PaymentSourceHandler<
       $invoice.currency?.code,
     );
 
-    /* The ERP learns of a capture only once it is projected, so its remaining
+    /* The ERP learns of a capture only once it is registered, so its remaining
      * amount still counts money already taken. What is owed is judged on the
      * ledger too, or a second payment could start while the first is on its
      * way to the ERP. An invoice that cannot be judged this way keeps the

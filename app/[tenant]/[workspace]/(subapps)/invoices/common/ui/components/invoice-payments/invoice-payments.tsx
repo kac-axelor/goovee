@@ -20,13 +20,13 @@ export function InvoicePayments({
   amount,
   token,
   gateways,
-  submitToken,
+  checkoutToken,
 }: {
   invoice: Cloned<Invoice>;
   amount: string;
   token?: string;
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
 }) {
   const {toast} = useToast();
 
@@ -35,7 +35,7 @@ export function InvoicePayments({
       gateways={gateways}
       source={PAYMENT_SOURCE.invoices}
       intent={{invoiceId: invoice.id, amount, token}}
-      submitToken={submitToken}
+      checkoutToken={checkoutToken}
       disabled={!Number(amount)}
       onValidate={() => {
         if (!Number(amount)) {

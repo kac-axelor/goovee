@@ -13,13 +13,13 @@ import {
 } from './domain/transfers';
 import {
   EVENT_TYPE,
-  JOB_KIND,
+  TASK_KIND,
   PAYMENT_SOURCE,
   PAYMENT_STATUS,
   SESSION_STATUS,
   type Gateway,
 } from './domain/types';
-import {triggerProjection} from './project';
+import {triggerRegistration} from './register';
 import {settlePayment} from './settle';
 import {SUBJECT_MODEL, readSubject, subjectIdOf} from './domain/subject';
 
@@ -105,8 +105,8 @@ export async function findOpenTransferSessions({
 
   /* A session's own captures are snapshots of one balance, so the highest is
    * what it holds, the same reading the payment's status is derived from. Its
-   * endings are read with them, for a session an earlier build marked
-   * captured when it was funded in part. */
+   * endings are read with them, so a session that ended is never counted as
+   * open. */
   const events = await client.aOSPortalPaymentEvent.find({
     where: {
       session: {id: {in: sessions.map(session => session.id)}},
@@ -147,8 +147,8 @@ export async function findOpenTransferSessions({
           Math.max(highest, minorUnitsOf(capture.amount ?? '0')),
         0,
       );
-    /* A session funded in part stays awaiting; a captured one, written by an
-     * earlier build, is still open only while it is short of the amount. */
+    /* A session funded in part stays awaiting; one marked captured is still
+     * open only while it is short of the amount. */
     const open =
       !closed.has(session.id) &&
       (session.status === SESSION_STATUS.awaiting
@@ -232,12 +232,12 @@ export async function returnedToPayer(
  * What the invoice still needs, in minor units at `scale`: the ERP's
  * remaining amount, less money the ledger holds for the invoice that the ERP
  * has not recorded yet, each payment's up to its own amount, which is what its
- * projection books. A capture reaches the ERP only when the payment is
- * projected, and a transfer funded in part not until it completes. A payment
+ * registration books. A capture reaches the ERP only when the payment is
+ * registered, and a transfer funded in part not until it completes. A payment
  * a person resolved in the ERP is booked there by hand, so it is not held,
- * unless its projection is still to run and will book it.
+ * unless its registration is still to run and will book it.
  *
- * Read in one statement, so it is one snapshot: read in two, a projection
+ * Read in one statement, so it is one snapshot: read in two, a registration
  * committing in between would leave the money counted by neither half.
  *
  * Money in another currency is not counted, which errs towards more still
@@ -259,11 +259,11 @@ export async function invoiceRemaining({
   const rows: unknown = await client.$raw(
     `SELECT ROUND(invoice.amount_remaining * (10::numeric ^ $4::int))::bigint::text AS erp_remaining,
             currency.codeiso AS currency_code,
-            COALESCE(SUM(CASE WHEN payment.projected_invoice_payment IS NULL
+            COALESCE(SUM(CASE WHEN payment.registered_invoice_payment IS NULL
                                 AND (payment.resolved_on IS NULL
-                                     OR EXISTS (SELECT 1 FROM portal_portal_payment_job AS job
-                                                 WHERE job.payment = payment.id
-                                                   AND job.kind = $8))
+                                     OR EXISTS (SELECT 1 FROM portal_portal_payment_task AS task
+                                                 WHERE task.payment = payment.id
+                                                   AND task.kind = $8))
                                 AND payment.status IN ($5, $6)
                               THEN LEAST(payment.captured_amount, payment.amount)
                          END), 0)::text AS held
@@ -284,7 +284,7 @@ export async function invoiceRemaining({
     PAYMENT_STATUS.captured,
     PAYMENT_STATUS.partiallyCaptured,
     SUBJECT_MODEL.invoice,
-    JOB_KIND.project,
+    TASK_KIND.register,
   );
   const row: unknown = Array.isArray(rows) ? rows[0] : null;
   if (typeof row !== 'object' || row === null) {
@@ -306,7 +306,7 @@ export type WithdrawalReport = Record<CancelResult['outcome'], number>;
 /**
  * The invoice guard: once money has landed on an invoice, withdraws the open
  * transfers it no longer needs, so money wired later cannot pay it twice.
- * Runs as its own job, after the capture's transaction, because it calls the
+ * Runs as its own task, after the capture's transaction, because it calls the
  * provider. Every outcome is recorded the way the provider's own event would
  * record it, so the event arriving later changes nothing.
  *
@@ -370,7 +370,7 @@ export async function withdrawUnneededTransfers({
       Boolean(getAdapter(session.gateway).cancelAwaiting),
   );
   /* Each transfer is its own call: one the provider cannot answer for must not
-   * keep the others open. The job fails afterwards if any did, so it runs
+   * keep the others open. The task fails afterwards if any did, so it runs
    * again, and what was withdrawn this time reads back as ended. */
   /* The session's own amount decides which transfers are put to the
    * provider; the provider's live figure is checked again before anything is
@@ -459,8 +459,8 @@ async function withdraw({
    * provider will also report, money that arrived first as the capture it
    * is. A capture recorded here goes to the ERP like any other. */
   const outcome = await settlePayment({signal: result.signal, tenant});
-  if (outcome.outcome === 'settled' && outcome.projectionQueued) {
-    await triggerProjection({tenant, reference: outcome.reference});
+  if (outcome.outcome === 'settled' && outcome.registrationQueued) {
+    await triggerRegistration({tenant, reference: outcome.reference});
   }
   return result;
 }

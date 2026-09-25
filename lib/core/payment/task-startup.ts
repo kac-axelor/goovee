@@ -2,9 +2,9 @@ import 'server-only';
 
 import {manager} from '@/tenant';
 import {listTenantIds} from '@/tenant/config';
-import {runPaymentJobs} from './jobs';
+import {runPaymentTasks} from './tasks';
 
-/* A capture's own request runs its jobs straight away; this is what runs the
+/* A capture's own request runs its tasks straight away; this is what runs the
  * ones that request never got to — the process stopped, the provider was
  * down — so how often it ticks bounds how long a transfer the invoice no
  * longer needs can stay open. */
@@ -18,32 +18,32 @@ async function runForEveryTenant(): Promise<void> {
   try {
     tenantIds = listTenantIds();
   } catch (error) {
-    console.error('[PAYMENT][JOB] could not list tenants:', error);
+    console.error('[PAYMENT][TASK] could not list tenants:', error);
     return;
   }
   for (const tenantId of tenantIds) {
     try {
       const tenant = await manager.getTenant(tenantId);
       if (!tenant) continue;
-      const {completed, failed} = await runPaymentJobs({tenant});
+      const {completed, failed} = await runPaymentTasks({tenant});
       if (completed || failed) {
         console.log(
-          `[PAYMENT][JOB] tenant "${tenantId}": completed ${completed}, failed ${failed}`,
+          `[PAYMENT][TASK] tenant "${tenantId}": completed ${completed}, failed ${failed}`,
         );
       }
     } catch (error) {
-      console.error(`[PAYMENT][JOB] failed for tenant "${tenantId}":`, error);
+      console.error(`[PAYMENT][TASK] failed for tenant "${tenantId}":`, error);
     }
   }
 }
 
 /**
- * Starts the clock for goovee's payment jobs. Idempotent, so a dev hot-reload
- * does not start a second one. Safe on several instances: jobs are claimed
+ * Starts the clock for goovee's payment tasks. Idempotent, so a dev hot-reload
+ * does not start a second one. Safe on several instances: tasks are claimed
  * with SKIP LOCKED and taken again before each runs, so two ticks never run
- * the same job.
+ * the same task.
  */
-export function startPaymentJobs(): void {
+export function startPaymentTasks(): void {
   if (started) return;
   started = true;
 
@@ -56,7 +56,7 @@ export function startPaymentJobs(): void {
     try {
       await runForEveryTenant();
     } catch (error) {
-      console.error('[PAYMENT][JOB] tick crashed:', error);
+      console.error('[PAYMENT][TASK] tick crashed:', error);
     } finally {
       running = false;
     }

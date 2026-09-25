@@ -1,6 +1,6 @@
 {
-  "name": "AOSPortalPaymentJob",
-  "table": "portal_portal_payment_job",
+  "name": "AOSPortalPaymentTask",
+  "table": "portal_portal_payment_task",
   "synchronize": false,
   "fields": [
     {
@@ -16,12 +16,12 @@
     },
     {
       "type": "DateTime",
-      "name": "nextAttemptOn",
+      "name": "nextRetryOn",
       "required": true
     },
     {
       "type": "DateTime",
-      "name": "escalateOn",
+      "name": "overdueOn",
       "required": true
     },
     {

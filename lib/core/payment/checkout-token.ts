@@ -8,6 +8,6 @@ import {randomUUID} from 'node:crypto';
  * repeated press after a refusal finds the same payment rather than opening a
  * second one.
  */
-export function mintSubmitToken(): string {
+export function mintCheckoutToken(): string {
   return randomUUID();
 }

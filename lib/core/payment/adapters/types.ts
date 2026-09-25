@@ -16,7 +16,7 @@ export class SessionNotFoundError extends Error {
 
 export type GatewayCapabilities = {
   /**
-   * Can we ask the provider what became of a session? The reconcile job asks
+   * Can we ask the provider what became of a session? The reconcile task asks
    * a queryable one; one that is not is closed as "no answer" once its
    * deadline passes, for finance to check.
    */
@@ -34,7 +34,7 @@ export type GatewayCapabilities = {
 };
 
 /**
- * When the reconcile job looks at a session of this provider, and its
+ * When the reconcile task looks at a session of this provider, and its
  * deadline. Past the deadline a session is asked daily and listed under
  * Pending tasks as overdue, until its provider answers or a month has gone
  * by.

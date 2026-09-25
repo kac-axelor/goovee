@@ -69,12 +69,12 @@ export interface ShopCheckoutLabels {
 export function ShopCheckout({
   config,
   gateways,
-  submitToken,
+  checkoutToken,
   labels,
 }: {
   config: ShopConfig | Cloned<ShopConfig>;
   gateways: OfferedGateway[];
-  submitToken: string;
+  checkoutToken: string;
   labels: ShopCheckoutLabels;
 }) {
   const {scope, tenantScope} = useWorkspace();
@@ -309,7 +309,7 @@ export function ShopCheckout({
                     <div className="mt-4">
                       <ShopPayments
                         gateways={gateways}
-                        submitToken={submitToken}
+                        checkoutToken={checkoutToken}
                       />
                     </div>
                   )}

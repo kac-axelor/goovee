@@ -9,7 +9,7 @@ import {fromMinorUnits} from './domain/money';
 import type {NotifiedPayment} from './sources/types';
 
 /*
- * What a payment's confirmation is made of. It is sent from the job clock as
+ * What a payment's confirmation is made of. It is sent from the task clock as
  * often as from a request, so nothing here leans on the request: every text
  * is translated for a named locale and tenant, and every address is built
  * from the payment's own workspace.

@@ -6,7 +6,7 @@ the two in step, so a change here ships with its counterpart there.
 
 A payment is one row per purchase attempt, `portal_portal_payment`, with every
 provider event kept against it in a ledger. goovee writes the row and the
-ledger; the ERP books a captured payment into its own records (the projection)
+ledger; the ERP books a captured payment into its own records (the registration)
 and shows the payment to finance.
 
 ## Adding a provider
@@ -22,7 +22,7 @@ In goovee:
      - `settlesOnReturn` — the browser's return may settle a payment;
      - `chargesOnStart` — creating a session can move money before the payer
        acts.
-   - `reconcile` — when the reconcile job looks at an open session, and its
+   - `reconcile` — when the reconcile task looks at an open session, and its
      deadline: `timedFrom: 'expiry'` with `recheckMs` and `decideAfterExpiryMs`,
      or `timedFrom: 'start'` with `recheckMs`, `firstCheckAfterMs` and
      `decideAfterMs` for a payment with no expiry. Past the deadline a session
@@ -94,8 +94,8 @@ In goovee:
    - `deliver` — the work a full capture unlocks, inside the settle
      transaction; it returns the record it created as the payment's subject,
      or null to keep the one from `prepare`. It runs on the payer's return, a
-     provider's webhook or a job, so it reads no session, cookie or header;
-   - `notify` — the confirmation, run as a job; translate what the payer reads
+     provider's webhook or a task, so it reads no session, cookie or header;
+   - `notify` — the confirmation, run as a task; translate what the payer reads
      with `getTranslation` in their locale;
    - `onwardLink` — where the result page sends the payer next.
 4. Register the handler in the `handlers` record of `sources/registry.ts`.
@@ -111,7 +111,7 @@ In axelor-portal:
 
 1. Add the source to `portal.payment.source.select`, and its model to
    `portal.payment.subject.select`.
-2. Write a `PortalPaymentProjector` for the source, which books a captured
-   payment into the ERP, and bind it in the projector set in `PortalModule`.
+2. Write a `PortalPaymentRegistrar` for the source, which books a captured
+   payment into the ERP, and bind it in the registrar set in `PortalModule`.
 3. Add the _Portal payments_ dashlet, `action.portal.payment.for.subject`, to
    the subject's form.
