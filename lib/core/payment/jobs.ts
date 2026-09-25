@@ -25,9 +25,7 @@ import {withdrawUnneededTransfers} from './transfers';
 
 /*
  * Longer than any handler can run, or a job still running is claimed and run a
- * second time. The longest is a confirmation against an unreachable mail
- * server: the mail service retries each message itself for about twelve
- * minutes, with its connection timeouts, before giving up.
+ * second time. The handlers' longest waits are the providers' own calls.
  */
 const LEASE_SECONDS = 15 * 60;
 const FIRST_RETRY_SECONDS = 60;

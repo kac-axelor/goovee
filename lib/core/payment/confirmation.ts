@@ -42,7 +42,9 @@ export function formatAmount(payment: NotifiedPayment): string {
 /**
  * The confirmation mail a source without one of its own sends: what was paid
  * for, how much, the payment's reference and where to see it. Self-contained,
- * because for a payer without an account it is the only way back.
+ * because for a payer without an account it is the only way back. Handed to
+ * the mail service and not waited on: delivery and its retries are the mail
+ * service's, which logs a mail it gives up on.
  */
 export async function sendPaymentConfirmation({
   tenant,
@@ -107,10 +109,12 @@ export async function sendPaymentConfirmation({
     .filter(Boolean)
     .join('\n');
 
-  await mailService.notify({
-    to: payment.payer,
-    subject: title,
-    text,
-    html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#333;background:#f9f9f9;padding:20px"><div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:24px">${body}</div></body></html>`,
-  });
+  void mailService
+    .notify({
+      to: payment.payer,
+      subject: title,
+      text,
+      html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#333;background:#f9f9f9;padding:20px"><div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:24px">${body}</div></body></html>`,
+    })
+    .catch(() => {});
 }

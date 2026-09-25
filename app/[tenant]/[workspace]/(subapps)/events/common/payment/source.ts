@@ -230,14 +230,11 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
       return;
     }
     const {registeredBy, workspaceUrl} = parsed.data;
-    /* Run again only when no mail went out, so one address that refuses mail
-     * does not resend to every other participant on each retry. */
     await announceRegistration({
       registrationId,
       registrant: registeredBy ? {id: registeredBy.id} : null,
       tenant,
       workspaceURL: workspaceUrl,
-      requireMail: true,
       payment: {
         amount: formatAmount(payment),
         reference: payment.reference,

@@ -39,23 +39,18 @@ function isRegistrant(contact: NoticeContact, registrant: Registrant) {
  * a paid one, and it leans on no request, so a paid registration's
  * confirmation job can send it from the job clock.
  *
- * The mail goes first. With `requireMail`, a registration none of whose mails
- * could be sent throws before anything is pushed, so the caller's retry sends
- * the push once, with the mail, rather than once per attempt.
+ * The mail is handed to the mail service first, and the push follows.
  *
  * A paid registration's amount and reference go only in the payer's own
  * mail. A payer who registered other people and not themselves is in no
  * participant's mail, so `onPayerNotParticipant` runs for them once the
- * registration mails are out and before the push: a registration none of
- * whose mails could be sent throws before the payer is told anything, so a
- * retry does not tell them again.
+ * registration mails are handed over and before the push.
  */
 export async function announceRegistration({
   registrationId,
   registrant,
   tenant,
   workspaceURL,
-  requireMail = false,
   payment,
   onPayerNotParticipant,
 }: {
@@ -63,8 +58,6 @@ export async function announceRegistration({
   registrant: Registrant;
   tenant: Tenant;
   workspaceURL: string;
-  /** Throw, and push nothing, when every participant's mail failed. */
-  requireMail?: boolean;
   /** A paid registration's payment, shown in its payer's mail; absent for a free one. */
   payment?: {amount: string; reference: string; payer: string | null};
   /** Tells a payer who is none of the participants what they paid. */
@@ -100,7 +93,7 @@ export async function announceRegistration({
         }
       : undefined;
 
-  const {sent, failed} = await sendRegistrationMail({
+  await sendRegistrationMail({
     notice,
     eventLink: tenantURLs(tenant.id)
       .workspaceByKey(workspaceURL)
@@ -108,11 +101,6 @@ export async function announceRegistration({
     config: tenant.config,
     receipt,
   });
-  if (requireMail && failed && !sent) {
-    throw new Error(
-      `None of the ${failed} registration mails for registration ${registrationId} could be sent`,
-    );
-  }
 
   const payerIsParticipant = (notice.participantList ?? []).some(participant =>
     isSameEmail(participant.emailAddress, payment?.payer),

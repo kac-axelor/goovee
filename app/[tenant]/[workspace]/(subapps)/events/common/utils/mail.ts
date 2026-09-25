@@ -184,10 +184,9 @@ export function mailTemplate({
 /**
  * The registration mail, with its calendar invite, to every participant of a
  * registration. Leans on no request, so a paid registration's confirmation
- * job can send it as well as the free registration's own request.
- *
- * Returns how many mails could not be delivered; the mail service reports
- * each one rather than throwing.
+ * job can send it as well as the free registration's own request. Handed to
+ * the mail service and not waited on: delivery and its retries are the mail
+ * service's, which logs each mail it gives up on.
  */
 export async function sendRegistrationMail({
   notice,
@@ -204,13 +203,13 @@ export async function sendRegistrationMail({
    * always was.
    */
   receipt?: {lines: RegistrationReceipt; payer: string};
-}): Promise<{sent: number; failed: number}> {
+}): Promise<void> {
   const {event} = notice;
   const participants = (notice.participantList ?? []).filter(
     participant => participant.emailAddress,
   );
   if (!event || !participants.length) {
-    return {sent: 0, failed: 0};
+    return;
   }
 
   const mailService = NotificationManager.getService(
@@ -219,15 +218,14 @@ export async function sendRegistrationMail({
   );
   if (!mailService) {
     console.error('[MAIL] Mail service is not available.');
-    return {sent: 0, failed: 0};
+    return;
   }
 
   const subject = `🎉 You're Registered for "${event.eventTitle}"!`;
   const ics = generateIcs(event, participants);
 
-  const results = await mailService.notifyAll(
-    participants,
-    async participant => ({
+  void mailService
+    .notifyAll(participants, async participant => ({
       to: participant.emailAddress,
       subject,
       html: mailTemplate({
@@ -250,8 +248,6 @@ export async function sendRegistrationMail({
           contentType: 'text/calendar; method=REQUEST',
         },
       ],
-    }),
-  );
-  const failed = results.filter(result => result.error).length;
-  return {sent: results.length - failed, failed};
+    }))
+    .catch(() => {});
 }
