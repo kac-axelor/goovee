@@ -10,7 +10,7 @@ import {
 } from './domain/types';
 
 /*
- * When a payment's reconcile row is due, and when it goes to a person. Kept
+ * When a payment's reconcile row is due, and its deadline. Kept
  * apart from the job itself so the settle transaction and the start can
  * write the row without depending on the code that settles.
  */
@@ -28,8 +28,8 @@ export function recheckAfter(gateway: Gateway): number {
 }
 
 /**
- * When a session is first looked at, and when an unresolved one goes to a
- * person, by its provider's own reconcile policy.
+ * When a session is first looked at, and its deadline, by its provider's own
+ * reconcile policy.
  */
 export function reconcileSchedule({
   gateway,

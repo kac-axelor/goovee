@@ -105,8 +105,8 @@ export async function findOpenTransferSessions({
 
   /* A session's own captures are snapshots of one balance, so the highest is
    * what it holds, the same reading the payment's status is derived from. Its
-   * endings are read with them: a session keeps its first outcome, so one
-   * funded in part reads captured even after the provider ends it. */
+   * endings are read with them, for a session an earlier build marked
+   * captured when it was funded in part. */
   const events = await client.aOSPortalPaymentEvent.find({
     where: {
       session: {id: {in: sessions.map(session => session.id)}},
@@ -147,8 +147,8 @@ export async function findOpenTransferSessions({
           Math.max(highest, minorUnitsOf(capture.amount ?? '0')),
         0,
       );
-    /* A captured session is still open only while it is short of the amount:
-     * a transfer funded in part is recorded as a capture of what arrived. */
+    /* A session funded in part stays awaiting; a captured one, written by an
+     * earlier build, is still open only while it is short of the amount. */
     const open =
       !closed.has(session.id) &&
       (session.status === SESSION_STATUS.awaiting
@@ -179,9 +179,9 @@ export async function findOpenTransferSessions({
 
 /**
  * An open transfer that has received part of what it asks for. It stays open
- * at the provider for the rest, and the withdrawal never takes it back, so
- * any other payment of the invoice would be paid twice once the rest
- * arrives. Only a Stripe bank transfer is ever funded in part.
+ * at the provider for the rest until its window ends, and the invoice guard
+ * never takes it back, so any other payment of the invoice would be paid twice
+ * once the rest arrives. Only a Stripe bank transfer is ever funded in part.
  */
 export function isPartlyFunded(
   session: Pick<OpenTransferSession, 'received'>,
@@ -202,6 +202,30 @@ export async function findPartlyFundedTransfer({
 }): Promise<OpenTransferSession | null> {
   const sessions = await findOpenTransferSessions({client, invoiceId});
   return sessions.find(isPartlyFunded) ?? null;
+}
+
+/**
+ * What a session had received when it ended cancelled or expired, and so what
+ * Stripe put back in the payer's cash balance: the highest of its partial
+ * fundings, the ledger's own reading of one balance. Null when none had
+ * arrived.
+ */
+export async function returnedToPayer(
+  client: Client,
+  sessionId: string,
+): Promise<{amount: number; currencyCode: string} | null> {
+  const fundings = await client.aOSPortalPaymentEvent.find({
+    where: {session: {id: sessionId}, type: EVENT_TYPE.partiallyCaptured},
+    select: {amount: true, currencyCode: true},
+  });
+  let returned: {amount: number; currencyCode: string} | null = null;
+  for (const funding of fundings) {
+    const amount = minorUnitsOf(funding.amount ?? '0');
+    if (funding.currencyCode && amount > (returned?.amount ?? 0)) {
+      returned = {amount, currencyCode: funding.currencyCode};
+    }
+  }
+  return returned;
 }
 
 /**

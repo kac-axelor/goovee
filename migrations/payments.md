@@ -313,6 +313,58 @@ WHERE
 
 A row with nothing captured keeps its status; look it up at the provider.
 
+An earlier build marked a bank transfer funded in part as captured, so the
+portal no longer follows it to the end of its 14 days. Put such sessions back
+to awaiting, once, per tenant:
+
+```sql
+UPDATE portal_portal_payment_session AS session
+SET
+  status = 'awaiting',
+  version = COALESCE(session.version, 0) + 1,
+  updated_on = now()
+WHERE
+  session.status = 'captured'
+  AND session.gateway = 'stripe_bank_transfer'
+  AND NOT EXISTS (
+    SELECT
+      1
+    FROM
+      portal_portal_payment_event AS event
+    WHERE
+      event.session = session.id
+      AND event.type <> 'partially_captured'
+  )
+  AND EXISTS (
+    SELECT
+      1
+    FROM
+      portal_portal_payment_event AS event
+    WHERE
+      event.session = session.id
+      AND event.type = 'partially_captured'
+  );
+```
+
+An earlier build also handed a payment its reconcile job could not settle to a
+person, parking the job. The job now closes such a session itself, as
+unconfirmed or cancelled at the provider. Put the parked jobs back on the queue,
+once, per tenant:
+
+```sql
+UPDATE portal_portal_payment_job
+SET
+  classification = NULL,
+  last_error = NULL,
+  attempts = 0,
+  next_attempt_on = now(),
+  version = COALESCE(version, 0) + 1,
+  updated_on = now()
+WHERE
+  kind = 'reconcile'
+  AND classification = 'needs_decision';
+```
+
 Restoring the views does not remove what earlier builds loaded: the _To book in
 the ERP_ and _Unmatched events_ menus stay under _Portal › Payments_ and open
 views of models that are gone. Delete both menus in _Administration › Menus_,
@@ -436,15 +488,23 @@ DROP TABLE IF EXISTS portal_payment_context;
 
 What the ERP's _Portal › Payments_ menu shows, and what finance does with it.
 
-- _Needs attention_ — a payment whose delivery failed, or a job past its time.
+- _Needs attention_ — a payment whose delivery failed, one more captured than
+  it was for, or one whose booking in the ERP needs a decision or still fails
+  past its time.
   Settle it outside the portal, then press _Resolve_ on the payment with what
   was done: the purchase honoured another way, the excess given back at the
   provider, the booking made in the ERP by hand. The payment then stops
   waiting; the reason, who and when are kept on it.
-- _Unconfirmed_ — payments whose provider never answered.
+- _Unconfirmed_ — payments whose provider never answered. The portal asks a
+  provider that can be asked daily past the session's deadline, and closes the
+  session as unconfirmed 30 days past it; it closes one at once when the
+  provider no longer holds it, names another payment, or was never given the
+  provider's handle. The session's failure reason says which, and what to look
+  up at the provider.
 - _Confirmed by the browser only_ — captures the provider's webhook never
   confirmed, grouped by provider.
-- _Jobs past their time_ — every payment job still open past its time, by kind.
+- _Jobs past their time_ — every payment job still open past its time, by kind,
+  including the provider checks still waiting on an answer.
 
 ### Refunds and disputes
 
@@ -515,6 +575,22 @@ whole booking of a shop or marketplace payment fails with it; it waits under
 _Needs attention_ until the template is set and _Retry projection_ is pressed.
 A booking that fails after its mails were queued may send them again when
 retried.
+
+### A bank transfer the payer did not complete
+
+A Stripe bank transfer stays open for 14 days from its start; the payer is told
+so with its bank details. At the end, the portal cancels it at Stripe, whatever
+part of it arrived, and the payment reads cancelled. Money that had arrived was
+never in the account's balance: Stripe returns it to the payer's cash balance
+there, and finance refunds it from the Stripe dashboard, as any refund. The
+portal's log names each one (`[PAYMENT][RECONCILE] … went back to the payer's
+Stripe cash balance`); check the customers' cash balances in Stripe weekly
+besides.
+
+Check the customer's cash balance in Stripe before refunding: Stripe applies it
+to the payer's next open transfer by itself, so money returned by one cancelled
+transfer may already have paid another. Refund only what the balance still
+holds.
 
 ### Money for a withdrawn bank transfer
 

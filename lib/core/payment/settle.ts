@@ -66,12 +66,13 @@ function isRetryableDatabaseError(error: unknown): boolean {
   );
 }
 
-/* A transfer left open can be paid while the check waits, so it counts as
- * needing attention sooner than a projection does. */
+/* A transfer left open can be paid while the check waits, so the check is
+ * listed among the jobs past their time sooner than a projection would be. */
 const TRANSFER_CHECK_GRACE_SECONDS = 2 * 60;
 
 /* A confirmation still unsent after this is a payer who paid and heard
- * nothing: long enough for a retry or two, short enough to be noticed. */
+ * nothing, listed among the jobs past their time: long enough for a retry or
+ * two, short enough to be noticed. */
 const NOTIFY_GRACE_SECONDS = 15 * 60;
 
 export type SettleOutcome =
@@ -429,7 +430,9 @@ export async function settlePayment({
 /**
  * Closes sessions no provider will ever tell us about as "no answer": a
  * provider that cannot be asked and sent nothing long past the time it would
- * have, or a start whose handoff never reached the payer. Writes no event —
+ * have, a start whose handoff never reached the payer, an answer that names
+ * no payment of ours, or one still open long past its deadline. Each may
+ * carry why, kept on the session for finance to follow up. Writes no event —
  * the provider said nothing — only the sessions' outcome, the payment's
  * status as it then derives, and the end of its reconcile row.
  *
@@ -440,27 +443,36 @@ export async function settlePayment({
 export async function closeUnanswered({
   tenant,
   paymentId,
-  sessionIds,
+  sessions,
 }: {
   tenant: Tenant;
   paymentId: string;
-  sessionIds: string[];
+  /** The sessions to close, each with why when there is more to say than that nothing came. */
+  sessions: {id: string; reason: string | null}[];
 }): Promise<void> {
-  if (!sessionIds.length) {
+  if (!sessions.length) {
     return;
   }
   await tenant.client.$transaction(async txClient => {
     const payment = await lockPayment(txClient, paymentId);
     /* Only sessions still waiting: one the provider answered since the job
-     * read it keeps that answer. */
+     * read it keeps that answer. The reason goes before what the session
+     * already said. */
     await txClient.$raw(
-      `UPDATE portal_portal_payment_session
-          SET status = $3, version = version + 1, updated_on = now()
-        WHERE payment = $1 AND id = ANY($2::bigint[]) AND status = ANY($4::text[])`,
+      `UPDATE portal_portal_payment_session AS session
+          SET status = $3,
+              failure_reason = COALESCE(
+                closing.reason || COALESCE(' (' || session.failure_reason || ')', ''),
+                session.failure_reason),
+              version = session.version + 1, updated_on = now()
+         FROM unnest($2::bigint[], $5::text[]) AS closing(id, reason)
+        WHERE session.payment = $1 AND session.id = closing.id
+          AND session.status = ANY($4::text[])`,
       paymentId,
-      sessionIds,
+      sessions.map(session => session.id),
       SESSION_STATUS.unconfirmed,
       [SESSION_STATUS.initiated, SESSION_STATUS.awaiting],
+      sessions.map(session => session.reason),
     );
     const derived = deriveStatus({
       amount: payment.amount,

@@ -187,7 +187,6 @@ export const up2payAdapter: GatewayAdapter = {
   capabilities: {
     queryable: false,
     settlesOnReturn: true,
-    partialCapture: false,
     chargesOnStart: false,
   },
 

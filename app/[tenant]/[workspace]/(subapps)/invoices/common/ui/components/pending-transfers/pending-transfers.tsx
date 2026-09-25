@@ -6,7 +6,7 @@ import {EllipsisVertical} from 'lucide-react';
 
 // ---- CORE IMPORTS ---- //
 import {i18n} from '@/locale';
-import {formatDate} from '@/locale/formatters';
+import {formatDate, formatDateTime} from '@/locale/formatters';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/ui/components';
 import {useToast} from '@/ui/hooks';
+import {transferDeadline} from '@/payment/domain/transfers';
 import {GATEWAY} from '@/payment/domain/types';
 import {
   formatMoney,
@@ -110,6 +111,15 @@ function PendingTransferEntry({
             )}
           </span>
         )}
+        {transfer.gateway === GATEWAY.stripeBankTransfer &&
+          transfer.startedOn && (
+            <span className="text-xs text-ink-500">
+              {i18n.t(
+                'Send the transfer by {0}; after that it is cancelled.',
+                formatDateTime(transferDeadline(new Date(transfer.startedOn))),
+              )}
+            </span>
+          )}
         {transfer.startedOn && (
           <span className="text-xs text-ink-500">
             {formatDate(transfer.startedOn, {dateFormat: 'YYYY-MM-DD'})}

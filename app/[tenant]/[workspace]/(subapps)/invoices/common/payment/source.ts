@@ -14,6 +14,8 @@ import {
 } from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {formatDateTime} from '@/locale/formatters';
+import {transferDeadline} from '@/payment/domain/transfers';
 import {findPartlyFundedTransfer, invoiceRemaining} from '@/payment/transfers';
 import {payerLocale, sendPaymentConfirmation} from '@/payment/confirmation';
 import {notifyInvoicePaymentSuccess} from '@/subapps/invoices/common/utils/notify';
@@ -96,9 +98,11 @@ export const invoicesPaymentSource: PaymentSourceHandler<
     const {$amount, $invoice, isPartialPayment} = validated.data;
 
     /* A transfer that has received part of its amount stays open for the
-     * rest, and nothing withdraws it; paid another way, the invoice would be
-     * paid twice once the rest arrives. So the payer completes that transfer,
-     * whatever method this start names. */
+     * rest until its window ends, when the portal cancels it and the part
+     * that arrived goes back to the payer; paid another way meanwhile, the
+     * invoice would be paid twice once the rest arrives. So the payer
+     * completes that transfer, whatever method this start names, or waits for
+     * its window to end. */
     const partlyFunded = await findPartlyFundedTransfer({
       client: tenant.client,
       invoiceId: $invoice.id,
@@ -107,11 +111,17 @@ export const invoicesPaymentSource: PaymentSourceHandler<
       return {
         error: true,
         message: await t(
-          'A bank transfer on this invoice has already received part of its amount. Send the remaining {0} using its bank details under pending transfers; another payment can be made once it completes.',
+          'A bank transfer on this invoice has already received part of its amount. Send the remaining {0} by {1} using its bank details under pending transfers; another payment can be made once it completes, or once it is cancelled after that date.',
           `${fromMinorUnits(
             partlyFunded.amount - partlyFunded.received,
             partlyFunded.currencyScale,
           )} ${partlyFunded.currencyCode}`,
+          /* As the pending list and the result page show it. A session has
+           * always recorded its start; were one not to, its window is
+           * counted from now. */
+          formatDateTime(
+            transferDeadline(partlyFunded.startedOn ?? new Date()),
+          ),
         ),
       };
     }

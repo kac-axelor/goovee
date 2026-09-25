@@ -24,32 +24,28 @@ export type GatewayCapabilities = {
   /** May the browser leg settle, for speed? Turning it off must change nothing but latency. */
   settlesOnReturn: boolean;
   /**
-   * Can a session be funded in part and stay open for the rest, as a bank
-   * transfer is? Such a session keeps its reconcile check while the payment
-   * reads partially captured, though the session itself reads captured.
-   */
-  partialCapture: boolean;
-  /**
    * Can creating the session move money before the payer does anything, as
    * confirming a Stripe bank transfer applies a customer's cash balance at
-   * once? A start of one whose handoff never came back goes to a person past
-   * its deadline, rather than being closed as "no answer".
+   * once? A start of one whose handoff never came back is closed as "no
+   * answer" past its deadline with a reason saying so, for finance to look up
+   * at the provider.
    */
   chargesOnStart: boolean;
 };
 
 /**
- * When the reconcile job looks at a session of this provider, and when an
- * unresolved one goes to a person. Most sessions are payable until an
- * expiry, and timed from it; a transfer the payer sends at leisure has no
- * expiry, and is timed from its start.
+ * When the reconcile job looks at a session of this provider, and its
+ * deadline. Past the deadline a session is asked daily and listed among the
+ * jobs past their time, until its provider answers or a month has gone by.
+ * Most sessions are payable until an expiry, and timed from it; a transfer
+ * the payer sends at leisure has no expiry, and is timed from its start.
  */
 export type ReconcilePolicy =
   | {
       timedFrom: 'expiry';
       /** How long before a provider that still says pending is asked again. */
       recheckMs: number;
-      /** Past the session's expiry, how long before a person decides. */
+      /** Past the session's expiry, how long before its deadline. */
       decideAfterExpiryMs: number;
     }
   | {
@@ -57,7 +53,7 @@ export type ReconcilePolicy =
       recheckMs: number;
       /** After the start, when it is first looked at. */
       firstCheckAfterMs: number;
-      /** After the start, how long before a person decides. */
+      /** After the start, how long before its deadline. */
       decideAfterMs: number;
     };
 
@@ -185,9 +181,10 @@ export interface GatewayAdapter {
    * others have nothing to cancel, or cannot be asked to.
    *
    * Never withdraws a session that has received any money, in part or in
-   * full: the provider may still accept the call, but what becomes of money
-   * already applied is not ours to decide, so the session is left for the
-   * provider's own event to settle.
+   * full, unless the request says its window is over (`abandoned`): then one
+   * funded in part goes too, the provider handing that part back to the
+   * payer. One paid in full is never withdrawn and is left for the provider's
+   * own event to settle.
    */
   cancelAwaiting?(
     sessionRef: string,

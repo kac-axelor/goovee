@@ -517,7 +517,6 @@ export const hubpispAdapter: GatewayAdapter = {
     /* The report address the bank sends the browser to carries nothing the
      * server can verify; the webhook and the reconciler learn the outcome. */
     settlesOnReturn: false,
-    partialCapture: false,
     chargesOnStart: false,
   },
 

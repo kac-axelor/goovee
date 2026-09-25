@@ -5,8 +5,11 @@ import {getAdapter} from './adapters/registry';
 import type {AwaitingInstructions} from './adapters/types';
 import {minorUnitsOf} from './domain/money';
 import {isTerminal} from './domain/status';
+import {transferDeadline} from './domain/transfers';
+import {returnedToPayer} from './transfers';
 import {
   DELIVERY_STATUS,
+  GATEWAY,
   PAYMENT_STATUS,
   type Gateway,
   type PaymentSource,
@@ -38,6 +41,10 @@ export type PaymentView = {
   onwardLink: `/${string}` | null;
   /** What the payer still has to do while the payment awaits their bank. Read on the page render only. */
   instructions: AwaitingInstructions | null;
+  /** When its Stripe bank transfer is cancelled if still open; null for any other gateway. */
+  transferDeadline: string | null;
+  /** What a cancelled Stripe bank transfer had received, and went back to the payer's Stripe cash balance; null when nothing had. */
+  returnedToPayer: number | null;
   createdOn: string | null;
   capturedOn: string | null;
 };
@@ -88,6 +95,19 @@ export async function findPaymentView(
    * a refused or cancelled one links back to where the buyer can try again. */
   const handler = getSourceHandler(payment.source as PaymentSource);
   const snapshot = await readSnapshot(client, payment.id);
+
+  /* The payment's latest Stripe bank transfer, for its window and, once it
+   * ended, for what it gives back. */
+  const [transfer] = await client.aOSPortalPaymentSession.find({
+    where: {payment: {id: payment.id}, gateway: GATEWAY.stripeBankTransfer},
+    select: {createdOn: true},
+    orderBy: {id: 'DESC'},
+    take: 1,
+  });
+  const returned =
+    transfer && status === PAYMENT_STATUS.cancelled
+      ? await returnedToPayer(client, transfer.id)
+      : null;
   const onwardLink = handler.onwardLink({
     subject: readSubject(payment.subjectModel, payment.subjectId),
     snapshot,
@@ -111,6 +131,10 @@ export async function findPaymentView(
     /* Asked of the provider, and only once the viewer may see the payment:
      * see findAwaitingInstructions. */
     instructions: null,
+    transferDeadline: transfer?.createdOn
+      ? transferDeadline(transfer.createdOn).toISOString()
+      : null,
+    returnedToPayer: returned?.amount ?? null,
     onwardLink,
     createdOn: payment.createdOn?.toISOString() ?? null,
     capturedOn: payment.capturedOn?.toISOString() ?? null,

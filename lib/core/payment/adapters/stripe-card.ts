@@ -24,7 +24,6 @@ export const stripeCardAdapter: GatewayAdapter = {
   capabilities: {
     queryable: true,
     settlesOnReturn: true,
-    partialCapture: false,
     chargesOnStart: false,
   },
 

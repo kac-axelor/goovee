@@ -49,12 +49,26 @@ export function deriveStatus({
    * said. Across sessions the balances add up, so a payment split over two
    * providers still reaches its amount. */
   const capturedBySession = new Map<string, number>();
+  /* A session that ended cancelled or expired while funded in part kept none
+   * of it: a Stripe bank transfer holds a partial funding on the intent, off
+   * the account's balance, and hands it back to the payer when it ends. */
+  const endedSessions = new Set(
+    ledger.flatMap(entry =>
+      entry.sessionId &&
+      (entry.type === EVENT_TYPE.cancelled || entry.type === EVENT_TYPE.expired)
+        ? [entry.sessionId]
+        : [],
+    ),
+  );
 
   for (const entry of ledger) {
     if (
       !entry.countable ||
       (entry.type !== EVENT_TYPE.captured &&
-        entry.type !== EVENT_TYPE.partiallyCaptured)
+        entry.type !== EVENT_TYPE.partiallyCaptured) ||
+      (entry.type === EVENT_TYPE.partiallyCaptured &&
+        entry.sessionId !== null &&
+        endedSessions.has(entry.sessionId))
     ) {
       continue;
     }
@@ -108,7 +122,6 @@ function statusFromSession(status: SessionStatus | null): PaymentStatus {
 export function sessionStatusFor(type: EventType): SessionStatus | null {
   switch (type) {
     case EVENT_TYPE.captured:
-    case EVENT_TYPE.partiallyCaptured:
       return SESSION_STATUS.captured;
     case EVENT_TYPE.refused:
       return SESSION_STATUS.refused;

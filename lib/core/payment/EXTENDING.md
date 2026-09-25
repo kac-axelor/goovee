@@ -20,14 +20,17 @@ In goovee:
        implement `fetchStatus`, and throw `SessionNotFoundError` only for "no
        such session";
      - `settlesOnReturn` — the browser's return may settle a payment;
-     - `partialCapture` — a session can be funded in part and stay open for the
-       rest;
      - `chargesOnStart` — creating a session can move money before the payer
        acts.
-   - `reconcile` — when the reconcile job looks at an open session, and when an
-     unresolved one goes to a person: `timedFrom: 'expiry'` with `recheckMs` and
-     `decideAfterExpiryMs`, or `timedFrom: 'start'` with `recheckMs`,
-     `firstCheckAfterMs` and `decideAfterMs` for a payment with no expiry.
+   - `reconcile` — when the reconcile job looks at an open session, and its
+     deadline: `timedFrom: 'expiry'` with `recheckMs` and `decideAfterExpiryMs`,
+     or `timedFrom: 'start'` with `recheckMs`, `firstCheckAfterMs` and
+     `decideAfterMs` for a payment with no expiry. Past the deadline a session
+     the provider still calls pending, or that cannot be asked, is asked again
+     daily and is listed among the jobs past their time, until 30 days past it
+     it is closed as "no answer"; a `'start'` session whose adapter can
+     `cancelAwaiting` is cancelled at its deadline instead, whatever part of it
+     arrived, and settled as the provider reports it.
    - `isConfigured`, `createSession`, `parseReturn` and `parseNotification`, and
      `describeAwaiting` / `cancelAwaiting` where the payer pays later against
      instructions. `createSession` answers with a handoff of kind `redirect`,

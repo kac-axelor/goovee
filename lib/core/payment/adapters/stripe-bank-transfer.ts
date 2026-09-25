@@ -4,7 +4,12 @@ import {randomUUID} from 'node:crypto';
 import type Stripe from 'stripe';
 
 import {fromMinorUnits, scaleOfCurrency} from '../domain/money';
-import {isWithdrawn, type WithdrawalRequest} from '../domain/transfers';
+import {
+  BANK_TRANSFER_WINDOW_MS,
+  isWithdrawn,
+  transferDeadline,
+  type WithdrawalRequest,
+} from '../domain/transfers';
 import {GATEWAY, OBSERVED_VIA, type ObservedVia} from '../domain/types';
 import {
   gatewayOf,
@@ -57,9 +62,6 @@ const instructionsCache = new Map<
   string,
   {value: AwaitingInstructions | null; expiresAt: number}
 >();
-
-/** Stripe closes unfunded bank-transfer intents after this long. */
-const INTENT_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 
 /* A transfer needs a Stripe customer to fund. One is looked up by the payer's
  * address and created when missing, under an idempotency key derived from the
@@ -142,18 +144,17 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
   capabilities: {
     queryable: true,
     settlesOnReturn: true,
-    partialCapture: true,
     chargesOnStart: true,
   },
 
-  /* The payer sends the transfer when they choose, so there is no expiry to
-   * wait for: asked daily from the start, and a person looks at one still
-   * awaiting two weeks after it was started. */
+  /* The payer sends the transfer when they choose, within its window: asked
+   * daily from the start, and cancelled at the provider when the window
+   * ends, whatever part of it arrived. */
   reconcile: {
     timedFrom: 'start',
     recheckMs: 24 * 60 * 60 * 1000,
     firstCheckAfterMs: 24 * 60 * 60 * 1000,
-    decideAfterMs: 14 * 24 * 60 * 60 * 1000,
+    decideAfterMs: BANK_TRANSFER_WINDOW_MS,
   },
 
   /* Without the signing secret nothing would ever confirm a transfer, and the
@@ -220,7 +221,9 @@ export const stripeBankTransferAdapter: GatewayAdapter = {
        * the instructions. */
       handoff: {kind: 'redirect', url: completeUrl.toString()},
       sessionRef: paymentIntent.id,
-      expiresOn: new Date(Date.now() + INTENT_LIFETIME_MS),
+      /* The end of its window, when the portal cancels it: what the ERP
+       * shows as its expiry. */
+      expiresOn: transferDeadline(new Date()),
     };
   },
 
@@ -287,9 +290,10 @@ const CANCELABLE_STATUSES: ReadonlySet<Stripe.PaymentIntent.Status> = new Set([
 /**
  * Whether a bank-transfer intent may be withdrawn. A transfer Stripe has
  * applied any money to — a partial funding, or a cash balance it used at
- * confirmation — is funded even while it still waits for the rest: Stripe
- * would accept the cancel, and does not say what becomes of the money already
- * applied. Any state not known to be safe counts as funded.
+ * confirmation — is funded even while it still waits for the rest: the
+ * invoice guard and the payer leave it be. At the end of its window it goes
+ * anyway, and Stripe returns what was applied to the customer's cash balance
+ * (checked in test mode). Any state not known to be safe counts as funded.
  */
 export function classifyTransferIntent(
   paymentIntent: Pick<
@@ -332,13 +336,13 @@ export type TransferIntentClient = {
 };
 
 /**
- * Withdraws a bank-transfer intent unless it has received money, and reports
- * the provider's own account of it either way. The intent is read immediately
+ * Withdraws a bank-transfer intent unless it has received money, or whatever
+ * it received once its window is over (`abandoned`), and reports the
+ * provider's own account of it either way. The intent is read immediately
  * before the cancel, because Stripe offers no cancel that is conditional on
  * the intent being unfunded. Money that reaches Stripe between the read and
- * the cancel is the one case this cannot rule out, and a cancelled intent no
- * longer says what was applied to it; Stripe keeps unapplied money in the
- * customer's cash balance.
+ * the cancel is the one case this cannot rule out; Stripe returns money
+ * applied to a cancelled intent to the customer's cash balance.
  *
  * What the transfer asks for is read from the intent, not the ledger: a later
  * press on the same payment rewrites the payment's amount, while the intent
@@ -367,7 +371,15 @@ export async function cancelTransferIntent(
     throw new Error(`Stripe intent ${intentId} is not one of ours`);
   }
   const state = classifyTransferIntent(before);
-  if (state !== 'cancelable') {
+  /* Past its window a transfer goes even if part of it arrived: Stripe holds
+   * that part on the intent, off the account's balance, and gives it back to
+   * the customer's cash balance when the intent is cancelled. One Stripe
+   * completed is not cancelable and is left to be settled as paid. */
+  const abandonedInPart =
+    request.reason === 'abandoned' &&
+    state === 'funded' &&
+    CANCELABLE_STATUSES.has(before.status);
+  if (state !== 'cancelable' && !abandonedInPart) {
     return {
       outcome: state === 'ended' ? 'already-ended' : 'funded',
       signal: transferSignal(before, tenantId, request.reason),

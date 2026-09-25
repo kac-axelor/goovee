@@ -145,7 +145,6 @@ export const payboxAdapter: GatewayAdapter = {
      * the only durable confirmation, which makes it load-bearing. */
     queryable: false,
     settlesOnReturn: true,
-    partialCapture: false,
     chargesOnStart: false,
   },
 

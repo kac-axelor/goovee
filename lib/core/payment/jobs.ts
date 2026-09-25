@@ -37,15 +37,12 @@ const BATCH_SIZE = 20;
 
 /**
  * What a handler asks of its job once it has run: nothing, and the job is
- * done and removed; to run again at a later time, as a check that found
- * nothing yet does, with when a person will be needed if it still finds
- * nothing; or to wait for a person, with the reason they will read. A handler
- * that throws is retried with a backoff instead.
+ * done and removed; or to run again at a later time, as a check that found
+ * nothing yet does, with the deadline past which the row is listed among the
+ * jobs past their time. A handler that throws is retried with a backoff
+ * instead.
  */
-export type JobOutcome =
-  | void
-  | {runAgainAt: Date; decideBy?: Date}
-  | {needsDecision: string};
+export type JobOutcome = void | {runAgainAt: Date; decideBy?: Date};
 
 type JobHandler = (args: {
   tenant: Tenant;
@@ -187,19 +184,6 @@ async function complete(
       job.version,
       outcome.runAgainAt,
       outcome.decideBy ?? null,
-    );
-    return;
-  }
-  if (outcome && 'needsDecision' in outcome) {
-    /* Never claimed again: it waits on the grid until a person acts. */
-    await tenant.client.$raw(
-      `UPDATE portal_portal_payment_job
-          SET classification = 'needs_decision', escalate_on = now(),
-              last_error = $3, updated_on = now()
-        WHERE id = $1 AND version = $2`,
-      job.id,
-      job.version,
-      outcome.needsDecision.slice(0, 4000),
     );
     return;
   }

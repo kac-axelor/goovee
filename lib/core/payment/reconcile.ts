@@ -12,6 +12,8 @@ import {
 import type {JobOutcome} from './jobs';
 import {triggerProjection} from './project';
 import {fromMinorUnits, scaleOfCurrency} from './domain/money';
+import {RECONCILE_GIVE_UP_AFTER_MS} from './domain/transfers';
+import {returnedToPayer} from './transfers';
 import {recheckAfter, reconcileSchedule} from './reconcile-schedule';
 import {closeUnanswered, settlePayment} from './settle';
 
@@ -24,13 +26,21 @@ import {closeUnanswered, settlePayment} from './settle';
  * swept. Deleted in T2 once no session is left open.
  *
  * A provider that can be asked is asked, and what it attests is settled like
- * any other event. One that cannot — Paybox, Up2Pay — is never guessed at: it
- * waits a week for its IPN, then is closed as "no answer", which is not
- * expired or cancelled and lists the payment for finance to check; a late IPN
- * still settles it. A Stripe bank transfer may be paid a week later and is
- * awaiting all along, so it is asked daily and goes to a person only by age;
- * nothing here ever expires one.
+ * any other event; past the session's deadline it is still asked, daily, until
+ * it gives its final answer. One that cannot — Paybox, Up2Pay — is never
+ * guessed at: it waits a week for its IPN, then is closed as "no answer",
+ * which is not expired or cancelled and lists the payment for finance to
+ * check; a late IPN still settles it. A Stripe bank transfer is asked daily
+ * for its whole window and cancelled at the provider when the window ends,
+ * whatever part of it arrived.
  */
+
+/* Past its deadline a session is still asked, once a day: its provider gives
+ * a final answer in the end, and the row stays past its escalation date, so the
+ * payment is listed among the jobs past their time meanwhile. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const PAST_DEADLINE_RECHECK_MS = DAY_MS;
 
 type OpenSession = {
   id: string;
@@ -43,10 +53,11 @@ type OpenSession = {
 };
 
 /**
- * The `reconcile` job for one payment. Looks at each session still open —
- * and, while the payment is funded in part, at its transfers — asks the
- * providers that can be asked, settles what they attest, and says when to
- * look again or that a person has to.
+ * The `reconcile` job for one payment. Looks at each session still open, asks
+ * the providers that can be asked, settles what they attest, cancels a bank
+ * transfer whose window is over, closes as no answer what no provider will
+ * answer for, and says when to look again. Never hands the payment to a
+ * person.
  */
 export async function reconcilePayment({
   tenant,
@@ -65,7 +76,6 @@ export async function reconcilePayment({
   if (!payment || payment.status === PAYMENT_STATUS.captured) {
     return;
   }
-  const partlyFunded = payment.status === PAYMENT_STATUS.partiallyCaptured;
 
   const rows = await client.aOSPortalPaymentSession.find({
     where: {payment: {id: paymentId}},
@@ -80,14 +90,10 @@ export async function reconcilePayment({
     orderBy: {id: 'ASC'},
   });
   const sessions: OpenSession[] = rows.flatMap(row => {
+    /* A session funded in part stays awaiting until it completes or ends. */
     const open =
       row.status === SESSION_STATUS.initiated ||
-      row.status === SESSION_STATUS.awaiting ||
-      /* A session keeps its first outcome, so one funded in part reads
-       * captured; only a provider that funds in parts leaves it open. */
-      (partlyFunded &&
-        row.status === SESSION_STATUS.captured &&
-        getAdapter(row.gateway as Gateway).capabilities.partialCapture);
+      row.status === SESSION_STATUS.awaiting;
     return open
       ? [
           {
@@ -107,12 +113,11 @@ export async function reconcilePayment({
   }
 
   const now = Date.now();
-  const decisions: string[] = [];
   const failures: unknown[] = [];
-  const unanswered: string[] = [];
+  const unanswered: {id: string; reason: string | null}[] = [];
   let lookAgainAt: number | null = null;
   /* The soonest deadline among the sessions still waiting, so the row's own
-   * escalation date says when a person will next be needed. */
+   * escalation date says since when a session has been past its time. */
   let decideBy: number | null = null;
   const lookAgain = (at: number, deadline: Date) => {
     lookAgainAt = lookAgainAt === null ? at : Math.min(lookAgainAt, at);
@@ -120,6 +125,84 @@ export async function reconcilePayment({
       decideBy === null
         ? deadline.getTime()
         : Math.min(decideBy, deadline.getTime());
+  };
+
+  /* Nothing else says whose money waits in Stripe: the payment reads
+   * cancelled and needs no one. Said whichever way the cancellation reached
+   * the ledger, once, when it is first settled. */
+  const sayReturned = async (session: OpenSession) => {
+    const returned = await returnedToPayer(client, session.id);
+    if (returned) {
+      console.warn(
+        `[PAYMENT][RECONCILE] ${payment.reference}: bank transfer ${session.sessionRef} was cancelled; ${fromMinorUnits(returned.amount, scaleOfCurrency(returned.currencyCode))} ${returned.currencyCode} it had received went back to the payer's Stripe cash balance. Check the balance in Stripe before refunding it: Stripe applies it to the payer's next open transfer.`,
+      );
+    }
+  };
+
+  /* Asked again, daily past the deadline, while the provider has no final
+   * word; a month past it, it is not waited on any longer and the session is
+   * closed as no answer. Only ever after asking, so a final answer that
+   * arrives late still settles. */
+  const waitOrGiveUp = (
+    session: OpenSession,
+    decideAt: Date,
+    pastDeadline: boolean,
+  ) => {
+    if (now >= decideAt.getTime() + RECONCILE_GIVE_UP_AFTER_MS) {
+      unanswered.push({
+        id: session.id,
+        reason: `No final answer from ${session.gateway} ${Math.round(RECONCILE_GIVE_UP_AFTER_MS / DAY_MS)} days past its deadline; look the payment up in the provider's back office by its reference`,
+      });
+      return;
+    }
+    lookAgain(
+      now +
+        (pastDeadline
+          ? PAST_DEADLINE_RECHECK_MS
+          : recheckAfter(session.gateway)),
+      decideAt,
+    );
+  };
+
+  /* Cancelled at the provider and settled as the provider then reports it.
+   * A cancellation or a capture ends the session. Anything else, a transfer
+   * the provider still holds open, a settle that changed nothing or a cancel
+   * that failed, is looked at again tomorrow and given up on like any other
+   * unanswered session. */
+  const endTransfer = async (
+    session: OpenSession & {sessionRef: string},
+    decideAt: Date,
+  ) => {
+    try {
+      const ended = await getAdapter(session.gateway).cancelAwaiting!(
+        session.sessionRef,
+        {reason: 'abandoned'},
+        {tenantId: tenant.id, config: tenant.config},
+      );
+      const outcome = await settlePayment({signal: ended.signal, tenant});
+      if (outcome.outcome === 'settled' && outcome.projectionQueued) {
+        await triggerProjection({tenant, reference: outcome.reference});
+      }
+      if (outcome.outcome === 'settled') {
+        if (ended.signal.type === EVENT_TYPE.cancelled) {
+          await sayReturned(session);
+        }
+        if (
+          ended.signal.type === EVENT_TYPE.cancelled ||
+          ended.signal.type === EVENT_TYPE.captured
+        ) {
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `[PAYMENT][RECONCILE] ${payment.reference}: bank transfer ${session.sessionRef} could not be cancelled at the end of its window; tried again tomorrow`,
+        error,
+      );
+      waitOrGiveUp(session, decideAt, true);
+      return;
+    }
+    waitOrGiveUp(session, decideAt, true);
   };
 
   for (const session of sessions) {
@@ -135,6 +218,8 @@ export async function reconcilePayment({
     const pastDeadline = now >= decideAt.getTime();
     const adapter = getAdapter(session.gateway);
 
+    /* Nothing to ask by: closed at the deadline, so it never waits long
+     * enough to be given up on. */
     if (!adapter.capabilities.queryable || !session.sessionRef) {
       if (!pastDeadline) {
         lookAgain(decideAt.getTime(), decideAt);
@@ -144,14 +229,18 @@ export async function reconcilePayment({
       ) {
         /* A start that can move money before the payer does anything, as
          * confirming a Stripe bank transfer applies the customer's cash
-         * balance at once. With no handle to ask by, a person looks it up. */
-        decisions.push(neverHandled(payment.reference, session));
+         * balance at once. With no handle to ask by, it is closed as no
+         * answer, with what finance needs to look it up. */
+        unanswered.push({
+          id: session.id,
+          reason: `The ${session.gateway} session was never given a provider handle, and starting it may already have applied the customer's cash balance; look the payment up in the provider's dashboard by its reference`,
+        });
       } else {
         /* A form-post provider that sent no IPN in a week, or a start whose
          * handoff never reached the payer — nothing to pay with, since the
          * handle is recorded before the handoff is returned. Closed as no
          * answer, for finance to check, never as expired. */
-        unanswered.push(session.id);
+        unanswered.push({id: session.id, reason: null});
       }
       continue;
     }
@@ -167,28 +256,36 @@ export async function reconcilePayment({
        * finance to check, whatever the deadline — asking again changes
        * nothing. */
       if (error instanceof SessionNotFoundError) {
-        unanswered.push(session.id);
+        unanswered.push({id: session.id, reason: null});
         continue;
       }
       if (pastDeadline) {
-        decisions.push(
-          `Payment ${payment.reference}: ${session.gateway} could not be asked about session ${session.sessionRef} (${error instanceof Error ? error.message : String(error)}); look it up in the provider's back office by the payment's reference, then record an out-of-band capture or cancel`,
+        console.warn(
+          `[PAYMENT][RECONCILE] ${payment.reference}: ${session.gateway} could not be asked about session ${session.sessionRef}; asked again tomorrow`,
+          error,
         );
+        waitOrGiveUp(session, decideAt, true);
       } else {
         failures.push(error);
       }
       continue;
     }
 
+    /* A transfer the payer has had its whole window for ends now: cancelled
+     * at the provider, whatever part of it arrived. */
+    const windowOver =
+      pastDeadline &&
+      adapter.reconcile.timedFrom === 'start' &&
+      Boolean(adapter.cancelAwaiting);
+
     if (signal.type === 'pending') {
-      if (pastDeadline) {
-        decisions.push(
-          adapter.reconcile.timedFrom === 'start'
-            ? `Payment ${payment.reference}: the bank transfer ${session.sessionRef} has been awaiting the payer's bank since ${session.createdOn.toISOString()}; ask the payer, or cancel the transfer`
-            : `Payment ${payment.reference}: ${session.gateway} still reports session ${session.sessionRef} as pending past its expiry; look it up in the provider's back office, then record an out-of-band capture or cancel`,
+      if (windowOver) {
+        await endTransfer(
+          {...session, sessionRef: session.sessionRef},
+          decideAt,
         );
       } else {
-        lookAgain(now + recheckAfter(session.gateway), decideAt);
+        waitOrGiveUp(session, decideAt, pastDeadline);
       }
       continue;
     }
@@ -197,24 +294,51 @@ export async function reconcilePayment({
     if (outcome.outcome === 'settled' && outcome.projectionQueued) {
       await triggerProjection({tenant, reference: outcome.reference});
     }
-    /* The provider answered, but what it said was not recorded on this
-     * payment: the row must not end while the payment is still open. */
+    /* The provider answered with something this payment does not hold:
+     * another tenant's reference, or none of ours. Asking again changes
+     * nothing, so the session is closed as no answer. */
     if (outcome.outcome === 'rejected') {
-      decisions.push(
-        `Payment ${payment.reference}: ${session.gateway} reported session ${session.sessionRef} as ${signal.type}, which was not recorded on this payment (${outcome.reason}); look it up in the provider's back office, then record it by hand`,
-      );
+      unanswered.push({
+        id: session.id,
+        reason: `${session.gateway} reported the session as ${signal.type}, which names no payment of ours (${outcome.reason}); look it up in the provider's back office`,
+      });
       continue;
     }
+    /* The provider's event is already recorded on another payment, so this
+     * session will never move by it: closed as no answer, naming that
+     * payment. */
+    if (
+      outcome.outcome === 'duplicate' &&
+      outcome.recordedOn !== payment.reference
+    ) {
+      unanswered.push({
+        id: session.id,
+        reason: `${session.gateway} reported the session as ${signal.type}, which is already recorded on payment ${outcome.recordedOn}; look it up in the provider's back office`,
+      });
+      continue;
+    }
+    /* Nothing new was recorded and the session may still be open: looked at
+     * again rather than letting the row go under it. */
+    if (
+      (outcome.outcome === 'duplicate' || outcome.outcome === 'pending') &&
+      signal.type !== EVENT_TYPE.partiallyCaptured
+    ) {
+      waitOrGiveUp(session, decideAt, pastDeadline);
+      continue;
+    }
+    /* A cancellation that reached us by asking, the first time it is seen:
+     * after a cancel whose settle failed, or one made at the provider. */
+    if (outcome.outcome === 'settled' && signal.type === EVENT_TYPE.cancelled) {
+      await sayReturned(session);
+    }
     /* Funded in part: the rest may still come, so the transfer is asked
-     * again tomorrow, until its deadline; then a person asks the payer. */
+     * again tomorrow, until its window ends; then it is cancelled, and the
+     * part that arrived goes back to the payer's cash balance. */
     if (signal.type === EVENT_TYPE.partiallyCaptured) {
-      if (pastDeadline) {
-        const received =
-          signal.amount !== null && signal.currencyCode
-            ? `${fromMinorUnits(signal.amount, scaleOfCurrency(signal.currencyCode))} ${signal.currencyCode}`
-            : 'part of its amount';
-        decisions.push(
-          `Payment ${payment.reference}: the bank transfer ${session.sessionRef} has received ${received} since ${session.createdOn.toISOString()} and not the rest; ask the payer for the rest, or refund what arrived`,
+      if (windowOver) {
+        await endTransfer(
+          {...session, sessionRef: session.sessionRef},
+          decideAt,
         );
       } else {
         lookAgain(now + recheckAfter(session.gateway), decideAt);
@@ -226,12 +350,9 @@ export async function reconcilePayment({
    * waiting has the quiet one out of the way whatever the other comes to.
    * Once no session is left open this also ends the row. */
   if (unanswered.length) {
-    await closeUnanswered({tenant, paymentId, sessionIds: unanswered});
+    await closeUnanswered({tenant, paymentId, sessions: unanswered});
   }
 
-  if (decisions.length) {
-    return {needsDecision: decisions.join('\n')};
-  }
   if (failures.length) {
     throw new AggregateError(
       failures,
@@ -244,8 +365,4 @@ export async function reconcilePayment({
       ...(decideBy !== null && {decideBy: new Date(decideBy)}),
     };
   }
-}
-
-function neverHandled(reference: string, session: OpenSession): string {
-  return `Payment ${reference}: the ${session.gateway} session was never given a provider handle${session.failureReason ? ` (${session.failureReason})` : ''}, and starting it may already have applied the customer's cash balance; look the payment up in the provider's dashboard by its reference, then record an out-of-band capture or cancel`;
 }

@@ -8,7 +8,7 @@ import {i18n} from '@/locale';
 import {formatDateTime} from '@/locale/formatters';
 import {Button} from '@/ui/components';
 import {useWorkspace} from '@/app/[tenant]/[workspace]/workspace-context';
-import {DELIVERY_STATUS, PAYMENT_STATUS} from '@/payment/domain/types';
+import {DELIVERY_STATUS, GATEWAY, PAYMENT_STATUS} from '@/payment/domain/types';
 import type {PaymentView} from '@/payment/view';
 import {
   formatMoney,
@@ -25,6 +25,18 @@ type Presentation = {
   heading: string;
   body: string;
 };
+
+/* A Stripe bank transfer is cancelled at the end of its window; the payer is
+ * told the date wherever the transfer still waits on them. */
+function withWindow(view: PaymentView, body: string): string {
+  if (view.gateway !== GATEWAY.stripeBankTransfer || !view.transferDeadline) {
+    return body;
+  }
+  return `${body} ${i18n.t(
+    'Send the transfer by {0}; after that it is cancelled.',
+    formatDateTime(view.transferDeadline),
+  )}`;
+}
 
 function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
   const amount = formatMoney(
@@ -82,10 +94,13 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
       return {
         tone: 'pending',
         heading: i18n.t('Partly received'),
-        body: i18n.t(
-          '{0} of {1} has been received. The remainder is still expected.',
-          captured,
-          amount,
+        body: withWindow(
+          view,
+          i18n.t(
+            '{0} of {1} has been received. The remainder is still expected.',
+            captured,
+            amount,
+          ),
         ),
       };
     case PAYMENT_STATUS.refused:
@@ -97,6 +112,24 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
         ),
       };
     case PAYMENT_STATUS.cancelled:
+      /* A bank transfer cancelled at the end of its window after part of it
+       * arrived: that part stays in the payer's cash balance at Stripe, which
+       * applies it to their next transfer unless it is refunded. */
+      if (view.returnedToPayer && view.transferDeadline) {
+        return {
+          tone: 'neutral',
+          heading: i18n.t('Payment cancelled'),
+          body: i18n.t(
+            'The transfer was cancelled after {0}. The {1} you sent is held for you at our payment provider: it is used for your next bank transfer, or returned to you.',
+            formatDateTime(view.transferDeadline),
+            formatMoney(
+              view.returnedToPayer,
+              view.currencyCode,
+              view.currencyScale,
+            ),
+          ),
+        };
+      }
       return {
         tone: 'neutral',
         heading: i18n.t('Payment cancelled'),
@@ -126,9 +159,12 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
         return {
           tone: 'pending',
           heading: i18n.t('Waiting for your bank'),
-          body: i18n.t(
-            'Transfer {0} to the account below, quoting the payment reference. We will email you once it has arrived.',
-            amount,
+          body: withWindow(
+            view,
+            i18n.t(
+              'Transfer {0} to the account below, quoting the payment reference. We will email you once it has arrived.',
+              amount,
+            ),
           ),
         };
       }

@@ -459,7 +459,6 @@ export const paypalAdapter: GatewayAdapter = {
     /* Our server makes the capture, so the browser leg is how the outcome is
      * learnt first-hand; the webhook is the backstop. */
     settlesOnReturn: true,
-    partialCapture: false,
     chargesOnStart: false,
   },
 
