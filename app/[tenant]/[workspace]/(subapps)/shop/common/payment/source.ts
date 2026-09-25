@@ -256,7 +256,7 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
     if (!parsed.success) {
       return {
         delivered: false,
-        reason: 'The order snapshot does not have the expected shape',
+        reason: `The order snapshot does not have the expected shape: ${z.prettifyError(parsed.error)}`,
       };
     }
     const {

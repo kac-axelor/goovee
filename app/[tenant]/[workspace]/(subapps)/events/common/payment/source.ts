@@ -168,7 +168,7 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
     if (!parsed.success) {
       return {
         delivered: false,
-        reason: 'The registration snapshot does not have the expected shape',
+        reason: `The registration snapshot does not have the expected shape: ${z.prettifyError(parsed.error)}`,
       };
     }
     const {eventId, values, registeredBy, workspaceUrl, configId} = parsed.data;

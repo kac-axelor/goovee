@@ -152,7 +152,7 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
       if (!parsed.success) {
         return {
           delivered: false,
-          reason: 'The purchase snapshot does not have the expected shape',
+          reason: `The purchase snapshot does not have the expected shape: ${z.prettifyError(parsed.error)}`,
         };
       }
       const {cart, mainPartnerId, ordererId, companyId} = parsed.data;

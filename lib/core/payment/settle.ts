@@ -382,7 +382,7 @@ export async function settlePayment({
           }
         } else {
           deliveryStatus = DELIVERY_STATUS.undeliverable;
-          deliveryReason = delivery.reason;
+          deliveryReason = delivery.reason.slice(0, DELIVERY_REASON_MAX_LENGTH);
         }
         await txClient.$raw('RELEASE SAVEPOINT deliver');
       } catch (error) {
