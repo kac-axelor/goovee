@@ -126,9 +126,9 @@ export interface PaymentSourceHandler<
    * does not throw there: jobs run in a background scope, where it renders the
    * portal's default locale. A payer's own language is not in that scope, so
    * translate what the payer reads with `getTranslation` given their locale and
-   * the tenant. Mail is handed to the mail service and not waited on, so its
-   * delivery never fails the job; throwing runs the whole notification again
-   * later.
+   * the tenant. Mail and push are handed off and not waited on, so their
+   * delivery never fails or holds the job; throwing runs the whole
+   * notification again later.
    */
   notify?(args: {
     payment: NotifiedPayment;

@@ -39,7 +39,8 @@ function isRegistrant(contact: NoticeContact, registrant: Registrant) {
  * a paid one, and it leans on no request, so a paid registration's
  * confirmation job can send it from the job clock.
  *
- * The mail is handed to the mail service first, and the push follows.
+ * The mail and the push are handed off, the mail first, and neither is
+ * waited on: their delivery and retries are the mail and push services'.
  *
  * A paid registration's amount and reference go only in the payer's own
  * mail. A payer who registered other people and not themselves is in no
@@ -116,7 +117,7 @@ export async function announceRegistration({
       : [],
   );
 
-  await notifyAll(recipients, async contact => {
+  void notifyAll(recipients, async contact => {
     const translate = getTranslation.bind(null, {
       locale: contact.localization?.code || DEFAULT_LOCALE,
       tenant: tenant.id,
