@@ -38,8 +38,8 @@ const BATCH_SIZE = 20;
 /**
  * What a handler asks of its job once it has run: nothing, and the job is
  * done and removed; or to run again at a later time, as a check that found
- * nothing yet does, with the deadline past which the row is listed among the
- * jobs past their time. A handler that throws is retried with a backoff
+ * nothing yet does, with the deadline past which the row is listed under
+ * Pending tasks as overdue. A handler that throws is retried with a backoff
  * instead.
  */
 export type JobOutcome = void | {runAgainAt: Date; decideBy?: Date};

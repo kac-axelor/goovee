@@ -33,7 +33,10 @@ import {resolvePayment} from './resolve';
 import {getSourceHandler} from './sources/registry';
 import {readSnapshot} from './intent';
 
-/** How long a projection job may stay open before the payment counts as needing attention. */
+/**
+ * How long a projection job may stay open before the payment is listed under
+ * Payments to resolve.
+ */
 const PROJECTION_GRACE_SECONDS = 5 * 60;
 
 /* How much of a delivery error is kept as the undeliverable reason. */
@@ -67,11 +70,11 @@ function isRetryableDatabaseError(error: unknown): boolean {
 }
 
 /* A transfer left open can be paid while the check waits, so the check is
- * listed among the jobs past their time sooner than a projection would be. */
+ * listed under Pending tasks as overdue sooner than a projection would be. */
 const TRANSFER_CHECK_GRACE_SECONDS = 2 * 60;
 
 /* A confirmation still unsent after this is a payer who paid and heard
- * nothing, listed among the jobs past their time: long enough for a retry or
+ * nothing, listed under Pending tasks as overdue: long enough for a retry or
  * two, short enough to be noticed. */
 const NOTIFY_GRACE_SECONDS = 15 * 60;
 
@@ -194,8 +197,8 @@ export async function settlePayment({
     if (!Array.isArray(inserted) || inserted.length === 0) {
       /* The webhook's word on a capture the browser recorded first. Nothing
        * about the money changes, but the event is now confirmed by the
-       * provider's own transport, and leaves the ERP's "Confirmed by the
-       * browser only" list. */
+       * provider's own transport, and leaves the ERP's Missed webhooks
+       * list. */
       if (signal.observedVia === OBSERVED_VIA.webhook) {
         await txClient.$raw(
           `UPDATE portal_portal_payment_event

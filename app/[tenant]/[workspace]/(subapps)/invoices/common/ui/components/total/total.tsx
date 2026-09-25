@@ -232,7 +232,7 @@ export function Total({
         <div className="rounded-lg p-4 bg-status-overdue-bg/40 border border-status-overdue-bg flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-status-overdue-fg">
-              {i18n.t('Remaining to pay')}
+              {i18n.t('Amount remaining')}
             </span>
             <span className="text-xl font-bold text-status-overdue-fg tabular-nums">
               {amountRemaining?.formattedValue}

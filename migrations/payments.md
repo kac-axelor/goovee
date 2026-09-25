@@ -366,17 +366,62 @@ WHERE
 ```
 
 Restoring the views does not remove what earlier builds loaded: the _To book in
-the ERP_ and _Unmatched events_ menus stay under _Portal › Payments_ and open
-views of models that are gone. Delete both menus in _Administration › Menus_,
-or per tenant:
+the ERP_, _Unmatched events_ and _Unconfirmed_ menus stay under _Portal ›
+Payments_, the first two opening views of models that are gone and the last a
+list _All payments_ now has as its _No answer from the provider_ filter. Delete
+the three menus in _Administration › Menus_, or per tenant, with the groups and
+roles that point at them, and the actions they opened:
 
 ```sql
+BEGIN;
+
+DELETE FROM meta_menu_groups
+WHERE
+  meta_menu_id IN (
+    SELECT
+      id
+    FROM
+      meta_menu
+    WHERE
+      name IN (
+        'menu-portal-payment-finance',
+        'menu-portal-payment-unmatched',
+        'menu-portal-payment-unconfirmed'
+      )
+  );
+
+DELETE FROM meta_menu_roles
+WHERE
+  menus IN (
+    SELECT
+      id
+    FROM
+      meta_menu
+    WHERE
+      name IN (
+        'menu-portal-payment-finance',
+        'menu-portal-payment-unmatched',
+        'menu-portal-payment-unconfirmed'
+      )
+  );
+
 DELETE FROM meta_menu
 WHERE
   name IN (
     'menu-portal-payment-finance',
-    'menu-portal-payment-unmatched'
+    'menu-portal-payment-unmatched',
+    'menu-portal-payment-unconfirmed'
   );
+
+DELETE FROM meta_action
+WHERE
+  name IN (
+    'action.portal.payment.finance.open',
+    'action.portal.payment.unmatched',
+    'action.portal.payment.unconfirmed'
+  );
+
+COMMIT;
 ```
 
 ## 4. Configure AOS
@@ -386,8 +431,8 @@ WHERE
   payment through `ws/portal/payments/drain`, which checks it.
 - **No scheduler.** `quartz.enable` is not needed. The portal asks AOS to book
   each payment as it is captured; one that could not be booked then — AOS
-  unreachable, a configuration to fix — waits under _Needs attention_ for
-  _Retry projection_, as does any booking that needs a person's decision.
+  unreachable, a configuration to fix — waits under _Payments to resolve_ for
+  _Register payment_, as does any booking that needs a person's decision.
 - **One time zone.** Run the AOS JVM, the database and the portal in the same
   zone, for example UTC: `-Duser.timezone=UTC` on the JVM,
   `ALTER ROLE <role> SET timezone = 'UTC'` on the database role (or the
@@ -459,7 +504,7 @@ Deploy the new portal. Then, per tenant:
    `/<tenant>/<workspace>/payments/<reference>` reads paid, and the payment is under _Portal › Payments › All payments_ in
    the ERP with its ERP invoice payment linked.
 2. In the provider's dashboard, the webhook delivery for that payment succeeded.
-   From then on, _Confirmed by the browser only_ in the ERP lists, per
+   From then on, _Technical › Missed webhooks_ in the ERP lists, per
    provider, the captures a webhook left unconfirmed.
 
 A payer who presses a payment button on a page loaded before the deploy starts
@@ -488,23 +533,30 @@ DROP TABLE IF EXISTS portal_payment_context;
 
 What the ERP's _Portal › Payments_ menu shows, and what finance does with it.
 
-- _Needs attention_ — a payment whose delivery failed, one more captured than
+- _Payments to resolve_ — a payment whose delivery failed, one more captured than
   it was for, or one whose booking in the ERP needs a decision or still fails
   past its time.
   Settle it outside the portal, then press _Resolve_ on the payment with what
   was done: the purchase honoured another way, the excess given back at the
   provider, the booking made in the ERP by hand. The payment then stops
   waiting; the reason, who and when are kept on it.
-- _Unconfirmed_ — payments whose provider never answered. The portal asks a
-  provider that can be asked daily past the session's deadline, and closes the
-  session as unconfirmed 30 days past it; it closes one at once when the
-  provider no longer holds it, names another payment, or was never given the
-  provider's handle. The session's failure reason says which, and what to look
-  up at the provider.
-- _Confirmed by the browser only_ — captures the provider's webhook never
-  confirmed, grouped by provider.
-- _Jobs past their time_ — every payment job still open past its time, by kind,
-  including the provider checks still waiting on an answer.
+- _All payments_ — every payment, with filters by status and by app. Its _No
+  answer from the provider_ filter lists the payments whose provider never
+  answered. The portal asks a provider that can be asked daily past the
+  session's deadline, and closes the session with no answer 30 days past it; it
+  closes one at once when the provider no longer holds it, names another
+  payment, or was never given the provider's handle. The session's failure
+  reason says which, and what to look up at the provider.
+- _Technical_:
+  - _Missed webhooks_ — captures the provider's webhook never confirmed,
+    grouped by provider.
+  - _Pending tasks_ — every payment job by kind, opened on the overdue ones,
+    including the provider checks still waiting on an answer.
+  - _Payment attempts_, _Provider notifications_ and _Manual entries_ — every
+    payment's attempts at the provider, what the provider reported, and what a
+    person entered from a back office.
+- _Configuration › Payment methods_ — the payment methods a workspace offers,
+  formerly _Portal › Configuration › Payment config_.
 
 ### Refunds and disputes
 
@@ -528,15 +580,16 @@ Its booking, if still to run, runs as usual.
 
 Verifone does not retry a failed notification. If the portal is down when a
 payer validates and the payer does not return to the result page, a payment
-really made ends up _Unconfirmed_ a week later, its invoice or order still
+really made ends up with no answer from the provider a week later, its invoice or order still
 unpaid, and the payer may pay again.
 
 - Verifone mails "PAYBOX: WARNING!!" to the merchant address it holds whenever a
   notification fails. On receiving one, find the payment by its `GVP-` reference
   in the Paybox or Up2Pay back office and, if it was paid, record it on the
-  payment in the ERP with _Record a capture from the back office_. It is then
+  payment in the ERP with _Record payment received_. It is then
   settled as the notification would have settled it.
-- Check _Unconfirmed_ against the provider's back office weekly, for example
+- Check _All payments_ filtered on _No answer from the provider_ against the
+  provider's back office weekly, for example
   every Monday, which covers the week a payment waits before it lands there.
 - A payer who paid twice has one payment refunded at the provider, and the ERP
   side booked by hand.
@@ -545,8 +598,9 @@ unpaid, and the payer may pay again.
 
 PayPal answers "no such order" for every order when the credentials point at
 another account or environment — live and sandbox swapped, an app rotated. Every
-open PayPal payment is then closed as unconfirmed on its next check. Nothing is
-lost, but check _Unconfirmed_ for a burst after changing them.
+open PayPal payment is then closed with no answer on its next check. Nothing is
+lost, but check _No answer from the provider_ under _All payments_ for a burst
+after changing them.
 
 ### Confirmations sent twice
 
@@ -572,7 +626,7 @@ Leave them off, or accept the second mail.
 The ERP sends the mails above from inside the booking of the payment. With the
 planned stock move mail switched on but no template set, the mail fails and the
 whole booking of a shop or marketplace payment fails with it; it waits under
-_Needs attention_ until the template is set and _Retry projection_ is pressed.
+_Payments to resolve_ until the template is set and _Register payment_ is pressed.
 A booking that fails after its mails were queued may send them again when
 retried.
 

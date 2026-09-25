@@ -27,8 +27,8 @@ In goovee:
      or `timedFrom: 'start'` with `recheckMs`, `firstCheckAfterMs` and
      `decideAfterMs` for a payment with no expiry. Past the deadline a session
      the provider still calls pending, or that cannot be asked, is asked again
-     daily and is listed among the jobs past their time, until 30 days past it
-     it is closed as "no answer"; a `'start'` session whose adapter can
+     daily and is listed under Pending tasks as overdue, until 30 days past it,
+     when it is closed as "no answer"; a `'start'` session whose adapter can
      `cancelAwaiting` is cancelled at its deadline instead, whatever part of it
      arrived, and settled as the provider reports it.
    - `isConfigured`, `createSession`, `parseReturn` and `parseNotification`, and

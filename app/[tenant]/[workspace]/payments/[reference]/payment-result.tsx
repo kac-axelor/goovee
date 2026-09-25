@@ -60,7 +60,7 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
       ) {
         return {
           tone: 'pending',
-          heading: i18n.t('Payment received'),
+          heading: i18n.t('Payment received, order on hold'),
           body: i18n.t(
             'Your payment of {0} has been received. We could not complete your order automatically; our team will contact you.',
             amount,
@@ -107,9 +107,7 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
       return {
         tone: 'failure',
         heading: i18n.t('Payment declined'),
-        body: i18n.t(
-          'Your payment provider declined the payment. Nothing has been charged.',
-        ),
+        body: i18n.t('The payment was declined. Nothing has been charged.'),
       };
     case PAYMENT_STATUS.cancelled:
       /* A bank transfer cancelled at the end of its window after part of it
@@ -120,7 +118,7 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
           tone: 'neutral',
           heading: i18n.t('Payment cancelled'),
           body: i18n.t(
-            'The transfer was cancelled after {0}. The {1} you sent is held for you at our payment provider: it is used for your next bank transfer, or returned to you.',
+            'The transfer was cancelled after {0}. The {1} you sent will be used for your next bank transfer to us, or refunded to you.',
             formatDateTime(view.transferDeadline),
             formatMoney(
               view.returnedToPayer,
@@ -138,7 +136,7 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
     case PAYMENT_STATUS.expired:
       return {
         tone: 'neutral',
-        heading: i18n.t('This payment session expired'),
+        heading: i18n.t('This payment timed out'),
         body: i18n.t(
           'The payment was not completed in time. Nothing has been charged.',
         ),
@@ -150,7 +148,7 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
         tone: 'pending',
         heading: i18n.t('Waiting for confirmation'),
         body: i18n.t(
-          'We have not heard back from your payment provider yet. We will email you once the payment of {0} is confirmed.',
+          'We are still waiting for confirmation of your payment of {0}. We will email you once it is confirmed.',
           amount,
         ),
       };
@@ -158,11 +156,11 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
       if (view.instructions) {
         return {
           tone: 'pending',
-          heading: i18n.t('Waiting for your bank'),
+          heading: i18n.t('Waiting for your transfer'),
           body: withWindow(
             view,
             i18n.t(
-              'Transfer {0} to the account below, quoting the payment reference. We will email you once it has arrived.',
+              'Transfer {0} to the account below, quoting the transfer reference. We will email you once it has arrived.',
               amount,
             ),
           ),
@@ -173,7 +171,7 @@ function presentationOf(view: PaymentView, gaveUp: boolean): Presentation {
         heading: i18n.t('Waiting for confirmation'),
         body: gaveUp
           ? i18n.t(
-              'We have not heard back from your payment provider yet. We will email you once the payment of {0} is confirmed.',
+              'We are still waiting for confirmation of your payment of {0}. We will email you once it is confirmed.',
               amount,
             )
           : i18n.t('Confirming your payment of {0}…', amount),
@@ -261,7 +259,7 @@ export function PaymentResult({
         <p className="mt-2 text-base">{presentation.body}</p>
         <dl className="mt-6 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-ink-500">{i18n.t('Reference')}</dt>
+            <dt className="text-ink-500">{i18n.t('Payment reference')}</dt>
             <dd className="font-mono">{view.reference}</dd>
           </div>
           {view.subjectLabel && (

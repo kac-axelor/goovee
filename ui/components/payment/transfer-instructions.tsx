@@ -43,14 +43,18 @@ export function TransferInstructions({
   currencyScale: number;
   className?: string;
 }) {
-  const rows: [string, string | undefined][] = [
+  const rows: [label: string, value: string | undefined, hint?: string][] = [
     [i18n.t('Account holder'), instructions.accountHolder],
     [i18n.t('IBAN'), instructions.iban],
     [i18n.t('BIC'), instructions.bic],
     [i18n.t('Bank'), instructions.bankName],
     [i18n.t('Routing number'), instructions.routingNumber],
     [i18n.t('Account number'), instructions.accountNumber],
-    [i18n.t('Payment reference'), instructions.reference],
+    [
+      i18n.t('Transfer reference'),
+      instructions.reference,
+      i18n.t('Enter this in the reference field of your bank transfer.'),
+    ],
     [
       i18n.t('Amount remaining'),
       instructions.amountRemaining
@@ -72,10 +76,11 @@ export function TransferInstructions({
       )}>
       {rows
         .filter(([, value]) => Boolean(value))
-        .map(([label, value]) => (
+        .map(([label, value, hint]) => (
           <div key={label}>
             <dt className="text-ink-500">{label}</dt>
             <dd className="font-mono break-words">{value}</dd>
+            {hint && <dd className="text-xs text-ink-500">{hint}</dd>}
           </div>
         ))}
     </dl>

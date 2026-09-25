@@ -84,8 +84,8 @@ export const JOB_KIND = {
   applyRecorded: 'apply_recorded',
   /**
    * More was captured than the payment was for. Not run by anyone: it is
-   * written already parked for a decision, so the payment needs attention
-   * until a person resolves it in the ERP.
+   * written already parked for a decision, so the payment is listed under
+   * Payments to resolve until a person resolves it in the ERP.
    */
   overCaptured: 'over_captured',
 } as const;

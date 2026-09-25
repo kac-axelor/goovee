@@ -37,7 +37,7 @@ import {closeUnanswered, settlePayment} from './settle';
 
 /* Past its deadline a session is still asked, once a day: its provider gives
  * a final answer in the end, and the row stays past its escalation date, so the
- * payment is listed among the jobs past their time meanwhile. */
+ * payment is listed under Pending tasks as overdue meanwhile. */
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const PAST_DEADLINE_RECHECK_MS = DAY_MS;

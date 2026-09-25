@@ -35,8 +35,9 @@ export type GatewayCapabilities = {
 
 /**
  * When the reconcile job looks at a session of this provider, and its
- * deadline. Past the deadline a session is asked daily and listed among the
- * jobs past their time, until its provider answers or a month has gone by.
+ * deadline. Past the deadline a session is asked daily and listed under
+ * Pending tasks as overdue, until its provider answers or a month has gone
+ * by.
  * Most sessions are payable until an expiry, and timed from it; a transfer
  * the payer sends at leisure has no expiry, and is timed from its start.
  */

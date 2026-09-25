@@ -98,7 +98,7 @@ function PendingTransferEntry({
         </span>
         {partlyReceived && (
           <span className="text-xs">
-            <span className="font-medium">{i18n.t('Remaining')}:</span>{' '}
+            <span className="font-medium">{i18n.t('Amount remaining')}:</span>{' '}
             <span className="font-semibold tabular-nums">
               {formatMoney(transfer.remaining, currencyCode, currencyScale)}
             </span>

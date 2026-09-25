@@ -129,7 +129,7 @@ export async function startPayment({
   if (prepared.data.money.amount <= 0) {
     return {
       error: true,
-      message: await t('The amount must be greater than zero'),
+      message: await t('The amount must be greater than zero.'),
     };
   }
   /* Every provider takes and reports an amount at the currency's own scale,

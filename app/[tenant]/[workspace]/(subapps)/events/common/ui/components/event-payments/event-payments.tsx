@@ -65,7 +65,7 @@ export function EventPayments({
     if (Number(scale(total, event.priceScale)) <= 0) {
       toast({
         variant: 'destructive',
-        title: i18n.t('Total price must be greater than zero.'),
+        title: i18n.t('The amount must be greater than zero.'),
       });
       return false;
     }
