@@ -48,6 +48,29 @@ import {readSnapshot} from './intent';
 /** How long a projection job may stay open before the payment counts as needing attention. */
 const PROJECTION_GRACE_SECONDS = 5 * 60;
 
+/* How much of a delivery error is kept as the undeliverable reason. */
+const DELIVERY_REASON_MAX_LENGTH = 2000;
+
+/* SQLSTATEs a second attempt can get past: deadlock, serialization failure,
+ * lock not available, statement cancelled by a timeout. */
+const RETRYABLE_SQLSTATES = new Set(['40P01', '40001', '55P03', '57014']);
+
+/* The driver's error carries the SQLSTATE as `code`, on the error itself or on
+ * the driver error the query layer wraps. */
+function isRetryableDatabaseError(error: unknown): boolean {
+  const codeOf = (value: unknown): unknown =>
+    typeof value === 'object' && value !== null && 'code' in value
+      ? (value as {code: unknown}).code
+      : null;
+  const driverError =
+    typeof error === 'object' && error !== null && 'driverError' in error
+      ? (error as {driverError: unknown}).driverError
+      : null;
+  return [codeOf(error), codeOf(driverError)].some(
+    code => typeof code === 'string' && RETRYABLE_SQLSTATES.has(code),
+  );
+}
+
 /* A transfer left open can be paid while the check waits, so it counts as
  * needing attention sooner than a projection does. */
 const TRANSFER_CHECK_GRACE_SECONDS = 2 * 60;
@@ -135,6 +158,31 @@ export async function settlePayment({
       (signal.type !== 'pending' && isDisputeEvent(signal.type))
     ) {
       await recordUnmatched({signal, client});
+      /* The capture that names this reference may have been settling at the
+       * same time: its references committed after the lookup above, and its
+       * replay of unmatched events ran before this one was recorded. Looked
+       * up once more, and if found, settled there, carrying the reference so
+       * the row just recorded is marked matched. */
+      if (signal.resolution.by === 'correlationRef') {
+        const again = await resolvePayment({
+          resolution: signal.resolution,
+          gateway: signal.gateway,
+          tenantId: tenant.id,
+          client,
+        });
+        if (again.kind === 'found') {
+          return settlePayment({
+            signal: {
+              ...signal,
+              correlationRefs: [
+                ...signal.correlationRefs,
+                signal.resolution.correlationRef,
+              ],
+            },
+            tenant,
+          });
+        }
+      }
       return {outcome: 'unmatched'};
     }
     return {outcome: 'rejected', reason: 'not-found'};
@@ -275,60 +323,87 @@ export async function settlePayment({
     let gooveeJobsQueued = false;
 
     if (firstCapture) {
-      const handler = getSourceHandler(
-        payment.source as Parameters<typeof getSourceHandler>[0],
-      );
-      const snapshot = await readSnapshot(txClient, payment.id);
-      const delivery = await handler.deliver({
-        payment: {
-          id: payment.id,
-          reference: payment.reference,
-          money: {
-            amount: payment.amount,
-            currencyCode: payment.currencyCode,
-            currencyScale: payment.currencyScale,
-          },
-          payer: payment.payer,
-          workspaceId: payment.workspaceId,
-          paymentModeId: payment.paymentModeId,
-        },
-        snapshot,
-        txClient,
-        tenant,
-      });
-
-      const misfit =
-        delivery.delivered && delivery.subject
-          ? await subjectMisfit(txClient, payment, delivery.subject)
-          : null;
-      if (misfit) {
-        deliveryStatus = DELIVERY_STATUS.undeliverable;
-        deliveryReason = misfit;
-      } else if (delivery.delivered) {
-        deliveryStatus = DELIVERY_STATUS.delivered;
-        subject = delivery.subject;
-        await upsertJob(
-          txClient,
-          payment.id,
-          JOB_KIND.project,
-          PROJECTION_GRACE_SECONDS,
+      /* A delivery that throws must not take the capture with it: Postgres
+       * aborts the whole transaction on a failed statement, so the delivery and
+       * what depends on it run under a savepoint that is rolled back on error,
+       * and the payment is left undeliverable for a person, money kept. */
+      await txClient.$raw('SAVEPOINT deliver');
+      try {
+        const handler = getSourceHandler(
+          payment.source as Parameters<typeof getSourceHandler>[0],
         );
-        projectionQueued = true;
-        /* Written with the capture, so the confirmation survives whatever
-         * becomes of this request. An undeliverable payment is a human's to
-         * decide and is not confirmed. */
-        if (handler.notify) {
+        const snapshot = await readSnapshot(txClient, payment.id);
+        const delivery = await handler.deliver({
+          payment: {
+            id: payment.id,
+            reference: payment.reference,
+            money: {
+              amount: payment.amount,
+              currencyCode: payment.currencyCode,
+              currencyScale: payment.currencyScale,
+            },
+            payer: payment.payer,
+            workspaceId: payment.workspaceId,
+            paymentModeId: payment.paymentModeId,
+          },
+          snapshot,
+          txClient,
+          tenant,
+        });
+
+        const misfit =
+          delivery.delivered && delivery.subject
+            ? await subjectMisfit(txClient, payment, delivery.subject)
+            : null;
+        if (misfit) {
+          deliveryStatus = DELIVERY_STATUS.undeliverable;
+          deliveryReason = misfit;
+        } else if (delivery.delivered) {
+          deliveryStatus = DELIVERY_STATUS.delivered;
+          subject = delivery.subject;
           await upsertJob(
             txClient,
             payment.id,
-            JOB_KIND.notify,
-            NOTIFY_GRACE_SECONDS,
+            JOB_KIND.project,
+            PROJECTION_GRACE_SECONDS,
           );
-          gooveeJobsQueued = true;
+          projectionQueued = true;
+          /* Written with the capture, so the confirmation survives whatever
+           * becomes of this request. An undeliverable payment is a human's to
+           * decide and is not confirmed. */
+          if (handler.notify) {
+            await upsertJob(
+              txClient,
+              payment.id,
+              JOB_KIND.notify,
+              NOTIFY_GRACE_SECONDS,
+            );
+            gooveeJobsQueued = true;
+          }
+        } else {
+          deliveryStatus = DELIVERY_STATUS.undeliverable;
+          deliveryReason = delivery.reason;
         }
-      } else {
+        await txClient.$raw('RELEASE SAVEPOINT deliver');
+      } catch (error) {
+        await txClient.$raw('ROLLBACK TO SAVEPOINT deliver');
+        /* A deadlock or a timeout is the database's, not the purchase's: the
+         * whole settle is undone and the provider or the reconcile runs it
+         * again, as before there was a savepoint. */
+        if (isRetryableDatabaseError(error)) {
+          throw error;
+        }
         deliveryStatus = DELIVERY_STATUS.undeliverable;
-        deliveryReason = delivery.reason;
+        deliveryReason = `Delivery failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`.slice(0, DELIVERY_REASON_MAX_LENGTH);
+        subject = null;
+        projectionQueued = false;
+        gooveeJobsQueued = false;
+        console.error(
+          `[PAYMENT][DELIVER] ${payment.reference} delivery failed; the capture is kept and the payment is undeliverable`,
+          error,
+        );
       }
     }
 

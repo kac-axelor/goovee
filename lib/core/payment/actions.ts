@@ -7,6 +7,7 @@ import {manager} from '@/tenant';
 import {TENANT_HEADER} from '@/proxy';
 import {t} from '@/locale/server';
 import type {ActionResponse} from '@/types/action';
+import {HUBPISP_OPTIONS} from './adapters/hubpisp';
 import {GatewaySchema} from './adapters/registry';
 import {PaymentSourceSchema} from './sources/registry';
 import {startPayment, type StartResult} from './start';
@@ -17,7 +18,7 @@ const StartPaymentSchema = z.object({
   submitToken: z.string().min(16).max(128),
   intent: z.unknown(),
   /** A variant of the gateway, such as an instant or a standard transfer. */
-  option: z.string().min(1).max(32).optional(),
+  option: z.enum(HUBPISP_OPTIONS).optional(),
 });
 
 export type StartPaymentInput = z.input<typeof StartPaymentSchema>;

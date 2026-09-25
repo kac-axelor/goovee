@@ -92,11 +92,11 @@ export function isOurUp2payNotification(request: Request): boolean {
   return parseCommand(command) !== null;
 }
 
-function signalFromQuery(
-  rawQuery: string,
-  observedVia: ObservedVia,
-  outcome: string | null,
-): GatewaySignal {
+/**
+ * Whether Verifone signed this query, read without the database. Throws when
+ * the public key is not deployed, since nothing can be verified then.
+ */
+export function isSignedByUp2pay(rawQuery: string): boolean {
   const {pairs, signature} = signedPairs(rawQuery);
   const message = pairs
     .map(
@@ -105,17 +105,24 @@ function signalFromQuery(
     )
     .join('&');
   if (!signature || !message) {
-    throw new Error('Up2Pay response carries no signed fields');
+    return false;
   }
-  if (
-    !verifyVerifoneSignature(
-      message,
-      signature,
-      readVerifonePublicKey('up2pay'),
-    )
-  ) {
+  return verifyVerifoneSignature(
+    message,
+    signature,
+    readVerifonePublicKey('up2pay'),
+  );
+}
+
+function signalFromQuery(
+  rawQuery: string,
+  observedVia: ObservedVia,
+  outcome: string | null,
+): GatewaySignal {
+  if (!isSignedByUp2pay(rawQuery)) {
     throw new Error('Up2Pay response signature is invalid');
   }
+  const {pairs} = signedPairs(rawQuery);
 
   const command = parseCommand(fieldValue(pairs, 'reference'));
   if (!command) {

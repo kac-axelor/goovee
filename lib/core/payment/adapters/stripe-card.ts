@@ -3,6 +3,7 @@ import 'server-only';
 import {EVENT_TYPE, GATEWAY, OBSERVED_VIA} from '../domain/types';
 import {
   getStripe,
+  ourReference,
   readStripeEvent,
   retrieveSession,
   signalForSession,
@@ -106,6 +107,17 @@ export const stripeCardAdapter: GatewayAdapter = {
     }
 
     let session = await retrieveSession(stripe, sessionId);
+    /* Before anything is done to it: a session id alone, or another tenant on
+     * the same Stripe account, must not be able to end an open checkout. */
+    if (
+      !ourReference(
+        session.metadata,
+        session.client_reference_id,
+        context.tenantId,
+      )
+    ) {
+      throw new Error(`Stripe session ${sessionId} is not one of ours`);
+    }
 
     /* The buyer left the Checkout page. That is the browser's word, so the
      * server makes it the provider's: it expires the still-open session at

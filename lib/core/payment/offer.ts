@@ -4,7 +4,7 @@ import type {PaymentConfig} from '@/orm/workspace';
 import type {Tenant} from '@/tenant';
 import {PaymentOption} from '@/types';
 import {getPaymentModeId, isPaymentOptionAvailable} from '@/utils/payment';
-import {HUBPISP_OPTIONS} from './adapters/hubpisp';
+import {isHubPispOption, type HubPispOption} from './adapters/hubpisp';
 import {listAdapters, paymentOptionFor} from './adapters/registry';
 import {GATEWAY, type Gateway, type PaymentSource} from './domain/types';
 import {paymentsReady} from './schema-probe';
@@ -13,14 +13,14 @@ import {getSourceHandler} from './sources/registry';
 /** One button: a gateway, and for a gateway that comes in variants, which one. */
 export type OfferedGateway = {
   gateway: Gateway;
-  option?: string;
+  option?: HubPispOption;
 };
 
 /* The workspace lists the transfer types it accepts on its HUB PISP method,
  * comma-separated; none listed means the method is not offered. */
-function hubPispOptions(
+export function hubPispOptions(
   paymentOptions: PaymentConfig['paymentOptionSet'] | undefined,
-): string[] {
+): HubPispOption[] {
   const raw = (paymentOptions ?? []).find(
     option => option.typeSelect === PaymentOption.hubpisp,
   )?.transferTypeSelect;
@@ -30,7 +30,7 @@ function hubPispOptions(
   return raw
     .split(',')
     .map(value => value.trim())
-    .filter(value => HUBPISP_OPTIONS.includes(value));
+    .filter(isHubPispOption);
 }
 
 /**

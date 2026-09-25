@@ -9,8 +9,9 @@ export const PROJECTION_WAIT_MS = 4000;
 /**
  * Asks AOS to run a payment's projection job now. Best effort and for latency
  * only: the job row is already committed, so a call that fails or times out
- * changes nothing except how soon the result page reads "complete". A human
- * or a scheduler drains the same row later through the same service.
+ * changes nothing except how soon the result page reads "complete". Nothing
+ * runs the row again on its own: it waits under Needs attention for a
+ * person's Retry projection, which drains it through the same service.
  */
 export async function triggerProjection({
   tenant,

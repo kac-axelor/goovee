@@ -237,6 +237,32 @@ export function signalForPaymentIntent(
   return pendingSignal({gateway, resolution, sessionRef, observedVia, payload});
 }
 
+/* Keyed by the refund's id, so the charge's event and the refund's own
+ * update record one refund once, whichever comes first. */
+function refundSignal(
+  gateway: Gateway,
+  chargeId: string,
+  refund: Stripe.Refund,
+  payload: Record<string, unknown>,
+): GatewaySignal {
+  return {
+    gateway,
+    resolution: {by: 'correlationRef', correlationRef: chargeId},
+    type: EVENT_TYPE.refunded,
+    eventId: refund.id,
+    amount: refund.amount,
+    currencyCode: refund.currency.toUpperCase(),
+    providerRef: refund.id,
+    sessionRef: null,
+    correlationRefs: [],
+    reason: refund.reason ?? null,
+    deadline: null,
+    observedVia: OBSERVED_VIA.webhook,
+    observedOn: new Date(refund.created * 1000),
+    payload: {...payload, refundId: refund.id},
+  };
+}
+
 /** The Stripe events the shared parser turns into signals. Others are acknowledged and ignored. */
 const HANDLED_EVENTS = new Set<Stripe.Event.Type>([
   'checkout.session.completed',
@@ -246,6 +272,7 @@ const HANDLED_EVENTS = new Set<Stripe.Event.Type>([
   'payment_intent.partially_funded',
   'payment_intent.canceled',
   'charge.refunded',
+  'charge.refund.updated',
   'charge.dispute.created',
   'charge.dispute.closed',
 ]);
@@ -292,22 +319,12 @@ export async function signalsForStripeEvent(
       if (gatewayOf(paymentIntent.metadata) === GATEWAY.stripeCard) {
         return [];
       }
-      /* A card intent's session is looked up so the capture is attached to
-       * the session that paid, whichever of the two webhooks arrives first. */
-      let sessionId: string | null = null;
-      if (gatewayOf(paymentIntent.metadata) === GATEWAY.stripeCard) {
-        const sessions = await stripe.checkout.sessions.list({
-          payment_intent: paymentIntent.id,
-          limit: 1,
-        });
-        sessionId = sessions.data[0]?.id ?? null;
-      }
       const signal = signalForPaymentIntent(
         paymentIntent,
         tenantId,
         OBSERVED_VIA.webhook,
         payload,
-        sessionId,
+        null,
       );
       return signal ? [signal] : [];
     }
@@ -321,22 +338,27 @@ export async function signalsForStripeEvent(
         charge: charge.id,
         limit: 100,
       });
-      return refunds.data.map(refund => ({
-        gateway,
-        resolution: {by: 'correlationRef', correlationRef: charge.id} as const,
-        type: EVENT_TYPE.refunded,
-        eventId: refund.id,
-        amount: refund.amount,
-        currencyCode: refund.currency.toUpperCase(),
-        providerRef: refund.id,
-        sessionRef: null,
-        correlationRefs: [],
-        reason: refund.reason ?? null,
-        deadline: null,
-        observedVia: OBSERVED_VIA.webhook,
-        observedOn: new Date(refund.created * 1000),
-        payload: {...payload, refundId: refund.id},
-      }));
+      /* Only money that has left: a refund still pending may yet fail, and
+       * its own update says when it succeeds. */
+      return refunds.data
+        .filter(refund => refund.status === 'succeeded')
+        .map(refund => refundSignal(gateway, charge.id, refund, payload));
+    }
+    case 'charge.refund.updated': {
+      const refund = event.data.object;
+      const chargeId = idOf(refund.charge);
+      if (refund.status !== 'succeeded' || !chargeId) {
+        return [];
+      }
+      /* The refund's own metadata is empty; the charge carries whose payment
+       * this is and at which gateway. */
+      const charge = await stripe.charges.retrieve(chargeId);
+      if (!ourReference(charge.metadata, null, tenantId)) {
+        return [];
+      }
+      return [
+        refundSignal(gatewayOf(charge.metadata), chargeId, refund, payload),
+      ];
     }
     case 'charge.dispute.created': {
       const dispute = event.data.object;

@@ -19,6 +19,7 @@
   "A bank transfer on this invoice has already received part of its amount. Send the remaining {0} using its bank details under pending transfers; another payment can be made once it completes.": "A bank transfer on this invoice has already received part of its amount. Send the remaining {0} using its bank details under pending transfers; another payment can be made once it completes.",
   "A confirmation email has just been sent to you.": "A confirmation email has just been sent to you.",
   "A new code has been sent.": "A new code has been sent.",
+  "A payment on this invoice is being finalised. Try again in a few minutes.": "A payment on this invoice is being finalised. Try again in a few minutes.",
   "A published or in-review version cannot be saved as a draft. Unpublish it first.": "A published or in-review version cannot be saved as a draft. Unpublish it first.",
   "A question about your order?": "A question about your order?",
   "A question?": "A question?",

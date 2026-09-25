@@ -389,6 +389,15 @@ async function verifyWebhook(
   return event;
 }
 
+/** Why PayPal denied a capture: its status details carry the reason code. */
+function deniedReason(details: unknown): string {
+  const reason =
+    typeof details === 'object' && details !== null && 'reason' in details
+      ? (details as {reason: unknown}).reason
+      : null;
+  return typeof reason === 'string' ? reason : 'DENIED';
+}
+
 /** The id at the end of a webhook resource's "up" link, which names what it applies to. */
 function upLinkId(resource: Record<string, unknown>): string | null {
   const links = resource.links as {rel?: string; href?: string}[] | undefined;
@@ -440,9 +449,7 @@ export function signalsForWebhookEvent(
           correlationRefs: [orderId, id].filter((ref): ref is string =>
             Boolean(ref),
           ),
-          reason: completed
-            ? null
-            : String(resource.status_details ?? 'DENIED'),
+          reason: completed ? null : deniedReason(resource.status_details),
         },
       ];
     }

@@ -1,5 +1,7 @@
 import 'server-only';
 
+import type {z} from 'zod';
+
 import type {Client} from '@/goovee/.generated/client';
 import type {IntentSnapshot} from './sources/types';
 
@@ -54,4 +56,25 @@ export async function readSnapshot(
   });
   const data = row ? await row.data : null;
   return (data ?? {}) as IntentSnapshot;
+}
+
+/**
+ * Reads a snapshot through its source's schema. The row is JSON written by an
+ * earlier release as much as by this one, so it is parsed rather than trusted:
+ * one that does not fit reads as empty, and the source's own checks then treat
+ * it as a snapshot that names nothing.
+ */
+export function parseSnapshot<T>(
+  schema: z.ZodType<T>,
+  snapshot: IntentSnapshot,
+): Partial<T> {
+  const parsed = schema.safeParse(snapshot);
+  if (!parsed.success) {
+    console.warn(
+      '[PAYMENT][SNAPSHOT] a payment snapshot does not have the expected shape',
+      parsed.error.issues,
+    );
+    return {};
+  }
+  return parsed.data;
 }

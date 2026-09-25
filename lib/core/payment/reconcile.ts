@@ -198,6 +198,14 @@ export async function reconcilePayment({
     if (outcome.outcome === 'settled' && outcome.projectionQueued) {
       await triggerProjection({tenant, reference: outcome.reference});
     }
+    /* The provider answered, but what it said was not recorded on this
+     * payment: the row must not end while the payment is still open. */
+    if (outcome.outcome === 'rejected' || outcome.outcome === 'unmatched') {
+      decisions.push(
+        `Payment ${payment.reference}: ${session.gateway} reported session ${session.sessionRef} as ${signal.type}, which was not recorded on this payment (${outcome.outcome === 'rejected' ? outcome.reason : 'unmatched'}); look it up in the provider's back office, then record it by hand`,
+      );
+      continue;
+    }
     /* Funded in part: the rest may still come, so the transfer is asked
      * again tomorrow, until its deadline; then a person asks the payer. */
     if (signal.type === EVENT_TYPE.partiallyCaptured) {

@@ -2,6 +2,7 @@ import 'server-only';
 
 import {z} from 'zod';
 
+import {IdSchema} from '@/utils/validators';
 import {currentWorkspace} from '@/url/current';
 import {t} from '@/locale/server';
 import {SUBAPP_CODES} from '@/constants';
@@ -12,7 +13,8 @@ import {
 } from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
-import {findPartlyFundedTransfer} from '@/payment/transfers';
+import {parseSnapshot} from '@/payment/intent';
+import {findPartlyFundedTransfer, invoiceRemaining} from '@/payment/transfers';
 import {
   payerLocale,
   sendPaymentConfirmation,
@@ -24,16 +26,21 @@ import {
   resolveInvoicePaymentAccess,
   validatePaymentData,
 } from '@/subapps/invoices/common/utils/validations';
+import {INVOICE_PAYMENT_OPTIONS} from '@/subapps/invoices/common/constants/invoices';
 import {SUBJECT_MODEL, subjectIdOf} from '@/payment/domain/subject';
 
 const InvoiceIntentSchema = z.object({
-  invoiceId: z.string().min(1),
+  invoiceId: IdSchema,
   /** The amount the payer chose, as a decimal string; checked against the invoice and the workspace's policy. */
   amount: z.string().min(1),
-  token: z.string().optional(),
+  token: z.string().min(1).max(255).optional(),
 });
 
 type InvoiceIntent = z.infer<typeof InvoiceIntentSchema>;
+
+const InvoiceSnapshotSchema = z
+  .object({invoiceId: z.string(), token: z.string().nullable()})
+  .partial();
 
 type InvoiceSnapshot = {
   invoiceId: string;
@@ -133,6 +140,44 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
       $invoice.currency?.code,
     );
 
+    /* The ERP learns of a capture only once it is projected, so its remaining
+     * amount still counts money already taken. What is owed is judged on the
+     * ledger too, or a second payment could start while the first is on its
+     * way to the ERP. An invoice that cannot be judged this way keeps the
+     * ERP's figure, checked above. */
+    const owed = await invoiceRemaining({
+      client: tenant.client,
+      invoiceId: $invoice.id,
+      currencyCode: currency.code,
+      scale: currency.scale,
+    });
+    if ('remaining' in owed) {
+      const requested = toMinorUnits($amount, currency.scale);
+      if (owed.remaining <= 0) {
+        return {
+          error: true,
+          message: await t(
+            'A payment on this invoice is being finalised. Try again in a few minutes.',
+          ),
+        };
+      }
+      if (
+        config.canPayInvoice === INVOICE_PAYMENT_OPTIONS.TOTAL &&
+        requested !== owed.remaining
+      ) {
+        return {
+          error: true,
+          message: await t('Payment must match the total amount'),
+        };
+      }
+      if (requested > owed.remaining) {
+        return {
+          error: true,
+          message: await t('Payment exceeds the remaining amount.'),
+        };
+      }
+    }
+
     const snapshot: InvoiceSnapshot = {
       invoiceId: $invoice.id,
       token: intent.token ?? null,
@@ -214,13 +259,13 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
   },
 
   onwardLink({subject, snapshot}) {
+    const read = parseSnapshot(InvoiceSnapshotSchema, snapshot);
     const invoiceId =
-      subjectIdOf(subject, SUBJECT_MODEL.invoice) ??
-      (snapshot as Partial<InvoiceSnapshot>).invoiceId;
+      subjectIdOf(subject, SUBJECT_MODEL.invoice) ?? read.invoiceId;
     if (!invoiceId) {
       return null;
     }
-    const token = (snapshot as Partial<InvoiceSnapshot>).token;
+    const token = read.token;
     return `/${SUBAPP_CODES.invoices}/${invoiceId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   },
 };

@@ -136,6 +136,37 @@ async function claim(
   return claimedRows(result);
 }
 
+/*
+ * The batch is claimed at once but run one job after another, so a job late
+ * in it may have outlived its lease, and been claimed and run elsewhere, by
+ * the time its turn comes. The claim is taken again right before its handler,
+ * with a fresh lease; a job whose version moved on since is someone else's now
+ * and is skipped. Returns the job under its new version, or null.
+ */
+async function reclaim(
+  tenant: Tenant,
+  job: ClaimedJob,
+): Promise<ClaimedJob | null> {
+  const result = await tenant.client.$raw(
+    `UPDATE portal_portal_payment_job
+        SET next_attempt_on = now() + make_interval(secs => $3),
+            version = version + 1,
+            updated_on = now()
+      WHERE id = $1 AND version = $2
+      RETURNING version`,
+    job.id,
+    job.version,
+    LEASE_SECONDS,
+  );
+  const rows =
+    Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+  const row: unknown = Array.isArray(rows) ? rows[0] : null;
+  if (typeof row !== 'object' || row === null || !('version' in row)) {
+    return null;
+  }
+  return {...job, version: Number((row as {version: unknown}).version)};
+}
+
 /* Keyed on the version this claim set, which only ever grows: a capture that
  * queued the same job again while this one ran moved it on, and that fresh
  * request must still run, even if another claim has taken it since. */
@@ -218,9 +249,13 @@ export async function runPaymentJobs({
 }): Promise<JobRunSummary> {
   const summary: JobRunSummary = {completed: 0, failed: 0};
   const jobs = await claim(tenant, paymentId);
-  for (const job of jobs) {
-    const handler = HANDLERS[job.kind];
+  for (const claimed of jobs) {
+    const handler = HANDLERS[claimed.kind];
     if (!handler) {
+      continue;
+    }
+    const job = await reclaim(tenant, claimed);
+    if (!job) {
       continue;
     }
     try {

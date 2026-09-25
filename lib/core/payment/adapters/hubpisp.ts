@@ -64,13 +64,20 @@ const LINK_FETCH_ATTEMPTS = 3;
 /** The shape of a BPCE resource id; anything else is refused before a call is made. */
 const RESOURCE_ID = /^[A-Za-z0-9._-]{8,80}$/;
 
-/** The two transfer types, as the workspace configuration and the API name them. */
-const LOCAL_INSTRUMENTS: Record<string, 'SCT' | 'INST'> = {
+/** The two transfer types, as the workspace configuration names them. */
+export const HUBPISP_OPTIONS = ['standard', 'instant'] as const;
+
+export type HubPispOption = (typeof HUBPISP_OPTIONS)[number];
+
+/** Each transfer type as the API names it. */
+const LOCAL_INSTRUMENTS: Record<HubPispOption, 'SCT' | 'INST'> = {
   standard: 'SCT',
   instant: 'INST',
 };
 
-export const HUBPISP_OPTIONS = Object.keys(LOCAL_INSTRUMENTS);
+export function isHubPispOption(value: string): value is HubPispOption {
+  return Object.hasOwn(LOCAL_INSTRUMENTS, value);
+}
 
 class HubPispApiError extends Error {
   constructor(
@@ -529,10 +536,11 @@ export const hubpispAdapter: GatewayAdapter = {
     if (input.money.currencyCode.toUpperCase() !== 'EUR') {
       throw new Error('HUB PISP only carries EUR transfers');
     }
-    const localInstrument = LOCAL_INSTRUMENTS[input.option ?? 'standard'];
-    if (!localInstrument) {
+    const option = input.option ?? 'standard';
+    if (!isHubPispOption(option)) {
       throw new Error(`Unknown HUB PISP transfer type "${input.option}"`);
     }
+    const localInstrument = LOCAL_INSTRUMENTS[option];
     /* The report addresses carry a grant the return leg is checked against:
      * the bank and the payer's browser are the only ones who ever see it. */
     const returnUrl = new URL(input.returnUrl);

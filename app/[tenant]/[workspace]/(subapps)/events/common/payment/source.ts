@@ -17,6 +17,7 @@ import {
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {parseSnapshot} from '@/payment/intent';
 import {IdSchema} from '@/utils/validators';
 import {scale} from '@/utils';
 
@@ -42,6 +43,17 @@ type EventIntent = z.infer<typeof EventIntentSchema>;
 /* What delivery needs to register the participants the way the form asked:
  * the values as submitted, who submitted them (a guest when null) and the
  * configuration and workspace the registration rules are read from. */
+const EventSnapshotSchema = z
+  .object({
+    eventId: z.string(),
+    eventSlug: z.string(),
+    values: RegistrationValuesSchema,
+    registeredBy: z.object({id: z.string()}).nullable(),
+    workspaceUrl: z.string(),
+    configId: z.string(),
+  })
+  .partial();
+
 type EventSnapshot = {
   eventId: string;
   eventSlug: string;
@@ -170,7 +182,7 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
 
   async deliver({snapshot, txClient}) {
     const {eventId, values, registeredBy, workspaceUrl, configId} =
-      snapshot as Partial<EventSnapshot>;
+      parseSnapshot(EventSnapshotSchema, snapshot);
     if (!eventId || !values || !workspaceUrl || !configId) {
       return {
         delivered: false,
@@ -189,7 +201,13 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
     /* The event may have filled up or closed, or a participant may have
      * registered by another route, between the button press and the capture.
      * Money captured for a registration that can no longer be honoured is a
-     * human's to decide. */
+     * human's to decide. The event row is locked first, so two captures for
+     * the last seat are checked one after the other, not both against the
+     * seat still free. */
+    await txClient.$raw(
+      'SELECT id FROM portal_portal_event WHERE id = $1 FOR UPDATE',
+      eventId,
+    );
     const validation = await validateRegistration({
       eventId,
       values,
@@ -221,7 +239,10 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
    * workspace set one, still follows the projection. */
   async notify({payment, subject, snapshot, tenant}) {
     const registrationId = subjectIdOf(subject, SUBJECT_MODEL.registration);
-    const {registeredBy, workspaceUrl} = snapshot as Partial<EventSnapshot>;
+    const {registeredBy, workspaceUrl} = parseSnapshot(
+      EventSnapshotSchema,
+      snapshot,
+    );
     if (!registrationId || !workspaceUrl) {
       return;
     }
@@ -258,7 +279,7 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
   },
 
   onwardLink({snapshot}) {
-    const slug = (snapshot as Partial<EventSnapshot>).eventSlug;
+    const slug = parseSnapshot(EventSnapshotSchema, snapshot).eventSlug;
     if (!slug) {
       return `/${SUBAPP_CODES.events}`;
     }

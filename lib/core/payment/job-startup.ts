@@ -73,16 +73,27 @@ async function runForEveryTenant(): Promise<void> {
 /**
  * Starts the clock for goovee's payment jobs. Idempotent, so a dev hot-reload
  * does not start a second one. Safe on several instances: jobs are claimed
- * with SKIP LOCKED, so two ticks never run the same job.
+ * with SKIP LOCKED and taken again before each runs, so two ticks never run
+ * the same job.
  */
 export function startPaymentJobs(): void {
   if (started) return;
   started = true;
 
-  const tick = () =>
-    runForEveryTenant().catch(error =>
-      console.error('[PAYMENT][JOB] tick crashed:', error),
-    );
+  /* A tick that outlasts the interval is not joined by the next one: they
+   * would claim from the same queue and step on each other's leases. */
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      await runForEveryTenant();
+    } catch (error) {
+      console.error('[PAYMENT][JOB] tick crashed:', error);
+    } finally {
+      running = false;
+    }
+  };
   const timers = [setTimeout(tick, FIRST_TICK_MS), setInterval(tick, TICK_MS)];
   for (const timer of timers) {
     timer.unref?.();

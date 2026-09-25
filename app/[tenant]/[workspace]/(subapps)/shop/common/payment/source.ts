@@ -13,6 +13,7 @@ import {shouldHidePricesAndPurchase} from '@/orm/product';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {parseSnapshot} from '@/payment/intent';
 import {
   payerLocale,
   sendPaymentConfirmation,
@@ -37,6 +38,28 @@ type ShopIntent = z.infer<typeof ShopIntentSchema>;
  * tax mode. Delivery writes exactly these figures: pricing inputs may have
  * moved since, and an order carrying a total the buyer never paid is worse
  * than honouring the price they saw. */
+const ShopSnapshotSchema = z
+  .object({
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number(),
+        note: z.string().nullable(),
+        unitPrice: z.string(),
+      }),
+    ),
+    total: z.string(),
+    paidAmount: z.string(),
+    inAti: z.boolean(),
+    currencyCode: z.string(),
+    partnerId: z.string(),
+    contactId: z.string().nullable(),
+    invoicingAddressId: z.string(),
+    deliveryAddressId: z.string(),
+    companyId: z.string().nullable(),
+  })
+  .partial();
+
 type ShopSnapshot = {
   items: {
     productId: string;
@@ -268,7 +291,7 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
       invoicingAddressId,
       deliveryAddressId,
       companyId,
-    } = snapshot as Partial<ShopSnapshot>;
+    } = parseSnapshot(ShopSnapshotSchema, snapshot);
     if (
       !items?.length ||
       !partnerId ||

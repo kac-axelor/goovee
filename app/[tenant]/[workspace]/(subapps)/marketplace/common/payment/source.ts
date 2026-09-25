@@ -10,6 +10,7 @@ import {findGooveeUserByEmail} from '@/orm/partner';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
+import {parseSnapshot} from '@/payment/intent';
 import {
   payerLocale,
   sendPaymentConfirmation,
@@ -37,6 +38,31 @@ type MarketplaceIntent = z.infer<typeof MarketplaceIntentSchema>;
 /* The cart as the server priced it at the button press. Delivery honours these
  * prices: pricing inputs may have moved since, and refusing money already
  * captured over server-side drift is worse than honouring what the buyer saw. */
+const MarketplaceSnapshotSchema = z
+  .object({
+    cart: z.object({
+      items: z.array(
+        z.object({
+          productId: z.string(),
+          productSlug: z.string(),
+          name: z.string(),
+          priceWt: z.number(),
+          priceAti: z.number(),
+          taxRate: z.number(),
+          scale: z.number(),
+          currencyCodeISO: z.string(),
+          currencySymbol: z.string().nullable(),
+        }),
+      ),
+      total: z.number(),
+      currencyCodeISO: z.string(),
+    }),
+    mainPartnerId: z.string(),
+    ordererId: z.string(),
+    companyId: z.string().nullable(),
+  })
+  .partial();
+
 type MarketplaceSnapshot = {
   cart: ValidatedCart;
   mainPartnerId: string;
@@ -143,8 +169,10 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
     },
 
     async deliver({payment, snapshot, txClient}) {
-      const {cart, mainPartnerId, ordererId, companyId} =
-        snapshot as Partial<MarketplaceSnapshot>;
+      const {cart, mainPartnerId, ordererId, companyId} = parseSnapshot(
+        MarketplaceSnapshotSchema,
+        snapshot,
+      );
       if (!cart?.items?.length || !mainPartnerId || !ordererId) {
         return {
           delivered: false,

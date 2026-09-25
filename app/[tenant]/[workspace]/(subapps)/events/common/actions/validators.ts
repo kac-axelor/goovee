@@ -30,7 +30,7 @@ export type RegistrationValues = z.infer<typeof RegistrationValuesSchema>;
 
 /* Free registrations only; a priced one goes through the payment flow. */
 export const RegisterSchema = z.object({
-  eventId: z.string(),
+  eventId: IdSchema,
   values: RegistrationValuesSchema,
 });
 export type RegisterInput = z.infer<typeof RegisterSchema>;

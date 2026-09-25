@@ -55,5 +55,10 @@
       "target": "AOSPortalPaymentCorrelationRef",
       "mappedBy": "session"
     }
+  ],
+  "uniques": [
+    {
+      "columns": ["gateway", "sessionRef"]
+    }
   ]
 }

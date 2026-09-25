@@ -46,7 +46,6 @@ export type PaymentView = {
 export async function findPaymentView(
   tenant: Tenant,
   reference: string,
-  {withInstructions = false}: {withInstructions?: boolean} = {},
 ): Promise<PaymentView | null> {
   /* Unknown, as any reference would be, while the tenant's database lacks
    * the payment schema: the page and its poll answer not found, not an error. */
@@ -100,38 +99,6 @@ export async function findPaymentView(
     snapshot,
   });
 
-  /* Asked of the provider, so only where the page is rendered and only while
-   * the payer still has something to do; the poll endpoint leaves it out. */
-  let instructions: AwaitingInstructions | null = null;
-  const awaiting =
-    status === PAYMENT_STATUS.awaiting ||
-    status === PAYMENT_STATUS.partiallyCaptured;
-  if (withInstructions && awaiting && payment.gateway) {
-    const adapter = getAdapter(payment.gateway as Gateway);
-    if (adapter.describeAwaiting) {
-      const sessions = await client.aOSPortalPaymentSession.find({
-        where: {payment: {id: payment.id}, gateway: payment.gateway},
-        select: {sessionRef: true},
-        orderBy: {id: 'DESC'},
-        take: 1,
-      });
-      const sessionRef = sessions[0]?.sessionRef;
-      if (sessionRef) {
-        try {
-          instructions = await adapter.describeAwaiting(sessionRef, {
-            tenantId: tenant.id,
-            config: tenant.config,
-          });
-        } catch (error) {
-          console.warn(
-            `Payment ${payment.reference}: instructions could not be read`,
-            error,
-          );
-        }
-      }
-    }
-  }
-
   return {
     reference: payment.reference,
     status,
@@ -147,9 +114,55 @@ export async function findPaymentView(
     deliveryStatus: payment.deliveryStatus,
     projected,
     settled: isTerminal(status) && (!captured || projected || !delivered),
-    instructions,
+    /* Asked of the provider, and only once the viewer may see the payment:
+     * see findAwaitingInstructions. */
+    instructions: null,
     onwardLink,
     createdOn: payment.createdOn?.toISOString() ?? null,
     capturedOn: payment.capturedOn?.toISOString() ?? null,
   };
+}
+
+/**
+ * What the payer still has to do, asked of the provider: the bank details of a
+ * transfer, for one. Only while the payment waits on the payer, and only for
+ * a caller that has already checked the viewer may see the payment, since it
+ * spends a provider call. Null when there is nothing to show.
+ */
+export async function findAwaitingInstructions(
+  tenant: Tenant,
+  view: Pick<PaymentView, 'reference' | 'status' | 'gateway'>,
+): Promise<AwaitingInstructions | null> {
+  const awaiting =
+    view.status === PAYMENT_STATUS.awaiting ||
+    view.status === PAYMENT_STATUS.partiallyCaptured;
+  if (!awaiting || !view.gateway) {
+    return null;
+  }
+  const adapter = getAdapter(view.gateway);
+  if (!adapter.describeAwaiting) {
+    return null;
+  }
+  const sessions = await tenant.client.aOSPortalPaymentSession.find({
+    where: {payment: {reference: view.reference}, gateway: view.gateway},
+    select: {sessionRef: true},
+    orderBy: {id: 'DESC'},
+    take: 1,
+  });
+  const sessionRef = sessions[0]?.sessionRef;
+  if (!sessionRef) {
+    return null;
+  }
+  try {
+    return await adapter.describeAwaiting(sessionRef, {
+      tenantId: tenant.id,
+      config: tenant.config,
+    });
+  } catch (error) {
+    console.warn(
+      `Payment ${view.reference}: instructions could not be read`,
+      error,
+    );
+    return null;
+  }
 }

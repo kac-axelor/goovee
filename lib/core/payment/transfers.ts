@@ -221,7 +221,7 @@ export async function findPartlyFundedTransfer({
  * the invoice needs: money in another currency is not counted, and an
  * invoice with a disputed payment is not judged at all.
  */
-async function invoiceRemaining({
+export async function invoiceRemaining({
   client,
   invoiceId,
   currencyCode,

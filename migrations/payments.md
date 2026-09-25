@@ -106,7 +106,31 @@ The tables the module adds:
   `(subject_model, exclusive_subject_id)`, an index on
   `(subject_model, subject_id)`, and unique `reference` and `submit_token`.
 - `portal_portal_payment_session` — one row per attempt at a provider, with the
-  `amount`, `currency_code` and `currency_scale` it asked for.
+  `amount`, `currency_code` and `currency_scale` it asked for, unique on
+  `(gateway, session_ref)`. A tenant that ran a pre-release build may hold two
+  sessions naming the same provider session; AOS then cannot add the key and
+  the portal disables payments (step 6). Check before the upgrade — this lists
+  none on a clean database:
+
+  ```sql
+  SELECT
+    gateway,
+    session_ref,
+    count(*)
+  FROM
+    portal_portal_payment_session
+  WHERE
+    session_ref IS NOT NULL
+  GROUP BY
+    1,
+    2
+  HAVING
+    count(*) > 1;
+  ```
+
+  Each pair it lists is one provider session recorded twice; keep the row the
+  payment's events name and clear `session_ref` on the other.
+
 - `portal_portal_payment_event` — the ledger, unique on `(gateway, event_key)`,
   with `currency_scale` and `deadline`.
 - `portal_portal_payment_job` — outstanding work, unique on `(payment, kind)`.
@@ -287,6 +311,7 @@ Add a webhook endpoint at `/<tenant>/api/webhooks/stripe` and subscribe it to:
 - `payment_intent.partially_funded`
 - `payment_intent.canceled`
 - `charge.refunded`
+- `charge.refund.updated`
 - `charge.dispute.created`
 - `charge.dispute.closed`
 

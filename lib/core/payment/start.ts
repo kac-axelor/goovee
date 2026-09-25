@@ -9,6 +9,8 @@ import type {Tenant} from '@/tenant';
 import {t} from '@/locale/server';
 import type {ActionResponse} from '@/types/action';
 import {getAdapter, paymentOptionFor} from './adapters/registry';
+import type {HubPispOption} from './adapters/hubpisp';
+import {hubPispOptions} from './offer';
 import type {Handoff} from './adapters/types';
 import {scaleOfCurrency} from './domain/money';
 import {purchaseKey} from './domain/purchase';
@@ -16,6 +18,7 @@ import {mintReference} from './domain/reference';
 import {canRetry} from './domain/status';
 import {
   DELIVERY_STATUS,
+  GATEWAY,
   PAYMENT_STATUS,
   SESSION_STATUS,
   type Gateway,
@@ -66,7 +69,7 @@ export async function startPayment({
   submitToken: string;
   intent: unknown;
   /** A variant of the gateway the buyer chose, where the gateway offers any. */
-  option?: string;
+  option?: HubPispOption;
 }): ActionResponse<StartResult> {
   /* A database without the payment schema's shape would fail part-way
    * through a start, possibly after a provider session was opened. */
@@ -121,6 +124,17 @@ export async function startPayment({
       message: await t('This payment method is not available'),
     };
   }
+  /* The transfer type is one of those the workspace accepts on its HUB PISP
+   * method, as the buttons offered; a start can name any. */
+  if (
+    gateway === GATEWAY.hubpisp &&
+    !hubPispOptions(prepared.data.paymentOptions).includes(option ?? 'standard')
+  ) {
+    return {
+      error: true,
+      message: await t('This payment method is not available'),
+    };
+  }
   if (prepared.data.money.amount <= 0) {
     return {
       error: true,
@@ -167,87 +181,94 @@ export async function startPayment({
     return {error: true, message: await t('Invalid payment request')};
   }
 
-  if (existing && !canRetry(existing.status as PaymentStatus)) {
-    return {
-      success: true,
-      data: {
-        reference: existing.reference,
-        handoff: {
-          kind: 'page',
-          url: paymentPageUrl(
-            tenant.id,
-            existing.portalWorkspace.url,
-            existing.reference,
-          ),
-        },
+  /* A payment that can no longer be retried is shown as it stands. */
+  const existingPage = existing && {
+    success: true as const,
+    data: {
+      reference: existing.reference,
+      handoff: {
+        kind: 'page' as const,
+        url: paymentPageUrl(
+          tenant.id,
+          existing.portalWorkspace.url,
+          existing.reference,
+        ),
       },
-    };
+    },
+  };
+  if (existingPage && !canRetry(existing.status as PaymentStatus)) {
+    return existingPage;
   }
 
   const idempotencyKey = randomUUID();
   const startedOn = new Date();
-  const {paymentId, reference, sessionId, sessionVersion} =
-    await client.$transaction(async txClient => {
-      /* The same purchase pressed again keeps its payment untouched: the key
-       * says its money, subject and snapshot are what they were, so there is
-       * nothing to write over and no session still open to write under. */
-      const payment = existing
-        ? await reopenPayment(
-            txClient,
-            existing.reference,
-            prepared.data,
-            gateway,
-          )
-        : await createPayment(
-            txClient,
-            tenant.id,
-            source,
-            key,
-            prepared.data,
-            gateway,
-          );
-
-      if (!existing) {
-        await writeSnapshot(
+  const opened = await client.$transaction(async txClient => {
+    /* The same purchase pressed again keeps its payment untouched: the key
+     * says its money, subject and snapshot are what they were, so there is
+     * nothing to write over and no session still open to write under. */
+    const payment = existing
+      ? await reopenPayment(
           txClient,
-          payment.id,
-          source,
-          prepared.data.snapshot,
-        );
-      }
-
-      /* What this attempt asks the provider for, fixed with its key. It is
-       * the payment's amount by construction: every session of a payment asks
-       * for the whole amount due. */
-      const session = await txClient.aOSPortalPaymentSession.create({
-        data: {
-          payment: {select: {id: payment.id}},
+          existing.reference,
+          prepared.data,
           gateway,
-          idempotencyKey,
-          amount: String(prepared.data.money.amount),
-          currencyCode: prepared.data.money.currencyCode,
-          currencyScale: prepared.data.money.currencyScale,
-          status: SESSION_STATUS.initiated,
-        },
-        select: {id: true, version: true},
-      });
+        )
+      : await createPayment(
+          txClient,
+          tenant.id,
+          source,
+          key,
+          prepared.data,
+          gateway,
+        );
+    if (!payment) {
+      return null;
+    }
 
-      /* Written before the provider is called, so a session whose call never
-       * comes back is still looked at; moved to the handoff's own expiry once
-       * the provider has answered. */
-      await scheduleReconcile(
-        txClient,
-        payment.id,
-        reconcileSchedule({gateway, startedOn, expiresOn: null}),
-      );
+    if (!existing) {
+      await writeSnapshot(txClient, payment.id, source, prepared.data.snapshot);
+    }
 
-      return {
-        paymentId: payment.id,
-        reference: payment.reference,
-        sessionId: session.id,
-        sessionVersion: session.version,
-      };
+    /* What this attempt asks the provider for, fixed with its key. It is
+     * the payment's amount by construction: every session of a payment asks
+     * for the whole amount due. */
+    const session = await txClient.aOSPortalPaymentSession.create({
+      data: {
+        payment: {select: {id: payment.id}},
+        gateway,
+        idempotencyKey,
+        amount: String(prepared.data.money.amount),
+        currencyCode: prepared.data.money.currencyCode,
+        currencyScale: prepared.data.money.currencyScale,
+        status: SESSION_STATUS.initiated,
+      },
+      select: {id: true, version: true},
     });
+
+    /* Written before the provider is called, so a session whose call never
+     * comes back is still looked at; moved to the handoff's own expiry once
+     * the provider has answered. */
+    await scheduleReconcile(
+      txClient,
+      payment.id,
+      reconcileSchedule({gateway, startedOn, expiresOn: null}),
+    );
+
+    return {
+      paymentId: payment.id,
+      reference: payment.reference,
+      sessionId: session.id,
+      sessionVersion: session.version,
+    };
+  });
+  /* Captured, or otherwise past retrying, between the read above and the
+   * lock: shown as it now stands, with no new session opened. */
+  if (!opened) {
+    return (
+      existingPage ?? {error: true, message: await t('Invalid payment request')}
+    );
+  }
+  const {paymentId, reference, sessionId, sessionVersion} = opened;
 
   const urls = tenantURLs(tenant.id);
   let created;
@@ -364,19 +385,28 @@ async function createPayment(
 /* A retry of the same purchase keeps the payment, its reference and
  * everything it was priced at; only what depends on the gateway pressed this
  * time moves with the new session. A different purchase has a different key
- * and never reaches here. */
+ * and never reaches here. Locked and checked again first: a capture that
+ * committed since the caller looked must not be reset to initiated. Null when
+ * the payment can no longer be retried. */
 async function reopenPayment(
   txClient: Client,
   reference: string,
   prepared: PreparedIntent,
   gateway: Gateway,
 ) {
+  await txClient.$raw(
+    'SELECT id FROM portal_portal_payment WHERE reference = $1 FOR UPDATE',
+    reference,
+  );
   const payment = await txClient.aOSPortalPayment.findOne({
     where: {reference},
-    select: {id: true, reference: true},
+    select: {id: true, reference: true, status: true},
   });
   if (!payment) {
     throw new Error(`Payment ${reference} vanished`);
+  }
+  if (!canRetry(payment.status as PaymentStatus)) {
+    return null;
   }
   await txClient.aOSPortalPayment.update({
     data: {

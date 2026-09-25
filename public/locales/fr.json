@@ -19,6 +19,7 @@
   "A bank transfer on this invoice has already received part of its amount. Send the remaining {0} using its bank details under pending transfers; another payment can be made once it completes.": "Un virement bancaire sur cette facture a déjà reçu une partie de son montant. Envoyez les {0} restants avec ses coordonnées bancaires, sous les virements en attente ; un autre paiement sera possible une fois celui-ci terminé.",
   "A confirmation email has just been sent to you.": "Un e-mail de confirmation vient de vous être envoyé.",
   "A new code has been sent.": "Un nouveau code a été envoyé.",
+  "A payment on this invoice is being finalised. Try again in a few minutes.": "Un paiement sur cette facture est en cours de finalisation. Réessayez dans quelques minutes.",
   "A published or in-review version cannot be saved as a draft. Unpublish it first.": "Une version publiée ou en cours de révision ne peut pas être enregistrée en tant que brouillon. Dépubliez-la d'abord.",
   "A question about your order?": "Une question sur votre commande ?",
   "A question?": "Une question ?",

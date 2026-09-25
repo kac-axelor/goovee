@@ -7,7 +7,7 @@ import {manager} from '@/tenant';
 import {currentTenantScope, currentWorkspace} from '@/url/current';
 import {canViewPayment} from '@/payment/access';
 import {parseReference} from '@/payment/domain/reference';
-import {findPaymentView} from '@/payment/view';
+import {findAwaitingInstructions, findPaymentView} from '@/payment/view';
 
 // ---- LOCAL IMPORTS ---- //
 import {PaymentResult} from './payment-result';
@@ -34,9 +34,7 @@ export default async function Page(props: {
   const tenant = await manager.getTenant(scope.tenantId);
   if (!tenant) notFound();
 
-  const view = await findPaymentView(tenant, parsed.reference, {
-    withInstructions: true,
-  });
+  const view = await findPaymentView(tenant, parsed.reference);
   /* A payment made under another workspace is not shown under this one. */
   if (!view || view.workspaceUrl !== scope.key()) notFound();
 
@@ -50,10 +48,12 @@ export default async function Page(props: {
   });
   if (!allowed) notFound();
 
+  const instructions = await findAwaitingInstructions(tenant, view);
+
   return (
     <div className="bg-ink-25 min-h-full">
       <PaymentResult
-        initial={view}
+        initial={{...view, instructions}}
         statusPath={tenantScope.forBrowser(
           `/api/payments/${view.reference}/status`,
         )}
