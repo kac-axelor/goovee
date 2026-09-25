@@ -5,19 +5,17 @@ import {z} from 'zod';
 import {ensureAccess} from '@/access/ensure-access';
 import {accessMessage} from '@/access/denial';
 import {SUBAPP_CODES, SUBAPP_PAGE} from '@/constants';
-import {t} from '@/locale/server';
+import {getTranslation, t} from '@/locale/server';
 import {tenantURLs} from '@/url/scope';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {
   formatAmount,
   payerLocale,
   sendPaymentConfirmation,
-  translatorFor,
 } from '@/payment/confirmation';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
-import {parseSnapshot} from '@/payment/intent';
 import {IdSchema} from '@/utils/validators';
 import {scale} from '@/utils';
 
@@ -43,25 +41,16 @@ type EventIntent = z.infer<typeof EventIntentSchema>;
 /* What delivery needs to register the participants the way the form asked:
  * the values as submitted, who submitted them (a guest when null) and the
  * configuration and workspace the registration rules are read from. */
-const EventSnapshotSchema = z
-  .object({
-    eventId: z.string(),
-    eventSlug: z.string(),
-    values: RegistrationValuesSchema,
-    registeredBy: z.object({id: z.string()}).nullable(),
-    workspaceUrl: z.string(),
-    configId: z.string(),
-  })
-  .partial();
+const EventSnapshotSchema = z.object({
+  eventId: z.string(),
+  eventSlug: z.string(),
+  values: RegistrationValuesSchema,
+  registeredBy: z.object({id: z.string()}).nullable(),
+  workspaceUrl: z.string(),
+  configId: z.string(),
+});
 
-type EventSnapshot = {
-  eventId: string;
-  eventSlug: string;
-  values: RegistrationValues;
-  registeredBy: {id: string} | null;
-  workspaceUrl: string;
-  configId: string;
-};
+type EventSnapshot = z.infer<typeof EventSnapshotSchema>;
 
 /**
  * Registering for a paid event. The registration does not exist before the
@@ -181,14 +170,14 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
   },
 
   async deliver({snapshot, txClient}) {
-    const {eventId, values, registeredBy, workspaceUrl, configId} =
-      parseSnapshot(EventSnapshotSchema, snapshot);
-    if (!eventId || !values || !workspaceUrl || !configId) {
+    const parsed = EventSnapshotSchema.safeParse(snapshot);
+    if (!parsed.success) {
       return {
         delivered: false,
-        reason: 'The registration snapshot names no event or no participants',
+        reason: 'The registration snapshot does not have the expected shape',
       };
     }
+    const {eventId, values, registeredBy, workspaceUrl, configId} = parsed.data;
 
     const config = await getEventsConfig(configId, txClient);
     if (!config) {
@@ -239,13 +228,11 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
    * workspace set one, still follows the projection. */
   async notify({payment, subject, snapshot, tenant}) {
     const registrationId = subjectIdOf(subject, SUBJECT_MODEL.registration);
-    const {registeredBy, workspaceUrl} = parseSnapshot(
-      EventSnapshotSchema,
-      snapshot,
-    );
-    if (!registrationId || !workspaceUrl) {
+    const parsed = EventSnapshotSchema.safeParse(snapshot);
+    if (!registrationId || !parsed.success) {
       return;
     }
+    const {registeredBy, workspaceUrl} = parsed.data;
     /* Run again only when no mail went out, so one address that refuses mail
      * does not resend to every other participant on each retry. */
     await announceRegistration({
@@ -262,9 +249,9 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
       /* A signed-in payer who registered only other people gets no
        * registration mail, so the payment's own confirmation tells them. */
       onPayerNotParticipant: async () => {
-        const translate = translatorFor({
-          tenant,
+        const translate = getTranslation.bind(null, {
           locale: await payerLocale(tenant, payment.payer),
+          tenant: tenant.id,
         });
         const link = eventsPaymentSource.onwardLink({subject, snapshot});
         await sendPaymentConfirmation({
@@ -283,7 +270,8 @@ export const eventsPaymentSource: PaymentSourceHandler<EventIntent> = {
   },
 
   onwardLink({snapshot}) {
-    const slug = parseSnapshot(EventSnapshotSchema, snapshot).eventSlug;
+    const parsed = EventSnapshotSchema.safeParse(snapshot);
+    const slug = parsed.success ? parsed.data.eventSlug : null;
     if (!slug) {
       return `/${SUBAPP_CODES.events}`;
     }

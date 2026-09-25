@@ -5,7 +5,7 @@ import {z} from 'zod';
 import {IdSchema} from '@/utils/validators';
 import {currentWorkspace} from '@/url/current';
 import {tenantURLs} from '@/url/scope';
-import {t} from '@/locale/server';
+import {getTranslation, t} from '@/locale/server';
 import {SUBAPP_CODES} from '@/constants';
 import {
   fromMinorUnits,
@@ -14,13 +14,8 @@ import {
 } from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
-import {parseSnapshot} from '@/payment/intent';
 import {findPartlyFundedTransfer, invoiceRemaining} from '@/payment/transfers';
-import {
-  payerLocale,
-  sendPaymentConfirmation,
-  translatorFor,
-} from '@/payment/confirmation';
+import {payerLocale, sendPaymentConfirmation} from '@/payment/confirmation';
 import {notifyInvoicePaymentSuccess} from '@/subapps/invoices/common/utils/notify';
 import {
   resolveInvoicePaymentAccess,
@@ -38,14 +33,12 @@ const InvoiceIntentSchema = z.object({
 
 type InvoiceIntent = z.infer<typeof InvoiceIntentSchema>;
 
-const InvoiceSnapshotSchema = z
-  .object({invoiceId: z.string(), token: z.string().nullable()})
-  .partial();
+const InvoiceSnapshotSchema = z.object({
+  invoiceId: z.string(),
+  token: z.string().nullable(),
+});
 
-type InvoiceSnapshot = {
-  invoiceId: string;
-  token: string | null;
-};
+type InvoiceSnapshot = z.infer<typeof InvoiceSnapshotSchema>;
 
 /**
  * Paying an invoice that already exists in the ERP. The subject is known from
@@ -235,9 +228,9 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
 
     /* The mail first: it is what fails the job, and the push, which never
      * does, then goes out once, on the run that got the mail through. */
-    const translate = translatorFor({
-      tenant,
+    const translate = getTranslation.bind(null, {
       locale: await payerLocale(tenant, payment.payer),
+      tenant: tenant.id,
     });
     const link = invoicesPaymentSource.onwardLink({subject, snapshot});
     await sendPaymentConfirmation({
@@ -263,13 +256,14 @@ export const invoicesPaymentSource: PaymentSourceHandler<InvoiceIntent> = {
   },
 
   onwardLink({subject, snapshot}) {
-    const read = parseSnapshot(InvoiceSnapshotSchema, snapshot);
+    const parsed = InvoiceSnapshotSchema.safeParse(snapshot);
     const invoiceId =
-      subjectIdOf(subject, SUBJECT_MODEL.invoice) ?? read.invoiceId;
+      subjectIdOf(subject, SUBJECT_MODEL.invoice) ??
+      (parsed.success ? parsed.data.invoiceId : null);
     if (!invoiceId) {
       return null;
     }
-    const token = read.token;
+    const token = parsed.success ? parsed.data.token : null;
     return `/${SUBAPP_CODES.invoices}/${invoiceId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   },
 };

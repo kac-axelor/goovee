@@ -7,19 +7,14 @@ import {ensureAccess} from '@/access/ensure-access';
 import {accessMessage} from '@/access/denial';
 import {MAIN_PRICE, SUBAPP_CODES} from '@/constants';
 import type {Client} from '@/goovee/.generated/client';
-import {t} from '@/locale/server';
+import {getTranslation, t} from '@/locale/server';
 import {tenantURLs} from '@/url/scope';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {shouldHidePricesAndPurchase} from '@/orm/product';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
-import {parseSnapshot} from '@/payment/intent';
-import {
-  payerLocale,
-  sendPaymentConfirmation,
-  translatorFor,
-} from '@/payment/confirmation';
+import {payerLocale, sendPaymentConfirmation} from '@/payment/confirmation';
 import {computeTotal} from '@/utils/cart';
 
 import {getShopConfig} from '../orm/config';
@@ -38,45 +33,27 @@ type ShopIntent = z.infer<typeof ShopIntentSchema>;
  * tax mode. Delivery writes exactly these figures: pricing inputs may have
  * moved since, and an order carrying a total the buyer never paid is worse
  * than honouring the price they saw. */
-const ShopSnapshotSchema = z
-  .object({
-    items: z.array(
-      z.object({
-        productId: z.string(),
-        quantity: z.number(),
-        note: z.string().nullable(),
-        unitPrice: z.string(),
-      }),
-    ),
-    total: z.string(),
-    paidAmount: z.string(),
-    inAti: z.boolean(),
-    currencyCode: z.string(),
-    partnerId: z.string(),
-    contactId: z.string().nullable(),
-    invoicingAddressId: z.string(),
-    deliveryAddressId: z.string(),
-    companyId: z.string().nullable(),
-  })
-  .partial();
+const ShopSnapshotSchema = z.object({
+  items: z.array(
+    z.object({
+      productId: z.string(),
+      quantity: z.number(),
+      note: z.string().nullable(),
+      unitPrice: z.string(),
+    }),
+  ),
+  total: z.string(),
+  paidAmount: z.string(),
+  inAti: z.boolean(),
+  currencyCode: z.string(),
+  partnerId: z.string(),
+  contactId: z.string().nullable(),
+  invoicingAddressId: z.string(),
+  deliveryAddressId: z.string(),
+  companyId: z.string().nullable(),
+});
 
-type ShopSnapshot = {
-  items: {
-    productId: string;
-    quantity: number;
-    note: string | null;
-    unitPrice: string;
-  }[];
-  total: string;
-  paidAmount: string;
-  inAti: boolean;
-  currencyCode: string;
-  partnerId: string;
-  contactId: string | null;
-  invoicingAddressId: string;
-  deliveryAddressId: string;
-  companyId: string | null;
-};
+type ShopSnapshot = z.infer<typeof ShopSnapshotSchema>;
 
 /**
  * The address the buyer chose, once it is established as one of their own in
@@ -280,6 +257,13 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
   },
 
   async deliver({payment, snapshot, txClient}) {
+    const parsed = ShopSnapshotSchema.safeParse(snapshot);
+    if (!parsed.success) {
+      return {
+        delivered: false,
+        reason: 'The order snapshot does not have the expected shape',
+      };
+    }
     const {
       items,
       total,
@@ -291,17 +275,11 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
       invoicingAddressId,
       deliveryAddressId,
       companyId,
-    } = parseSnapshot(ShopSnapshotSchema, snapshot);
-    if (
-      !items?.length ||
-      !partnerId ||
-      !total ||
-      !paidAmount ||
-      !currencyCode
-    ) {
+    } = parsed.data;
+    if (!items.length) {
       return {
         delivered: false,
-        reason: 'The order snapshot names no items or no buyer',
+        reason: 'The order snapshot names no items',
       };
     }
 
@@ -349,9 +327,9 @@ export const shopPaymentSource: PaymentSourceHandler<ShopIntent> = {
   },
 
   async notify({payment, subject, snapshot, tenant}) {
-    const translate = translatorFor({
-      tenant,
+    const translate = getTranslation.bind(null, {
       locale: await payerLocale(tenant, payment.payer),
+      tenant: tenant.id,
     });
     const link = shopPaymentSource.onwardLink({subject, snapshot});
     await sendPaymentConfirmation({

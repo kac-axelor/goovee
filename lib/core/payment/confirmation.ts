@@ -1,7 +1,7 @@
 import 'server-only';
 
 import {DEFAULT_LOCALE} from '@/locale/contants';
-import {getTranslation} from '@/locale/server';
+import type {t} from '@/locale/server';
 import NotificationManager, {NotificationType} from '@/notification';
 import type {Tenant} from '@/tenant';
 import {escapeHtml} from '@/utils/template-string';
@@ -14,24 +14,6 @@ import type {NotifiedPayment} from './sources/types';
  * is translated for a named locale and tenant, and every address is built
  * from the payment's own workspace.
  */
-
-/** Translates for one reader, without a request to read their language from. */
-export type Translator = (key: string, ...values: string[]) => Promise<string>;
-
-export function translatorFor({
-  tenant,
-  locale,
-}: {
-  tenant: Tenant;
-  locale: string | null | undefined;
-}): Translator {
-  return (key, ...values) =>
-    getTranslation(
-      {locale: locale || DEFAULT_LOCALE, tenant: tenant.id},
-      key,
-      ...values,
-    );
-}
 
 /**
  * The language of the partner with the payer's address, the default otherwise.
@@ -75,7 +57,7 @@ export async function sendPaymentConfirmation({
   title: string;
   /** Absolute; where the payer sees what they paid for. Omitted when there is nowhere to send them. */
   link: string | null;
-  translate: Translator;
+  translate: typeof t;
 }): Promise<void> {
   if (!payment.payer) {
     console.warn(

@@ -5,18 +5,13 @@ import {z} from 'zod';
 import {ensureAccess} from '@/access/ensure-access';
 import {accessMessage} from '@/access/denial';
 import {SUBAPP_CODES} from '@/constants';
-import {t} from '@/locale/server';
+import {getTranslation, t} from '@/locale/server';
 import {tenantURLs} from '@/url/scope';
 import {findGooveeUserByEmail} from '@/orm/partner';
 import {resolveCurrency, toMinorUnits} from '@/payment/domain/money';
 import {GATEWAY, PAYMENT_SOURCE} from '@/payment/domain/types';
 import type {PaymentSourceHandler} from '@/payment/sources/types';
-import {parseSnapshot} from '@/payment/intent';
-import {
-  payerLocale,
-  sendPaymentConfirmation,
-  translatorFor,
-} from '@/payment/confirmation';
+import {payerLocale, sendPaymentConfirmation} from '@/payment/confirmation';
 import {getPartnerId} from '@/utils';
 
 import {findPartnerInvoicingAddresses, recordOrder} from '../orm';
@@ -38,37 +33,30 @@ type MarketplaceIntent = z.infer<typeof MarketplaceIntentSchema>;
 /* The cart as the server priced it at the button press. Delivery honours these
  * prices: pricing inputs may have moved since, and refusing money already
  * captured over server-side drift is worse than honouring what the buyer saw. */
-const MarketplaceSnapshotSchema = z
-  .object({
-    cart: z.object({
-      items: z.array(
-        z.object({
-          productId: z.string(),
-          productSlug: z.string(),
-          name: z.string(),
-          priceWt: z.number(),
-          priceAti: z.number(),
-          taxRate: z.number(),
-          scale: z.number(),
-          currencyCodeISO: z.string(),
-          currencySymbol: z.string().nullable(),
-        }),
-      ),
-      total: z.number(),
-      currencyCodeISO: z.string(),
-    }),
-    mainPartnerId: z.string(),
-    ordererId: z.string(),
-    companyId: z.string().nullable(),
-  })
-  .partial();
+const MarketplaceSnapshotSchema = z.object({
+  cart: z.object({
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        productSlug: z.string(),
+        name: z.string(),
+        priceWt: z.number(),
+        priceAti: z.number(),
+        taxRate: z.number(),
+        scale: z.number(),
+        currencyCodeISO: z.string(),
+        currencySymbol: z.string().nullable(),
+      }),
+    ),
+    total: z.number(),
+    currencyCodeISO: z.string(),
+  }),
+  mainPartnerId: z.string(),
+  ordererId: z.string(),
+  companyId: z.string().nullable(),
+});
 
-type MarketplaceSnapshot = {
-  cart: ValidatedCart;
-  mainPartnerId: string;
-  ordererId: string;
-  companyId: string | null;
-};
+type MarketplaceSnapshot = z.infer<typeof MarketplaceSnapshotSchema>;
 
 /**
  * Buying marketplace products. Nothing exists in the ERP before the capture:
@@ -169,14 +157,18 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
     },
 
     async deliver({payment, snapshot, txClient}) {
-      const {cart, mainPartnerId, ordererId, companyId} = parseSnapshot(
-        MarketplaceSnapshotSchema,
-        snapshot,
-      );
-      if (!cart?.items?.length || !mainPartnerId || !ordererId) {
+      const parsed = MarketplaceSnapshotSchema.safeParse(snapshot);
+      if (!parsed.success) {
         return {
           delivered: false,
-          reason: 'The purchase snapshot names no cart or no buyer',
+          reason: 'The purchase snapshot does not have the expected shape',
+        };
+      }
+      const {cart, mainPartnerId, ordererId, companyId} = parsed.data;
+      if (!cart.items.length) {
+        return {
+          delivered: false,
+          reason: 'The purchase snapshot names no cart items',
         };
       }
 
@@ -226,9 +218,9 @@ export const marketplacePaymentSource: PaymentSourceHandler<MarketplaceIntent> =
     },
 
     async notify({payment, subject, snapshot, tenant}) {
-      const translate = translatorFor({
-        tenant,
+      const translate = getTranslation.bind(null, {
         locale: await payerLocale(tenant, payment.payer),
+        tenant: tenant.id,
       });
       const link = marketplacePaymentSource.onwardLink({subject, snapshot});
       await sendPaymentConfirmation({
