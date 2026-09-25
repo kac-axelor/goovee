@@ -51,6 +51,9 @@ function apiBase(paypal: PaypalConfig): string {
     : 'https://api-m.sandbox.paypal.com';
 }
 
+/** PayPal's guidance: "a minimum timeout setting of 30 seconds" on its API calls. */
+const PAYPAL_TIMEOUT_MS = 30_000;
+
 /* Clients are cached per credentials so tenants sharing an account share a
  * client and its OAuth token; the SDK renews the token itself. */
 const clients = new Map<string, Client>();
@@ -66,6 +69,7 @@ function paypalClient(paypal: PaypalConfig): Client {
       },
       environment:
         paypal.live === true ? Environment.Production : Environment.Sandbox,
+      timeout: PAYPAL_TIMEOUT_MS,
     });
     clients.set(key, client);
   }
@@ -93,6 +97,7 @@ async function accessToken(paypal: PaypalConfig): Promise<string> {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: 'grant_type=client_credentials',
+    signal: AbortSignal.timeout(PAYPAL_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`PayPal token request failed: ${response.status}`);
@@ -373,6 +378,7 @@ async function verifyWebhook(
         webhook_id: paypal.webhookId,
         webhook_event: event,
       }),
+      signal: AbortSignal.timeout(PAYPAL_TIMEOUT_MS),
     },
   );
   if (!verification.ok) {

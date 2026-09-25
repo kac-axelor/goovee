@@ -115,8 +115,13 @@ function certificatesIn(certsDir: string) {
   return loaded;
 }
 
+/** BPCE publishes no figure; PayPal's guidance of "a minimum timeout setting of 30 seconds" is borrowed. */
+const PISP_TIMEOUT_MS = 30_000;
+
 /* Node's fetch cannot present a client certificate, so the calls go through
- * https with the tenant's mTLS pair. */
+ * https with the tenant's mTLS pair. One deadline covers the whole call, the
+ * connection and TLS handshake as much as a response that stalls, and ends it
+ * by destroying the request. */
 function pispFetch(
   url: string,
   init: {
@@ -127,6 +132,13 @@ function pispFetch(
   certsDir: string,
 ): Promise<{status: number; ok: boolean; text: string}> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (outcome: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      outcome();
+    };
     const parsed = new URL(url);
     const body = init.body != null ? Buffer.from(init.body) : undefined;
     const request = https.request(
@@ -145,17 +157,30 @@ function pispFetch(
       response => {
         const chunks: Buffer[] = [];
         response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('error', error => finish(() => reject(error)));
         response.on('end', () => {
           const status = response.statusCode ?? 0;
-          resolve({
-            status,
-            ok: status >= 200 && status < 300,
-            text: Buffer.concat(chunks).toString('utf8'),
-          });
+          finish(() =>
+            resolve({
+              status,
+              ok: status >= 200 && status < 300,
+              text: Buffer.concat(chunks).toString('utf8'),
+            }),
+          );
         });
       },
     );
-    request.on('error', reject);
+    const deadline = setTimeout(() => {
+      finish(() =>
+        reject(
+          new Error(
+            `HUB PISP ${init.method} ${parsed.pathname} did not complete within ${PISP_TIMEOUT_MS / 1000} s`,
+          ),
+        ),
+      );
+      request.destroy();
+    }, PISP_TIMEOUT_MS);
+    request.on('error', error => finish(() => reject(error)));
     if (body) {
       request.write(body);
     }
