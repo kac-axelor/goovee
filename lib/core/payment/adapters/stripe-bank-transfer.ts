@@ -105,7 +105,6 @@ function instructionsOf(
       typeof instructions.amount_remaining === 'number'
         ? fromMinorUnits(instructions.amount_remaining, scale)
         : undefined,
-    amount: fromMinorUnits(paymentIntent.amount, scale),
   };
   if (address?.type === 'iban' && address.iban) {
     result.iban = address.iban.iban;
@@ -344,9 +343,9 @@ export type TransferIntentClient = {
  * the cancel is the one case this cannot rule out; Stripe returns money
  * applied to a cancelled intent to the customer's cash balance.
  *
- * What the transfer asks for is read from the intent, not the ledger: a later
- * press on the same payment rewrites the payment's amount, while the intent
- * still asks for what it was created with.
+ * What the transfer still asks for is read from the intent, not the ledger:
+ * Stripe may have applied a cash balance the customer held, which lowers what
+ * the intent is waiting for without an event the ledger would record.
  *
  * A cancel that fails is not caught: the task runs again, and its read then
  * finds the intent cancelled, funded or still open. The idempotency key is

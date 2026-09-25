@@ -22,15 +22,18 @@
     },
     {
       "type": "BigInt",
-      "name": "amount"
+      "name": "amount",
+      "required": true
     },
     {
       "type": "String",
-      "name": "currencyCode"
+      "name": "currencyCode",
+      "required": true
     },
     {
       "type": "Int",
-      "name": "currencyScale"
+      "name": "currencyScale",
+      "required": true
     },
     {
       "type": "String",

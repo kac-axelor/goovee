@@ -32,9 +32,9 @@ export const TRANSFER_GATEWAYS: readonly Gateway[] = [
  * that would overpay it; one asking for no more is still a way to settle the
  * rest.
  *
- * The comparison is left to the provider's own figure for the transfer,
- * because the ledger does not keep what each session asks for: a later press
- * on the same payment rewrites the payment's amount.
+ * The comparison is made on what each session asked for, as the ledger keeps
+ * it; the provider's own figure for the transfer is checked again before
+ * anything is withdrawn.
  */
 export type WithdrawalRequest =
   | {reason: 'duplicate'}

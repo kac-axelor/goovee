@@ -3,12 +3,7 @@ import 'server-only';
 import type {Tenant} from '@/tenant';
 import {minorUnitsOf} from './domain/money';
 import {eventIdOf, type GatewaySignal} from './domain/signal';
-import {
-  EVENT_TYPE,
-  RECEIVED_VIA,
-  type EventType,
-  type Gateway,
-} from './domain/types';
+import {RECEIVED_VIA, type EventType, type Gateway} from './domain/types';
 import {triggerRegistration} from './register';
 import {settlePayment} from './settle';
 
@@ -19,17 +14,6 @@ import {settlePayment} from './settle';
  * settled like one. Nothing downstream tells the two apart: the ledger event,
  * the status, the delivery, the registration and the confirmation all follow.
  */
-
-/* What a person may enter by hand; an entry of another type names an event
- * the ledger does not take from a person, and is rejected. */
-const HAND_ENTRY_TYPES: readonly EventType[] = [
-  EVENT_TYPE.captured,
-  EVENT_TYPE.cancelled,
-];
-
-function isHandEntryType(type: string): type is EventType {
-  return HAND_ENTRY_TYPES.some(allowed => allowed === type);
-}
 
 const MANUAL_ENTRY_STATUS = {
   pending: 'pending',
@@ -62,25 +46,14 @@ export async function applyManualEntries({
   });
 
   for (const entry of entries) {
-    const type = entry.type;
-    if (!isHandEntryType(type)) {
-      await client.aOSPortalPaymentManualEntry.update({
-        data: {
-          id: entry.id,
-          version: entry.version,
-          status: MANUAL_ENTRY_STATUS.rejected,
-          error: `A ${type} entry can no longer be applied: only a capture or a cancellation is entered by hand. Nothing was applied.`,
-        },
-        select: {id: true},
-      });
-      continue;
-    }
+    /* The ERP takes only a capture or a cancellation by hand. */
+    const type = entry.type as EventType;
     const signal: GatewaySignal = {
       gateway: entry.gateway as Gateway,
       /* By the payment's own reference: the person entered it on this
        * payment, so there is nothing to resolve. */
       resolution: {by: 'reference', reference: entry.payment.reference},
-      type: type,
+      type,
       /* The ERP keyed the entry by the same rule, so its id is recovered from
        * the key and settle makes the key again, unchanged. */
       eventId: eventIdOf(type, entry.eventKey),

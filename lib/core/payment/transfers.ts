@@ -40,27 +40,13 @@ export type OpenTransferSession = {
   reference: string;
   payer: string | null;
   workspaceUrl: string;
-  /**
-   * What the session asked its provider for, in minor units of its currency.
-   * Null for a session opened before sessions recorded it.
-   */
-  asked: number | null;
-  /** What the session is measured against: what it asked, or for an older session its payment's amount. */
+  /** What the session asked its provider for, in minor units of its currency. */
   amount: number;
   /** What the session has received so far, in the same units. */
   received: number;
   currencyCode: string;
   currencyScale: number;
 };
-
-/** The events that say how far a transfer session has got: what it received, and whether it ended. */
-const SESSION_EVENTS = [
-  EVENT_TYPE.captured,
-  EVENT_TYPE.partiallyCaptured,
-  EVENT_TYPE.cancelled,
-  EVENT_TYPE.expired,
-  EVENT_TYPE.refused,
-] as const;
 
 export async function findOpenTransferSessions({
   client,
@@ -72,7 +58,7 @@ export async function findOpenTransferSessions({
   const sessions = await client.aOSPortalPaymentSession.find({
     where: {
       gateway: {in: [...TRANSFER_GATEWAYS]},
-      status: {in: [SESSION_STATUS.awaiting, SESSION_STATUS.captured]},
+      status: SESSION_STATUS.awaiting,
       sessionRef: {ne: null},
       payment: {
         subjectModel: SUBJECT_MODEL.invoice,
@@ -83,7 +69,6 @@ export async function findOpenTransferSessions({
     select: {
       sessionRef: true,
       gateway: true,
-      status: true,
       amount: true,
       currencyCode: true,
       currencyScale: true,
@@ -103,39 +88,22 @@ export async function findOpenTransferSessions({
     return [];
   }
 
-  /* A session's own captures are snapshots of one balance, so the highest is
-   * what it holds, the same reading the payment's status is derived from. Its
-   * endings are read with them, so a session that ended is never counted as
-   * open. */
-  const events = await client.aOSPortalPaymentEvent.find({
+  /* A session's partial fundings are snapshots of one balance, so the
+   * highest is what it holds, the same reading the payment's status is derived
+   * from. A session that ended or was paid in full is no longer awaiting, so
+   * nothing else is read. */
+  const captures = await client.aOSPortalPaymentEvent.find({
     where: {
       session: {id: {in: sessions.map(session => session.id)}},
-      type: {in: [...SESSION_EVENTS]},
+      type: EVENT_TYPE.partiallyCaptured,
     },
-    select: {session: {id: true}, type: true, amount: true, currencyCode: true},
+    select: {session: {id: true}, amount: true, currencyCode: true},
   });
-  const captures = events.filter(
-    event =>
-      event.type === EVENT_TYPE.captured ||
-      event.type === EVENT_TYPE.partiallyCaptured,
-  );
-  /* Finished whatever the amounts say: ended by the provider, or captured in
-   * full. The amounts alone can mislead for an older session, measured
-   * against a payment amount a later press rewrote. */
-  const closed = new Set(
-    events
-      .filter(event => event.type !== EVENT_TYPE.partiallyCaptured)
-      .flatMap(event => (event.session ? [event.session.id] : [])),
-  );
 
   return sessions.flatMap((session): OpenTransferSession[] => {
     const {payment} = session;
-    /* A session opened before sessions recorded their amount falls back to
-     * its payment's, which is what it was then measured against. */
-    const asked = session.amount == null ? null : minorUnitsOf(session.amount);
-    const amount = asked ?? minorUnitsOf(payment.amount);
-    const currencyCode = session.currencyCode ?? payment.currencyCode;
-    const currencyScale = session.currencyScale ?? payment.currencyScale;
+    const amount = minorUnitsOf(session.amount);
+    const {currencyCode, currencyScale} = session;
     const received = captures
       .filter(
         capture =>
@@ -147,14 +115,8 @@ export async function findOpenTransferSessions({
           Math.max(highest, minorUnitsOf(capture.amount ?? '0')),
         0,
       );
-    /* A session funded in part stays awaiting; one marked captured is still
-     * open only while it is short of the amount. */
-    const open =
-      !closed.has(session.id) &&
-      (session.status === SESSION_STATUS.awaiting
-        ? received < amount
-        : received > 0 && received < amount);
-    if (!open || !session.sessionRef) {
+    /* A session funded in part stays awaiting until it completes or ends. */
+    if (received >= amount || !session.sessionRef) {
       return [];
     }
     return [
@@ -167,7 +129,6 @@ export async function findOpenTransferSessions({
         reference: payment.reference,
         payer: payment.payer,
         workspaceUrl: payment.portalWorkspace.url ?? '',
-        asked,
         amount,
         received,
         currencyCode,
@@ -374,10 +335,10 @@ export async function withdrawUnneededTransfers({
    * again, and what was withdrawn this time reads back as ended. */
   /* The session's own amount decides which transfers are put to the
    * provider; the provider's live figure is checked again before anything is
-   * withdrawn. A session with no amount of its own is left to that check. */
+   * withdrawn. */
   const request = withdrawalRequest(owed.remaining);
-  const toWithdraw = sessions.filter(
-    session => session.asked === null || isWithdrawn(request, session.asked),
+  const toWithdraw = sessions.filter(session =>
+    isWithdrawn(request, session.amount),
   );
   report.kept += sessions.length - toWithdraw.length;
   const results = await Promise.allSettled(

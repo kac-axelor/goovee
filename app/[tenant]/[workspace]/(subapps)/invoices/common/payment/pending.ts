@@ -102,17 +102,10 @@ export async function findPendingTransfers({
     }
     const adapter = getAdapter(session.gateway);
     const details = described.status === 'fulfilled' ? described.value : null;
-    /* What the transfer asked for is the session's own figure. Only a session
-     * opened before sessions recorded one falls back, to the provider's word
-     * and then to its payment's amount. What is still expected is the lower
-     * of the provider's figure and the ledger's: the provider knows of a cash
-     * balance applied at confirmation, the ledger of a funding recorded since
-     * the provider's figure was read. */
-    const amount =
-      session.asked ??
-      providerMinorUnits(details?.amount, session) ??
-      session.amount;
-    const ledgerRemaining = Math.max(amount - session.received, 0);
+    /* What is still expected is the lower of the provider's figure and the
+     * ledger's: the provider knows of a cash balance applied at confirmation,
+     * the ledger of a funding recorded since the provider's figure was read. */
+    const ledgerRemaining = Math.max(session.amount - session.received, 0);
     const providerRemaining = providerMinorUnits(
       details?.amountRemaining,
       session,
@@ -124,7 +117,7 @@ export async function findPendingTransfers({
     return {
       id: session.sessionId,
       gateway: session.gateway,
-      amount,
+      amount: session.amount,
       remaining,
       currencyCode: session.currencyCode,
       currencyScale: session.currencyScale,

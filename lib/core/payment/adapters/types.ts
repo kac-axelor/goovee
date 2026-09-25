@@ -102,8 +102,6 @@ export type AwaitingInstructions = {
   reference?: string;
   /** Decimal string of what is still expected, in the payment's currency. */
   amountRemaining?: string;
-  /** Decimal string of the whole amount the transfer asks for, as the provider holds it. */
-  amount?: string;
   accountHolder?: string;
   iban?: string;
   bic?: string;
