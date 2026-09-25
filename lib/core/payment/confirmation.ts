@@ -3,7 +3,6 @@ import 'server-only';
 import {DEFAULT_LOCALE} from '@/locale/contants';
 import {getTranslation} from '@/locale/server';
 import NotificationManager, {NotificationType} from '@/notification';
-import {findGooveeUserByEmail} from '@/orm/partner';
 import type {Tenant} from '@/tenant';
 import {escapeHtml} from '@/utils/template-string';
 import {fromMinorUnits} from './domain/money';
@@ -34,7 +33,10 @@ export function translatorFor({
     );
 }
 
-/** The payer's own language where they have a portal account, the default otherwise. */
+/**
+ * The language of the partner with the payer's address, the default otherwise.
+ * Where partners share the address, the one activated on the portal wins.
+ */
 export async function payerLocale(
   tenant: Tenant,
   payer: string | null,
@@ -42,8 +44,12 @@ export async function payerLocale(
   if (!payer) {
     return DEFAULT_LOCALE;
   }
-  const user = await findGooveeUserByEmail(payer, tenant.client);
-  return user?.localization?.code || DEFAULT_LOCALE;
+  const partner = await tenant.client.aOSPartner.findOne({
+    where: {emailAddress: {address: {eq: payer}}},
+    orderBy: {isActivatedOnPortal: 'DESC'},
+    select: {localization: {code: true}},
+  });
+  return partner?.localization?.code || DEFAULT_LOCALE;
 }
 
 /** "106.80 EUR": the amount as the ledger holds it, the same in every language. */
