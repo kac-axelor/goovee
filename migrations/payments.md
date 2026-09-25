@@ -363,9 +363,8 @@ Deploy the new portal. Then, per tenant:
    `/<tenant>/<workspace>/payments/<reference>` reads paid, and the payment is under _Portal › Payments › All payments_ in
    the ERP with its ERP invoice payment linked.
 2. In the provider's dashboard, the webhook delivery for that payment succeeded.
-   Every hour, the portal's log names any provider whose webhook left recent
-   captures unconfirmed (`[PAYMENT][HEALTH]`), and _Confirmed by the browser
-   only_ lists those captures per provider.
+   From then on, _Confirmed by the browser only_ in the ERP lists, per
+   provider, the captures a webhook left unconfirmed.
 
 A payer who presses a payment button on a page loaded before the deploy starts
 a new payment rather than resuming the one begun there; the earlier one's

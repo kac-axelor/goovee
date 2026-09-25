@@ -234,8 +234,8 @@ export async function settlePayment({
     if (!Array.isArray(inserted) || inserted.length === 0) {
       /* The webhook's word on a capture the browser recorded first. Nothing
        * about the money changes, but the event is now confirmed by the
-       * provider's own transport, which is what the webhook health view
-       * counts. */
+       * provider's own transport, and leaves the ERP's "Confirmed by the
+       * browser only" list. */
       if (signal.observedVia === OBSERVED_VIA.webhook) {
         await txClient.$raw(
           `UPDATE portal_portal_payment_event

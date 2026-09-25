@@ -2,7 +2,6 @@ import 'server-only';
 
 import {manager} from '@/tenant';
 import {listTenantIds} from '@/tenant/config';
-import {reportPaymentHealth} from './health';
 import {runPaymentJobs} from './jobs';
 import {adoptOpenPayments} from './reconcile-schedule';
 
@@ -13,14 +12,7 @@ import {adoptOpenPayments} from './reconcile-schedule';
 const TICK_MS = 60 * 1000;
 const FIRST_TICK_MS = 30 * 1000;
 
-/* How often each tenant's payment health is reported: often enough that a
- * provider's webhook going quiet is noticed the same morning. */
-const HEALTH_EVERY_MS = 60 * 60 * 1000;
-
 let started = false;
-
-/* When each tenant's health was last reported by this process. */
-const lastHealth = new Map<string, number>();
 
 /* Tenants whose open payments were checked for a reconcile row since this
  * process started: once each, since every payment begun afterwards gets its
@@ -47,12 +39,6 @@ async function runForEveryTenant(): Promise<void> {
             `[PAYMENT][JOB] tenant "${tenantId}": ${count} open payments given a reconcile check`,
           );
         }
-      }
-      /* Before the jobs, so a run that fails does not also silence the report
-       * that would say so; it never throws. */
-      if (Date.now() - (lastHealth.get(tenantId) ?? 0) >= HEALTH_EVERY_MS) {
-        lastHealth.set(tenantId, Date.now());
-        await reportPaymentHealth(tenant);
       }
       const {completed, failed} = await runPaymentJobs({tenant});
       if (completed || failed) {
